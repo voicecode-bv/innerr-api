@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['user_id', 'media_url', 'media_type', 'caption', 'location'])]
@@ -37,5 +38,13 @@ class Post extends Model
     public function likes(): HasMany
     {
         return $this->hasMany(Like::class);
+    }
+
+    /**
+     * @return BelongsToMany<Circle, $this>
+     */
+    public function circles(): BelongsToMany
+    {
+        return $this->belongsToMany(Circle::class)->withTimestamps();
     }
 }

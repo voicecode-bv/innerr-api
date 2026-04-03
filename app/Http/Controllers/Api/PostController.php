@@ -15,14 +15,20 @@ class PostController extends Controller
 {
     use AuthorizesRequests;
 
-    public function show(Post $post): PostResource
+    public function show(Request $request, Post $post): PostResource
     {
-        $post->load([
+        $relations = [
             'user:id,name,username,avatar',
             'comments' => fn ($query) => $query->oldest(),
             'comments.user:id,name,username,avatar',
             'likes',
-        ])->loadCount(['likes', 'comments']);
+        ];
+
+        if ($request->user()?->id === $post->user_id) {
+            $relations[] = 'circles:id,name';
+        }
+
+        $post->load($relations)->loadCount(['likes', 'comments']);
 
         return new PostResource($post);
     }
@@ -41,6 +47,15 @@ class PostController extends Controller
             'caption' => $request->validated('caption'),
             'location' => $request->validated('location'),
         ]);
+
+        if ($circleIds = $request->validated('circle_ids')) {
+            $ownedCircleIds = $request->user()
+                ->circles()
+                ->whereIn('id', $circleIds)
+                ->pluck('id');
+
+            $post->circles()->attach($ownedCircleIds);
+        }
 
         $post->load('user:id,name,username,avatar')
             ->loadCount(['likes', 'comments']);

@@ -20,6 +20,8 @@ class StorePostRequest extends FormRequest
             'media' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,mp4,mov', 'max:51200'],
             'caption' => ['nullable', 'string', 'max:2200'],
             'location' => ['nullable', 'string', 'max:255'],
+            'circle_ids' => ['nullable', 'array'],
+            'circle_ids.*' => ['integer', 'exists:circles,id'],
         ];
     }
 }

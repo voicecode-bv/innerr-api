@@ -14,7 +14,7 @@ class PostResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->id,
             'media_url' => $this->media_url,
             'media_type' => $this->media_type,
@@ -33,5 +33,14 @@ class PostResource extends JsonResource
             'comments' => CommentResource::collection($this->whenLoaded('comments')),
             'likes' => $this->whenLoaded('likes'),
         ];
+
+        if ($request->user()?->id === $this->user_id) {
+            $data['circles'] = $this->whenLoaded('circles', fn () => $this->circles->map(fn ($circle) => [
+                'id' => $circle->id,
+                'name' => $circle->name,
+            ]));
+        }
+
+        return $data;
     }
 }
