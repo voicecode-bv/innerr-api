@@ -26,7 +26,7 @@ class UserFactory extends Factory
             'avatar' => 'https://i.pravatar.cc/150?u='.fake()->unique()->numberBetween(1, 10000),
             'bio' => fake()->optional()->sentence(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'password' => static::$password ??= Hash::make('secret'),
             'avatar' => null,
             'bio' => fake()->optional()->sentence(),
             'locale' => fake()->randomElement(['en', 'nl']),
