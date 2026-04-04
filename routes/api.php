@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CircleController;
+use App\Http\Controllers\Api\CircleMemberController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\LikeController;
@@ -25,4 +27,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/posts/{post}/like', [LikeController::class, 'store']);
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy']);
+
+    Route::apiResource('circles', CircleController::class);
+    Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store']);
+    Route::delete('/circles/{circle}/members/{user}', [CircleMemberController::class, 'destroy']);
 });
