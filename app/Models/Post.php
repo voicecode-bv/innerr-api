@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Fillable(['user_id', 'media_url', 'media_type', 'caption', 'location'])]
 class Post extends Model
@@ -33,11 +34,11 @@ class Post extends Model
     }
 
     /**
-     * @return HasMany<Like, $this>
+     * @return MorphMany<Like, $this>
      */
-    public function likes(): HasMany
+    public function likes(): MorphMany
     {
-        return $this->hasMany(Like::class);
+        return $this->morphMany(Like::class, 'likeable');
     }
 
     /**

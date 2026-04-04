@@ -7,8 +7,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-#[Fillable(['user_id', 'post_id'])]
+#[Fillable(['user_id', 'likeable_id', 'likeable_type'])]
 class Like extends Model
 {
     /** @use HasFactory<LikeFactory> */
@@ -23,10 +24,10 @@ class Like extends Model
     }
 
     /**
-     * @return BelongsTo<Post, $this>
+     * @return MorphTo<Model, $this>
      */
-    public function post(): BelongsTo
+    public function likeable(): MorphTo
     {
-        return $this->belongsTo(Post::class);
+        return $this->morphTo();
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 it('can show a post with relations', function () {
     $post = Post::factory()->create();
     Comment::factory()->count(2)->create(['post_id' => $post->id]);
-    Like::factory()->count(3)->create(['post_id' => $post->id]);
+    Like::factory()->count(3)->for($post, 'likeable')->create();
 
     $this->actingAs(User::factory()->create())
         ->getJson("/api/posts/{$post->id}")

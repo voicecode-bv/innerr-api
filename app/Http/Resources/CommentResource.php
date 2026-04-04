@@ -21,6 +21,7 @@ use OpenApi\Attributes as OA;
             new OA\Property(property: 'username', type: 'string'),
             new OA\Property(property: 'avatar', type: 'string', nullable: true),
         ]),
+        new OA\Property(property: 'likes_count', type: 'integer'),
     ],
 )]
 class CommentResource extends JsonResource
@@ -41,6 +42,7 @@ class CommentResource extends JsonResource
                 'username' => $this->user->username,
                 'avatar' => $this->user->avatar,
             ],
+            'likes_count' => $this->likes_count ?? 0,
         ];
     }
 }

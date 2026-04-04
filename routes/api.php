@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleMemberController;
 use App\Http\Controllers\Api\CommentController;
+use App\Http\Controllers\Api\CommentLikeController;
 use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\PostController;
@@ -27,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('api.likes.store');
     Route::delete('/posts/{post}/like', [LikeController::class, 'destroy'])->name('api.likes.destroy');
+
+    Route::post('/comments/{comment}/like', [CommentLikeController::class, 'store'])->name('api.comment-likes.store');
+    Route::delete('/comments/{comment}/like', [CommentLikeController::class, 'destroy'])->name('api.comment-likes.destroy');
 
     Route::apiResource('circles', CircleController::class);
     Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store'])->name('api.circle-members.store');
