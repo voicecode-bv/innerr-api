@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Enums\InvitationStatus;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /**
  * @extends Factory<CircleInvitation>
@@ -20,16 +20,19 @@ class CircleInvitationFactory extends Factory
     {
         return [
             'circle_id' => Circle::factory(),
-            'invited_by' => User::factory(),
-            'email' => fake()->unique()->safeEmail(),
-            'token' => Str::random(64),
+            'user_id' => User::factory(),
+            'inviter_id' => User::factory(),
+            'status' => InvitationStatus::Pending,
         ];
     }
 
     public function accepted(): static
     {
-        return $this->state(fn () => [
-            'accepted_at' => now(),
-        ]);
+        return $this->state(['status' => InvitationStatus::Accepted]);
+    }
+
+    public function declined(): static
+    {
+        return $this->state(['status' => InvitationStatus::Declined]);
     }
 }

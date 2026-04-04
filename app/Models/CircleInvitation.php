@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\InvitationStatus;
 use Database\Factories\CircleInvitationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['circle_id', 'invited_by', 'email', 'token', 'accepted_at'])]
+#[Fillable(['circle_id', 'user_id', 'inviter_id', 'status'])]
 class CircleInvitation extends Model
 {
     /** @use HasFactory<CircleInvitationFactory> */
@@ -20,7 +21,7 @@ class CircleInvitation extends Model
     protected function casts(): array
     {
         return [
-            'accepted_at' => 'datetime',
+            'status' => InvitationStatus::class,
         ];
     }
 
@@ -35,13 +36,16 @@ class CircleInvitation extends Model
     /**
      * @return BelongsTo<User, $this>
      */
-    public function inviter(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'invited_by');
+        return $this->belongsTo(User::class);
     }
 
-    public function isPending(): bool
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function inviter(): BelongsTo
     {
-        return $this->accepted_at === null;
+        return $this->belongsTo(User::class, 'inviter_id');
     }
 }

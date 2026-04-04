@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvitationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCircleMemberRequest;
 use App\Models\Circle;
+use App\Models\CircleInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -16,8 +18,8 @@ class CircleMemberController extends Controller
 
     #[OA\Post(
         path: '/api/circles/{circle}/members',
-        summary: 'Add member',
-        description: 'Add a user to a circle by username. Requires circle ownership.',
+        summary: 'Invite member',
+        description: 'Invite a user to a circle by username. If the user has previously accepted an invitation to this circle, they are added directly. Otherwise, an invitation is sent.',
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [
@@ -35,10 +37,10 @@ class CircleMemberController extends Controller
         responses: [
             new OA\Response(
                 response: 201,
-                description: 'Member added',
+                description: 'Member added or invitation sent',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'message', type: 'string', example: 'Member added.'),
+                        new OA\Property(property: 'message', type: 'string', example: 'Invitation sent.'),
                     ],
                 ),
             ),
@@ -53,9 +55,29 @@ class CircleMemberController extends Controller
 
         $user = User::where('username', $request->validated('username'))->first();
 
-        $circle->members()->syncWithoutDetaching([$user->id]);
+        $hasAcceptedBefore = CircleInvitation::where('circle_id', $circle->id)
+            ->where('user_id', $user->id)
+            ->where('status', InvitationStatus::Accepted)
+            ->exists();
 
-        return response()->json(['message' => 'Member added.'], 201);
+        if ($hasAcceptedBefore) {
+            $circle->members()->syncWithoutDetaching([$user->id]);
+
+            return response()->json(['message' => 'Member added.'], 201);
+        }
+
+        CircleInvitation::updateOrCreate(
+            [
+                'circle_id' => $circle->id,
+                'user_id' => $user->id,
+                'status' => InvitationStatus::Pending,
+            ],
+            [
+                'inviter_id' => $request->user()->id,
+            ],
+        );
+
+        return response()->json(['message' => 'Invitation sent.'], 201);
     }
 
     #[OA\Delete(

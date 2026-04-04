@@ -69,4 +69,12 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Circle::class)->withTimestamps();
     }
+
+    /**
+     * @return HasMany<CircleInvitation, $this>
+     */
+    public function circleInvitations(): HasMany
+    {
+        return $this->hasMany(CircleInvitation::class);
+    }
 }

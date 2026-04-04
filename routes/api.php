@@ -9,7 +9,6 @@ use App\Http\Controllers\Api\CommentLikeController;
 use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\PostController;
-use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('api.auth.login');
@@ -34,15 +33,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/comments/{comment}/like', [CommentLikeController::class, 'store'])->name('api.comment-likes.store');
     Route::delete('/comments/{comment}/like', [CommentLikeController::class, 'destroy'])->name('api.comment-likes.destroy');
 
-    Route::get('/profiles/{user:username}', [ProfileController::class, 'show'])->name('api.profiles.show');
-    Route::get('/profiles/{user:username}/posts', [ProfileController::class, 'posts'])->name('api.profiles.posts');
-
     Route::apiResource('circles', CircleController::class);
     Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store'])->name('api.circle-members.store');
     Route::delete('/circles/{circle}/members/{user}', [CircleMemberController::class, 'destroy'])->name('api.circle-members.destroy');
 
-    Route::get('/circles/{circle}/invitations', [CircleInvitationController::class, 'index'])->name('api.circle-invitations.index');
-    Route::post('/circles/{circle}/invitations', [CircleInvitationController::class, 'store'])->name('api.circle-invitations.store');
-    Route::delete('/circles/{circle}/invitations/{invitation}', [CircleInvitationController::class, 'destroy'])->name('api.circle-invitations.destroy');
-    Route::post('/circle-invitations/{token}/accept', [CircleInvitationController::class, 'accept'])->name('api.circle-invitations.accept');
+    Route::get('/circle-invitations', [CircleInvitationController::class, 'index'])->name('api.circle-invitations.index');
+    Route::post('/circle-invitations/{circleInvitation}/accept', [CircleInvitationController::class, 'accept'])->name('api.circle-invitations.accept');
+    Route::post('/circle-invitations/{circleInvitation}/decline', [CircleInvitationController::class, 'decline'])->name('api.circle-invitations.decline');
 });
