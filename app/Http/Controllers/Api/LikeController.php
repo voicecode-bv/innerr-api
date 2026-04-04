@@ -31,11 +31,14 @@ class LikeController extends Controller
                 ),
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Cannot like your own post'),
             new OA\Response(response: 404, description: 'Post not found'),
         ],
     )]
     public function store(Request $request, Post $post): JsonResponse
     {
+        abort_if($request->user()->id === $post->user_id, 403, 'Cannot like your own post.');
+
         $post->likes()->firstOrCreate([
             'user_id' => $request->user()->id,
         ]);

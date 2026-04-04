@@ -77,6 +77,20 @@ it('requires authentication to unlike a comment', function () {
         ->assertUnauthorized();
 });
 
+it('cannot like own comment', function () {
+    $user = User::factory()->create();
+    $comment = Comment::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->postJson("/api/comments/{$comment->id}/like")
+        ->assertForbidden();
+
+    $this->assertDatabaseMissing('likes', [
+        'likeable_id' => $comment->id,
+        'likeable_type' => Comment::class,
+    ]);
+});
+
 it('returns not found for non-existent comment', function () {
     $this->actingAs(User::factory()->create())
         ->postJson('/api/comments/99999/like')

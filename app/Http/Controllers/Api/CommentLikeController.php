@@ -31,11 +31,14 @@ class CommentLikeController extends Controller
                 ),
             ),
             new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Cannot like your own comment'),
             new OA\Response(response: 404, description: 'Comment not found'),
         ],
     )]
     public function store(Request $request, Comment $comment): JsonResponse
     {
+        abort_if($request->user()->id === $comment->user_id, 403, 'Cannot like your own comment.');
+
         $comment->likes()->firstOrCreate([
             'user_id' => $request->user()->id,
         ]);
