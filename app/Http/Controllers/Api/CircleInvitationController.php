@@ -19,6 +19,47 @@ class CircleInvitationController extends Controller
 {
     use AuthorizesRequests;
 
+    #[OA\Get(
+        path: '/api/circles/{circle}/invitations',
+        summary: 'List invitations',
+        description: 'List all pending invitations for a circle. Requires circle ownership.',
+        tags: ['Circle Invitations'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of pending invitations',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(
+                            properties: [
+                                new OA\Property(property: 'id', type: 'integer'),
+                                new OA\Property(property: 'email', type: 'string'),
+                                new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+                            ],
+                        )),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+        ],
+    )]
+    public function index(Circle $circle): JsonResponse
+    {
+        $this->authorize('view', $circle);
+
+        $invitations = $circle->invitations()
+            ->whereNull('accepted_at')
+            ->oldest()
+            ->get(['id', 'email', 'created_at']);
+
+        return response()->json(['data' => $invitations]);
+    }
+
     #[OA\Post(
         path: '/api/circles/{circle}/invitations',
         summary: 'Invite to circle',
@@ -83,6 +124,34 @@ class CircleInvitationController extends Controller
             ->notify(new CircleInvitationNotification($invitation));
 
         return response()->json(['message' => 'Invitation sent.'], 201);
+    }
+
+    #[OA\Delete(
+        path: '/api/circles/{circle}/invitations/{invitation}',
+        summary: 'Cancel invitation',
+        description: 'Cancel a pending circle invitation. Requires circle ownership.',
+        tags: ['Circle Invitations'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'invitation', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Invitation cancelled'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Invitation not found'),
+        ],
+    )]
+    public function destroy(Circle $circle, CircleInvitation $invitation): JsonResponse
+    {
+        $this->authorize('update', $circle);
+
+        abort_if($invitation->circle_id !== $circle->id, 404);
+
+        $invitation->delete();
+
+        return response()->json(null, 204);
     }
 
     #[OA\Post(

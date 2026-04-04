@@ -41,6 +41,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store'])->name('api.circle-members.store');
     Route::delete('/circles/{circle}/members/{user}', [CircleMemberController::class, 'destroy'])->name('api.circle-members.destroy');
 
+    Route::get('/circles/{circle}/invitations', [CircleInvitationController::class, 'index'])->name('api.circle-invitations.index');
     Route::post('/circles/{circle}/invitations', [CircleInvitationController::class, 'store'])->name('api.circle-invitations.store');
+    Route::delete('/circles/{circle}/invitations/{invitation}', [CircleInvitationController::class, 'destroy'])->name('api.circle-invitations.destroy');
     Route::post('/circle-invitations/{token}/accept', [CircleInvitationController::class, 'accept'])->name('api.circle-invitations.accept');
 });

@@ -7,6 +7,77 @@ use App\Notifications\CircleInvitationAcceptedNotification;
 use App\Notifications\CircleInvitationNotification;
 use Illuminate\Support\Facades\Notification;
 
+it('can list pending invitations for a circle', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    CircleInvitation::factory()->count(2)->create([
+        'circle_id' => $circle->id,
+        'invited_by' => $user->id,
+    ]);
+
+    // Accepted invitation should not appear
+    CircleInvitation::factory()->accepted()->create([
+        'circle_id' => $circle->id,
+        'invited_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->getJson("/api/circles/{$circle->id}/invitations")
+        ->assertSuccessful()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'email', 'created_at'],
+            ],
+        ]);
+});
+
+it('cannot list invitations for a circle you do not own', function () {
+    $circle = Circle::factory()->create();
+
+    $this->actingAs(User::factory()->create())
+        ->getJson("/api/circles/{$circle->id}/invitations")
+        ->assertForbidden();
+});
+
+it('can cancel a pending invitation', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+    $invitation = CircleInvitation::factory()->create([
+        'circle_id' => $circle->id,
+        'invited_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/circles/{$circle->id}/invitations/{$invitation->id}")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('circle_invitations', ['id' => $invitation->id]);
+});
+
+it('cannot cancel an invitation for a circle you do not own', function () {
+    $invitation = CircleInvitation::factory()->create();
+
+    $this->actingAs(User::factory()->create())
+        ->deleteJson("/api/circles/{$invitation->circle_id}/invitations/{$invitation->id}")
+        ->assertForbidden();
+});
+
+it('returns not found when cancelling invitation from wrong circle', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+    $otherCircle = Circle::factory()->create(['user_id' => $user->id]);
+    $invitation = CircleInvitation::factory()->create([
+        'circle_id' => $otherCircle->id,
+        'invited_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/circles/{$circle->id}/invitations/{$invitation->id}")
+        ->assertNotFound();
+});
+
 it('can invite someone to a circle', function () {
     Notification::fake();
 
