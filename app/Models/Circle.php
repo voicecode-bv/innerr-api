@@ -47,12 +47,4 @@ class Circle extends Model
     {
         return $this->belongsToMany(Post::class)->withTimestamps();
     }
-
-    /**
-     * @return HasMany<CircleInvitation, $this>
-     */
-    public function invitations(): HasMany
-    {
-        return $this->hasMany(CircleInvitation::class);
-    }
 }
