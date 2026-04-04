@@ -27,6 +27,27 @@ it('can show a post with relations', function () {
         ]);
 });
 
+it('includes is_liked on comments', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create();
+    $comment = Comment::factory()->create(['post_id' => $post->id]);
+    $unlikedComment = Comment::factory()->create(['post_id' => $post->id]);
+    Like::factory()->for($comment, 'likeable')->create(['user_id' => $user->id]);
+
+    $response = $this->actingAs($user)
+        ->getJson("/api/posts/{$post->id}")
+        ->assertSuccessful();
+
+    $comments = collect($response->json('data.comments'));
+    $liked = $comments->firstWhere('id', $comment->id);
+    $notLiked = $comments->firstWhere('id', $unlikedComment->id);
+
+    expect($liked['is_liked'])->toBeTrue()
+        ->and($liked['likes_count'])->toBe(1)
+        ->and($notLiked['is_liked'])->toBeFalse()
+        ->and($notLiked['likes_count'])->toBe(0);
+});
+
 it('returns not found for non-existent post', function () {
     $this->actingAs(User::factory()->create())
         ->getJson('/api/posts/99999')

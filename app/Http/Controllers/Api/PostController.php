@@ -43,8 +43,10 @@ class PostController extends Controller
     {
         $relations = [
             'user:id,name,username,avatar',
-            'comments' => fn ($query) => $query->oldest(),
-            'comments.user:id,name,username,avatar',
+            'comments' => fn ($query) => $query->oldest()
+                ->with('user:id,name,username,avatar')
+                ->withCount('likes')
+                ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $request->user()->id)]),
             'likes',
         ];
 
