@@ -70,11 +70,12 @@ class PostController extends Controller
             content: new OA\MediaType(
                 mediaType: 'multipart/form-data',
                 schema: new OA\Schema(
-                    required: ['media'],
+                    required: ['media', 'circle_ids'],
                     properties: [
                         new OA\Property(property: 'media', type: 'string', format: 'binary', description: 'Image or video file (jpg, png, gif, mp4, mov). Max 50MB.'),
                         new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                         new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true),
+                        new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (must be owned by the user).'),
                     ],
                 ),
             ),
@@ -108,14 +109,7 @@ class PostController extends Controller
             'location' => $request->validated('location'),
         ]);
 
-        if ($circleIds = $request->validated('circle_ids')) {
-            $ownedCircleIds = $request->user()
-                ->circles()
-                ->whereIn('id', $circleIds)
-                ->pluck('id');
-
-            $post->circles()->attach($ownedCircleIds);
-        }
+        $post->circles()->attach($request->validated('circle_ids'));
 
         $post->load('user:id,name,username,avatar')
             ->loadCount(['likes', 'comments']);

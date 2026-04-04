@@ -37,9 +37,18 @@ class FeedController extends Controller
     )]
     public function __invoke(Request $request): AnonymousResourceCollection
     {
+        $user = $request->user();
+
         $posts = Post::with('user:id,name,username,avatar')
+            ->where(function ($query) use ($user) {
+                $query->where('posts.user_id', $user->id)
+                    ->orWhereHas('circles', function ($q) use ($user) {
+                        $q->where('circles.user_id', $user->id)
+                            ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+                    });
+            })
             ->withCount(['likes', 'comments'])
-            ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $request->user()->id)])
+            ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $user->id)])
             ->latest()
             ->paginate(10);
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Circle;
 use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Post;
@@ -61,15 +62,17 @@ it('requires authentication to show a post', function () {
         ->assertUnauthorized();
 });
 
-it('can store a post with an image', function () {
+it('can store a post with an image and circles', function () {
     Storage::fake('public');
     $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
 
     $this->actingAs($user)
         ->postJson('/api/posts', [
             'media' => UploadedFile::fake()->image('photo.jpg'),
             'caption' => 'My first post',
             'location' => 'Amsterdam',
+            'circle_ids' => [$circle->id],
         ])
         ->assertCreated()
         ->assertJsonPath('data.caption', 'My first post')
@@ -83,32 +86,65 @@ it('can store a post with an image', function () {
         'media_type' => 'image',
     ]);
 
-    Storage::disk('public')->assertExists('posts/'.last(explode('/', Post::first()->media_url)));
+    $post = Post::first();
+    expect($post->circles)->toHaveCount(1)
+        ->and($post->circles->first()->id)->toBe($circle->id);
+
+    Storage::disk('public')->assertExists('posts/'.last(explode('/', $post->media_url)));
 });
 
 it('can store a post with a video', function () {
     Storage::fake('public');
     $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
 
     $this->actingAs($user)
         ->postJson('/api/posts', [
             'media' => UploadedFile::fake()->create('video.mp4', 1024, 'video/mp4'),
+            'circle_ids' => [$circle->id],
         ])
         ->assertCreated()
         ->assertJsonPath('data.media_type', 'video');
 });
 
-it('can store a post without optional fields', function () {
+it('can store a post with multiple circles', function () {
     Storage::fake('public');
     $user = User::factory()->create();
+    $circles = Circle::factory()->count(3)->create(['user_id' => $user->id]);
 
     $this->actingAs($user)
         ->postJson('/api/posts', [
             'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => $circles->pluck('id')->all(),
         ])
-        ->assertCreated()
-        ->assertJsonPath('data.caption', null)
-        ->assertJsonPath('data.location', null);
+        ->assertCreated();
+
+    expect(Post::first()->circles)->toHaveCount(3);
+});
+
+it('cannot store a post without circle_ids', function () {
+    Storage::fake('public');
+
+    $this->actingAs(User::factory()->create())
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('circle_ids');
+});
+
+it('cannot store a post with circles not owned by user', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $otherCircle = Circle::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => [$otherCircle->id],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('circle_ids.0');
 });
 
 it('validates store post fields', function (array $data, string $errorField) {
@@ -123,6 +159,8 @@ it('validates store post fields', function (array $data, string $errorField) {
     'invalid media type' => [['media' => UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf')], 'media'],
     'caption too long' => [['media' => UploadedFile::fake()->image('photo.jpg'), 'caption' => str_repeat('a', 2201)], 'caption'],
     'location too long' => [['media' => UploadedFile::fake()->image('photo.jpg'), 'location' => str_repeat('a', 256)], 'location'],
+    'missing circle_ids' => [['media' => UploadedFile::fake()->image('photo.jpg')], 'circle_ids'],
+    'empty circle_ids' => [['media' => UploadedFile::fake()->image('photo.jpg'), 'circle_ids' => []], 'circle_ids'],
 ]);
 
 it('requires authentication to store a post', function () {
