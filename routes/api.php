@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CommentLikeController;
 use App\Http\Controllers\Api\FeedController;
 use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('api.auth.login');
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/comments/{comment}/like', [CommentLikeController::class, 'store'])->name('api.comment-likes.store');
     Route::delete('/comments/{comment}/like', [CommentLikeController::class, 'destroy'])->name('api.comment-likes.destroy');
+
+    Route::get('/profiles/{user:username}', [ProfileController::class, 'show'])->name('api.profiles.show');
+    Route::get('/profiles/{user:username}/posts', [ProfileController::class, 'posts'])->name('api.profiles.posts');
 
     Route::apiResource('circles', CircleController::class);
     Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store'])->name('api.circle-members.store');
