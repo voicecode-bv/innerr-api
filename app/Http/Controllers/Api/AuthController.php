@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvitationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
+use App\Models\CircleInvitation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -97,6 +99,11 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create($request->validated());
+
+        CircleInvitation::where('email', $user->email)
+            ->where('status', InvitationStatus::Pending)
+            ->whereNull('user_id')
+            ->update(['user_id' => $user->id]);
 
         return response()->json([
             'token' => $user->createToken($request->device_name)->plainTextToken,

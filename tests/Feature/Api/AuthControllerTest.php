@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\InvitationStatus;
+use App\Models\CircleInvitation;
 use App\Models\User;
 
 it('can register a new user', function () {
@@ -139,4 +141,44 @@ it('can logout', function () {
 it('returns unauthenticated for logout without token', function () {
     $this->postJson('/api/auth/logout')
         ->assertUnauthorized();
+});
+
+it('links pending email invitations on registration', function () {
+    $invitation = CircleInvitation::factory()->create([
+        'email' => 'newuser@example.com',
+        'user_id' => null,
+        'status' => InvitationStatus::Pending,
+    ]);
+
+    $this->postJson('/api/auth/register', [
+        'name' => 'New User',
+        'username' => 'newuser',
+        'email' => 'newuser@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'device_name' => 'testing',
+    ])->assertCreated();
+
+    $newUser = User::where('email', 'newuser@example.com')->first();
+
+    expect($invitation->fresh()->user_id)->toBe($newUser->id);
+});
+
+it('does not link accepted email invitations on registration', function () {
+    $invitation = CircleInvitation::factory()->create([
+        'email' => 'newuser2@example.com',
+        'user_id' => null,
+        'status' => InvitationStatus::Accepted,
+    ]);
+
+    $this->postJson('/api/auth/register', [
+        'name' => 'New User',
+        'username' => 'newuser2',
+        'email' => 'newuser2@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'device_name' => 'testing',
+    ])->assertCreated();
+
+    expect($invitation->fresh()->user_id)->toBeNull();
 });

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['circle_id', 'user_id', 'inviter_id', 'status'])]
+#[Fillable(['circle_id', 'user_id', 'email', 'inviter_id', 'status', 'token'])]
 class CircleInvitation extends Model
 {
     /** @use HasFactory<CircleInvitationFactory> */

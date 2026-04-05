@@ -17,7 +17,8 @@ class StoreCircleMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'username' => ['required', 'string', 'exists:users,username'],
+            'username' => ['required_without:email', 'nullable', 'string', 'exists:users,username'],
+            'email' => ['required_without:username', 'nullable', 'email', 'max:255'],
         ];
     }
 }

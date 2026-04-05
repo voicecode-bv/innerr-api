@@ -8,8 +8,11 @@ use App\Http\Requests\StoreCircleMemberRequest;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
 use App\Models\User;
+use App\Notifications\CircleInvitationNotification;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
 class CircleMemberController extends Controller
@@ -19,7 +22,7 @@ class CircleMemberController extends Controller
     #[OA\Post(
         path: '/api/circles/{circle}/members',
         summary: 'Invite member',
-        description: 'Invite a user to a circle by username. If the user has previously accepted an invitation to this circle, they are added directly. Otherwise, an invitation is sent.',
+        description: 'Invite a user to a circle by username or email. If inviting by username and the user has previously accepted an invitation to this circle, they are added directly. If inviting by email, an email notification is always sent.',
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [
@@ -28,9 +31,9 @@ class CircleMemberController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['username'],
                 properties: [
                     new OA\Property(property: 'username', type: 'string', example: 'johndoe'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'john@example.com'),
                 ],
             ),
         ),
@@ -53,6 +56,15 @@ class CircleMemberController extends Controller
     {
         $this->authorize('update', $circle);
 
+        if ($request->has('email')) {
+            return $this->inviteByEmail($request, $circle);
+        }
+
+        return $this->inviteByUsername($request, $circle);
+    }
+
+    private function inviteByUsername(StoreCircleMemberRequest $request, Circle $circle): JsonResponse
+    {
         $user = User::where('username', $request->validated('username'))->first();
 
         $hasAcceptedBefore = CircleInvitation::where('circle_id', $circle->id)
@@ -76,6 +88,30 @@ class CircleMemberController extends Controller
                 'inviter_id' => $request->user()->id,
             ],
         );
+
+        return response()->json(['message' => 'Invitation sent.'], 201);
+    }
+
+    private function inviteByEmail(StoreCircleMemberRequest $request, Circle $circle): JsonResponse
+    {
+        $email = $request->validated('email');
+        $existingUser = User::where('email', $email)->first();
+
+        $invitation = CircleInvitation::updateOrCreate(
+            [
+                'circle_id' => $circle->id,
+                'email' => $email,
+                'status' => InvitationStatus::Pending,
+            ],
+            [
+                'user_id' => $existingUser?->id,
+                'inviter_id' => $request->user()->id,
+                'token' => Str::random(64),
+            ],
+        );
+
+        Notification::route('mail', $email)
+            ->notify(new CircleInvitationNotification($invitation));
 
         return response()->json(['message' => 'Invitation sent.'], 201);
     }
