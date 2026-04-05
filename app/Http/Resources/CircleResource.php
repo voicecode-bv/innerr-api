@@ -45,6 +45,12 @@ class CircleResource extends JsonResource
                 'username' => $member->username,
                 'avatar' => $member->avatar,
             ])),
+            'pending_invitations' => $this->whenLoaded('invitations', fn () => $this->invitations->map(fn ($invitation) => [
+                'id' => $invitation->id,
+                'email' => $invitation->email,
+                'username' => $invitation->user?->username,
+                'created_at' => $invitation->created_at,
+            ])),
         ];
     }
 }

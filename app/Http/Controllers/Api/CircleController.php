@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\InvitationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCircleRequest;
 use App\Http\Requests\UpdateCircleRequest;
@@ -118,7 +119,8 @@ class CircleController extends Controller
         $this->authorize('view', $circle);
 
         $circle->load('members:id,name,username,avatar')
-            ->loadCount('members');
+            ->loadCount('members')
+            ->load(['invitations' => fn ($query) => $query->where('status', InvitationStatus::Pending)->with('user:id,username')]);
 
         return new CircleResource($circle);
     }
