@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\CircleInvitationResource;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
+use App\Notifications\CircleInvitationAcceptedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -117,6 +118,10 @@ class CircleInvitationController extends Controller
         $circleInvitation->update(['status' => InvitationStatus::Accepted]);
 
         $circleInvitation->circle->members()->syncWithoutDetaching([$circleInvitation->user_id]);
+
+        $circleInvitation->inviter->notify(
+            new CircleInvitationAcceptedNotification($circleInvitation, $request->user()->name)
+        );
 
         return response()->json(['message' => 'Invitation accepted.']);
     }
