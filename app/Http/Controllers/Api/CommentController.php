@@ -7,6 +7,7 @@ use App\Http\Requests\StoreCommentRequest;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
+use App\Notifications\PostCommented;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,10 @@ class CommentController extends Controller
         ]);
 
         $comment->load('user:id,name,username,avatar');
+
+        if ($request->user()->id !== $post->user_id) {
+            $post->user->notify(new PostCommented($request->user(), $post, $comment));
+        }
 
         return (new CommentResource($comment))
             ->response()

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
+use App\Notifications\CommentLiked;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -39,9 +40,13 @@ class CommentLikeController extends Controller
     {
         abort_if($request->user()->id === $comment->user_id, 403, 'Cannot like your own comment.');
 
-        $comment->likes()->firstOrCreate([
+        $like = $comment->likes()->firstOrCreate([
             'user_id' => $request->user()->id,
         ]);
+
+        if ($like->wasRecentlyCreated) {
+            $comment->user->notify(new CommentLiked($request->user(), $comment));
+        }
 
         return response()->json([
             'liked' => true,
