@@ -9,10 +9,10 @@ use App\Http\Resources\PostResource;
 use App\Http\Resources\ProfileResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Support\MediaUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Laravel\Facades\Image;
 use OpenApi\Attributes as OA;
 
@@ -160,13 +160,13 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($user->avatar) {
-            Storage::disk('public')->delete($user->avatar);
+            MediaUrl::disk()->delete($user->avatar);
         }
 
         $file = $request->file('avatar');
         $file = $this->convertHeicToJpeg($file);
 
-        $path = $file->store('avatars', 'public');
+        $path = $file->store('avatars', config('filesystems.media'));
 
         $user->update(['avatar' => $path]);
 
@@ -199,7 +199,7 @@ class ProfileController extends Controller
         $user = request()->user();
 
         if ($user->avatar) {
-            Storage::disk('public')->delete($user->avatar);
+            MediaUrl::disk()->delete($user->avatar);
             $user->update(['avatar' => null]);
         }
 

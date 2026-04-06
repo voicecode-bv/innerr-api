@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
+use App\Support\MediaUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Laravel\Facades\Image;
 use OpenApi\Attributes as OA;
 
@@ -101,7 +101,7 @@ class PostController extends Controller
         $file = $request->file('media');
         $file = $this->convertHeicToJpeg($file);
 
-        $path = $file->store('posts', 'public');
+        $path = $file->store('posts', config('filesystems.media'));
 
         $mimeType = $file->getMimeType();
         $mediaType = str_starts_with($mimeType, 'video/') ? 'video' : 'image';
@@ -143,7 +143,7 @@ class PostController extends Controller
     {
         $this->authorize('delete', $post);
 
-        Storage::disk('public')->delete($post->media_url);
+        MediaUrl::disk()->delete($post->media_url);
 
         $post->delete();
 

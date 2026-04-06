@@ -8,12 +8,12 @@ use App\Http\Requests\StoreCircleRequest;
 use App\Http\Requests\UpdateCircleRequest;
 use App\Http\Resources\CircleResource;
 use App\Models\Circle;
+use App\Support\MediaUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Laravel\Facades\Image;
 use OpenApi\Attributes as OA;
 
@@ -195,7 +195,7 @@ class CircleController extends Controller
         $this->authorize('delete', $circle);
 
         if ($circle->photo) {
-            Storage::disk('public')->delete($circle->photo);
+            MediaUrl::disk()->delete($circle->photo);
         }
 
         $circle->delete();
@@ -212,13 +212,13 @@ class CircleController extends Controller
         ]);
 
         if ($circle->photo) {
-            Storage::disk('public')->delete($circle->photo);
+            MediaUrl::disk()->delete($circle->photo);
         }
 
         $file = $request->file('photo');
         $file = $this->convertHeicToJpeg($file);
 
-        $path = $file->store('circles', 'public');
+        $path = $file->store('circles', config('filesystems.media'));
 
         $circle->update(['photo' => $path]);
         $circle->loadCount('members');
@@ -231,7 +231,7 @@ class CircleController extends Controller
         $this->authorize('update', $circle);
 
         if ($circle->photo) {
-            Storage::disk('public')->delete($circle->photo);
+            MediaUrl::disk()->delete($circle->photo);
             $circle->update(['photo' => null]);
         }
 

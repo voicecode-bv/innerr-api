@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Storage;
+use App\Support\MediaUrl;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MediaController extends Controller
 {
     public function __invoke(string $path): StreamedResponse
     {
-        abort_unless(Storage::disk('public')->exists($path), 404);
+        $disk = MediaUrl::disk();
 
-        return Storage::disk('public')->response($path);
+        abort_unless($disk->exists($path), 404);
+
+        return $disk->response($path);
     }
 }
