@@ -12,6 +12,10 @@ class MediaUrl
             return null;
         }
 
+        if (preg_match('#/storage/(.+)$#', $path, $matches)) {
+            $path = $matches[1];
+        }
+
         return URL::signedRoute('api.media', ['path' => $path], now()->addMinutes(60));
     }
 }
