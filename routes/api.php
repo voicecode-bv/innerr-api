@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleInvitationController;
+use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\CircleMemberController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\CommentLikeController;
@@ -54,6 +55,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markAsRead'])->name('api.notifications.read');
+
+    Route::post('/device-token', [DeviceTokenController::class, 'store'])->name('api.device-token.store');
 
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('api.profile.avatar.update');
