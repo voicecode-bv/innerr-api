@@ -7,6 +7,7 @@ use App\Models\Comment;
 use App\Notifications\CommentLiked;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use OpenApi\Attributes as OA;
 
 class CommentLikeController extends Controller
@@ -44,7 +45,9 @@ class CommentLikeController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        if ($like->wasRecentlyCreated) {
+        $throttleKey = "notify:comment-liked:{$comment->id}:{$request->user()->id}";
+
+        if ($like->wasRecentlyCreated && Cache::add($throttleKey, true, now()->addHour())) {
             $comment->user->notify(new CommentLiked($request->user(), $comment));
         }
 

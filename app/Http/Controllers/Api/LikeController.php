@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Notifications\PostLiked;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use OpenApi\Attributes as OA;
 
 class LikeController extends Controller
@@ -44,7 +45,9 @@ class LikeController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        if ($like->wasRecentlyCreated) {
+        $throttleKey = "notify:post-liked:{$post->id}:{$request->user()->id}";
+
+        if ($like->wasRecentlyCreated && Cache::add($throttleKey, true, now()->addHour())) {
             $post->user->notify(new PostLiked($request->user(), $post));
         }
 
