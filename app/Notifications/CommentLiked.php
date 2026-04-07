@@ -5,12 +5,13 @@ namespace App\Notifications;
 use App\Models\Comment;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 use NotificationChannels\Fcm\FcmChannel;
 use NotificationChannels\Fcm\FcmMessage;
 use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
-class CommentLiked extends Notification
+class CommentLiked extends Notification implements ShouldQueue
 {
     use Queueable;
 
