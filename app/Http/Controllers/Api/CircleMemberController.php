@@ -137,6 +137,10 @@ class CircleMemberController extends Controller
     {
         $this->authorize('update', $circle);
 
+        if ($user->id === $circle->user_id) {
+            abort(403, 'The owner cannot be removed from the circle.');
+        }
+
         $circle->members()->detach($user->id);
 
         return response()->json(null, 204);

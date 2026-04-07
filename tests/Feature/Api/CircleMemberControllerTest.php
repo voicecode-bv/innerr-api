@@ -304,6 +304,15 @@ it('validates email format', function () {
         ->assertJsonValidationErrors('email');
 });
 
+it('forbids the owner from removing themselves from their circle', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+
+    $this->actingAs($owner)
+        ->deleteJson("/api/circles/{$circle->id}/members/{$owner->id}")
+        ->assertForbidden();
+});
+
 it('can remove a member from a circle', function () {
     $owner = User::factory()->create();
     $circle = Circle::factory()->for($owner)->create();
