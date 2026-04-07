@@ -29,6 +29,17 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'comments_count', type: 'integer'),
         new OA\Property(property: 'is_liked', type: 'boolean'),
         new OA\Property(property: 'comments', type: 'array', items: new OA\Items(ref: '#/components/schemas/Comment')),
+        new OA\Property(
+            property: 'circles',
+            type: 'array',
+            description: 'Circles the post is shared with. Only included when the authenticated user is the post owner.',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'name', type: 'string'),
+                ],
+            ),
+        ),
     ],
 )]
 class PostResource extends JsonResource

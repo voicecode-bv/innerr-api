@@ -40,9 +40,20 @@ class ProfileController extends Controller
             new OA\Response(response: 404, description: 'User not found'),
         ],
     )]
-    public function show(User $user): ProfileResource
+    public function show(Request $request, User $user): ProfileResource
     {
-        $user->loadCount('posts');
+        $authId = $request->user()->id;
+
+        $user->loadCount(['posts' => function ($query) use ($authId, $user) {
+            if ($authId === $user->id) {
+                return;
+            }
+
+            $query->whereHas('circles', function ($circleQuery) use ($authId) {
+                $circleQuery->where('circles.user_id', $authId)
+                    ->orWhereHas('members', fn ($q) => $q->whereKey($authId));
+            });
+        }]);
 
         return new ProfileResource($user);
     }
@@ -75,13 +86,21 @@ class ProfileController extends Controller
     )]
     public function posts(Request $request, User $user): AnonymousResourceCollection
     {
-        $posts = $user->posts()
-            ->with('user:id,name,username,avatar')
-            ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $request->user()->id)])
-            ->latest()
-            ->paginate(10);
+        $authId = $request->user()->id;
 
-        return PostResource::collection($posts);
+        $query = $user->posts()
+            ->with('user:id,name,username,avatar')
+            ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $authId)])
+            ->latest();
+
+        if ($authId !== $user->id) {
+            $query->whereHas('circles', function ($circleQuery) use ($authId) {
+                $circleQuery->where('circles.user_id', $authId)
+                    ->orWhereHas('members', fn ($q) => $q->whereKey($authId));
+            });
+        }
+
+        return PostResource::collection($query->paginate(10));
     }
 
     #[OA\Put(

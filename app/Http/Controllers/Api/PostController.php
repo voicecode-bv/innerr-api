@@ -19,7 +19,7 @@ class PostController extends Controller
     #[OA\Get(
         path: '/api/posts/{post}',
         summary: 'Show post',
-        description: 'Return a single post with its comments and likes.',
+        description: 'Return a single post with its comments and likes. When the authenticated user is the post owner, the response also includes the `circles` the post is shared with.',
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [

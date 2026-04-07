@@ -1,15 +1,20 @@
 <?php
 
+use App\Models\Circle;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 it('can show a user profile', function () {
+    $viewer = User::factory()->create();
     $user = User::factory()->create();
-    Post::factory()->count(3)->create(['user_id' => $user->id]);
+    $circle = Circle::factory()->for($viewer)->create();
+    Post::factory()->count(3)->create(['user_id' => $user->id])->each(
+        fn (Post $post) => $post->circles()->attach($circle),
+    );
 
-    $this->actingAs(User::factory()->create())
+    $this->actingAs($viewer)
         ->getJson("/api/profiles/{$user->username}")
         ->assertSuccessful()
         ->assertJsonPath('data.username', $user->username)
@@ -18,6 +23,35 @@ it('can show a user profile', function () {
             'data' => ['id', 'name', 'username', 'avatar', 'bio', 'created_at', 'posts_count'],
         ])
         ->assertJsonMissing(['email']);
+});
+
+it('only counts posts shared with circles the viewer belongs to', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $sharedCircle = Circle::factory()->for($viewer)->create();
+    $otherCircle = Circle::factory()->create();
+
+    Post::factory()->count(2)->create(['user_id' => $user->id])->each(
+        fn (Post $post) => $post->circles()->attach($sharedCircle),
+    );
+    Post::factory()->count(3)->create(['user_id' => $user->id])->each(
+        fn (Post $post) => $post->circles()->attach($otherCircle),
+    );
+
+    $this->actingAs($viewer)
+        ->getJson("/api/profiles/{$user->username}")
+        ->assertOk()
+        ->assertJsonPath('data.posts_count', 2);
+});
+
+it('counts all own posts when viewing own profile', function () {
+    $user = User::factory()->create();
+    Post::factory()->count(4)->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->getJson("/api/profiles/{$user->username}")
+        ->assertOk()
+        ->assertJsonPath('data.posts_count', 4);
 });
 
 it('returns not found for non-existent username', function () {
@@ -34,10 +68,14 @@ it('requires authentication to view a profile', function () {
 });
 
 it('can list profile posts', function () {
+    $viewer = User::factory()->create();
     $user = User::factory()->create();
-    Post::factory()->count(3)->create(['user_id' => $user->id]);
+    $circle = Circle::factory()->for($viewer)->create();
+    Post::factory()->count(3)->create(['user_id' => $user->id])->each(
+        fn (Post $post) => $post->circles()->attach($circle),
+    );
 
-    $this->actingAs(User::factory()->create())
+    $this->actingAs($viewer)
         ->getJson("/api/profiles/{$user->username}/posts")
         ->assertSuccessful()
         ->assertJsonCount(3, 'data')
@@ -50,11 +88,41 @@ it('can list profile posts', function () {
         ]);
 });
 
-it('paginates profile posts', function () {
+it('only lists profile posts shared with circles the viewer belongs to', function () {
+    $viewer = User::factory()->create();
     $user = User::factory()->create();
-    Post::factory()->count(15)->create(['user_id' => $user->id]);
+    $sharedCircle = Circle::factory()->for($viewer)->create();
+    $otherCircle = Circle::factory()->create();
+    $memberCircle = Circle::factory()->create();
+    $memberCircle->members()->attach($viewer);
 
-    $this->actingAs(User::factory()->create())
+    $shared = Post::factory()->create(['user_id' => $user->id]);
+    $shared->circles()->attach($sharedCircle);
+
+    $sharedAsMember = Post::factory()->create(['user_id' => $user->id]);
+    $sharedAsMember->circles()->attach($memberCircle);
+
+    $hidden = Post::factory()->create(['user_id' => $user->id]);
+    $hidden->circles()->attach($otherCircle);
+
+    $response = $this->actingAs($viewer)
+        ->getJson("/api/profiles/{$user->username}/posts")
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+
+    $ids = collect($response->json('data'))->pluck('id')->all();
+    expect($ids)->toContain($shared->id, $sharedAsMember->id)->not->toContain($hidden->id);
+});
+
+it('paginates profile posts', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($viewer)->create();
+    Post::factory()->count(15)->create(['user_id' => $user->id])->each(
+        fn (Post $post) => $post->circles()->attach($circle),
+    );
+
+    $this->actingAs($viewer)
         ->getJson("/api/profiles/{$user->username}/posts")
         ->assertSuccessful()
         ->assertJsonCount(10, 'data');
