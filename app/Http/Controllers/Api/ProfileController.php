@@ -11,6 +11,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\MediaUploadService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use OpenApi\Attributes as OA;
 
@@ -72,11 +73,12 @@ class ProfileController extends Controller
             new OA\Response(response: 404, description: 'User not found'),
         ],
     )]
-    public function posts(User $user): AnonymousResourceCollection
+    public function posts(Request $request, User $user): AnonymousResourceCollection
     {
         $posts = $user->posts()
             ->with('user:id,name,username,avatar')
             ->withCount(['likes', 'comments'])
+            ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $request->user()->id)])
             ->latest()
             ->paginate(10);
 
