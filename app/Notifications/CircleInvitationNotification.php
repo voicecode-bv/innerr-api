@@ -27,12 +27,11 @@ class CircleInvitationNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $inviterName = $this->invitation->inviter->name;
-        $circleName = $this->invitation->circle->name;
 
         return (new MailMessage)
-            ->subject("You've been invited to join {$circleName}")
-            ->greeting('Hello!')
-            ->line("{$inviterName} has invited you to join the circle \"{$circleName}\".")
-            ->line('If you don\'t have an account yet, please register first.');
+            ->subject(__(':name has invited you', ['name' => $inviterName]))
+            ->greeting(__('Hello!'))
+            ->line(__(':name has invited you to join their circles.', ['name' => $inviterName]))
+            ->line(__("If you don't have an account yet, please register first."));
     }
 }
