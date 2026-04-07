@@ -90,7 +90,9 @@ it('can store a post with an image and circles', function () {
     expect($post->circles)->toHaveCount(1)
         ->and($post->circles->first()->id)->toBe($circle->id);
 
-    Storage::disk('public')->assertExists('posts/'.last(explode('/', $post->media_url)));
+    Storage::disk('public')->assertExists($post->media_url);
+    Storage::disk('public')->assertExists("users/{$user->id}/originals/posts/".basename($post->media_url));
+    expect($post->media_url)->toStartWith("users/{$user->id}/posts/");
 });
 
 it('can store a post with a video', function () {
@@ -224,5 +226,6 @@ it('converts heic uploads to jpeg', function () {
     $storedFile = last(explode('/', $post->media_url));
 
     expect($storedFile)->toEndWith('.jpg');
-    Storage::disk('public')->assertExists('posts/'.$storedFile);
+    Storage::disk('public')->assertExists($post->media_url);
+    Storage::disk('public')->assertExists("users/{$user->id}/originals/posts/{$storedFile}");
 });
