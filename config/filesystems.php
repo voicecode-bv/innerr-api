@@ -15,7 +15,7 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
-    'media' => env('MEDIA_DISK', 'public'),
+    'media' => env('MEDIA_DISK', env('FILESYSTEM_DISK', 'local')),
 
     /*
     |--------------------------------------------------------------------------
