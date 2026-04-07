@@ -29,8 +29,14 @@ class MediaUploadService
      *
      * @return string The path of the file that should be used for display.
      */
-    public function store(UploadedFile $file, int $userId, string $folder): string
-    {
+    public function store(
+        UploadedFile $file,
+        int $userId,
+        string $folder,
+        ?int $width = null,
+        ?int $height = null,
+        bool $cover = false,
+    ): string {
         $file = $this->convertHeicToJpeg($file);
 
         $disk = MediaUrl::disk();
@@ -50,9 +56,18 @@ class MediaUploadService
         $displayPath = "{$userFolder}/{$folder}/{$filename}";
         $resizedPath = tempnam(sys_get_temp_dir(), 'resized_').'.'.$file->getClientOriginalExtension();
 
-        Image::decodePath($file->getPathname())
-            ->scaleDown(width: self::MAX_DISPLAY_WIDTH)
-            ->save($resizedPath, quality: self::DISPLAY_QUALITY);
+        $image = Image::decodePath($file->getPathname());
+
+        if ($cover && $width !== null && $height !== null) {
+            $image->cover($width, $height);
+        } else {
+            $image->scaleDown(
+                width: $width ?? self::MAX_DISPLAY_WIDTH,
+                height: $height,
+            );
+        }
+
+        $image->save($resizedPath, quality: self::DISPLAY_QUALITY);
 
         $disk->put($displayPath, file_get_contents($resizedPath));
 

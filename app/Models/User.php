@@ -77,4 +77,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(CircleInvitation::class);
     }
+
+    public function routeNotificationForFcm(): ?string
+    {
+        return $this->fcm_token;
+    }
 }

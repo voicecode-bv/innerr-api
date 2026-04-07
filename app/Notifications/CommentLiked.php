@@ -6,6 +6,9 @@ use App\Models\Comment;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\Fcm\FcmChannel;
+use NotificationChannels\Fcm\FcmMessage;
+use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CommentLiked extends Notification
 {
@@ -21,7 +24,25 @@ class CommentLiked extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+
+        if (! empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toFcm(object $notifiable): FcmMessage
+    {
+        return (new FcmMessage(notification: new FcmNotification(
+            title: $this->liker->name,
+            body: __('liked your comment'),
+        )))->data([
+            'type' => 'comment-liked',
+            'comment_id' => (string) $this->comment->id,
+            'post_id' => (string) $this->comment->post_id,
+        ]);
     }
 
     public function databaseType(object $notifiable): string

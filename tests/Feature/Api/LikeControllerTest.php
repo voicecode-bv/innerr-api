@@ -2,6 +2,9 @@
 
 use App\Models\Post;
 use App\Models\User;
+use App\Notifications\PostLiked;
+use Illuminate\Support\Facades\Notification;
+use NotificationChannels\Fcm\FcmChannel;
 
 it('cannot like own post', function () {
     $user = User::factory()->create();
@@ -25,4 +28,39 @@ it('can like another users post', function () {
         ->assertCreated()
         ->assertJsonPath('liked', true)
         ->assertJsonPath('likes_count', 1);
+});
+
+it('sends a push notification when the post owner has an fcm token', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create(['fcm_token' => 'test-token']);
+    $post = Post::factory()->create(['user_id' => $owner->id]);
+    $liker = User::factory()->create();
+
+    $this->actingAs($liker)
+        ->postJson("/api/posts/{$post->id}/like")
+        ->assertCreated();
+
+    Notification::assertSentTo(
+        $owner,
+        PostLiked::class,
+        fn (PostLiked $notification) => in_array(FcmChannel::class, $notification->via($owner), true),
+    );
+});
+
+it('does not include the fcm channel when the post owner has no fcm token', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create(['fcm_token' => null]);
+    $post = Post::factory()->create(['user_id' => $owner->id]);
+
+    $this->actingAs(User::factory()->create())
+        ->postJson("/api/posts/{$post->id}/like")
+        ->assertCreated();
+
+    Notification::assertSentTo(
+        $owner,
+        PostLiked::class,
+        fn (PostLiked $notification) => ! in_array(FcmChannel::class, $notification->via($owner), true),
+    );
 });

@@ -159,7 +159,14 @@ class ProfileController extends Controller
 
         $media->delete($user->avatar);
 
-        $path = $media->store($request->file('avatar'), $user->id, 'avatars');
+        $path = $media->store(
+            $request->file('avatar'),
+            $user->id,
+            'avatars',
+            width: 500,
+            height: 500,
+            cover: true,
+        );
 
         $user->update(['avatar' => $path]);
 

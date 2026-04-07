@@ -7,6 +7,9 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\Fcm\FcmChannel;
+use NotificationChannels\Fcm\FcmMessage;
+use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CircleInvitationAcceptedNotification extends Notification implements ShouldQueue
 {
@@ -22,7 +25,27 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
      */
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        $channels = ['mail', 'database'];
+
+        if (! empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toFcm(object $notifiable): FcmMessage
+    {
+        return (new FcmMessage(notification: new FcmNotification(
+            title: __('Invitation accepted'),
+            body: __(':name joined :circle', [
+                'name' => $this->acceptedByName,
+                'circle' => $this->invitation->circle->name,
+            ]),
+        )))->data([
+            'type' => 'circle-invitation-accepted',
+            'circle_id' => (string) $this->invitation->circle_id,
+        ]);
     }
 
     /**

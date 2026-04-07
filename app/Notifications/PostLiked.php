@@ -6,6 +6,9 @@ use App\Models\Post;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\Fcm\FcmChannel;
+use NotificationChannels\Fcm\FcmMessage;
+use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class PostLiked extends Notification
 {
@@ -21,7 +24,25 @@ class PostLiked extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+
+        if (! empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toFcm(object $notifiable): FcmMessage
+    {
+        return (new FcmMessage(notification: new FcmNotification(
+            title: $this->liker->name,
+            body: __('liked your post'),
+        )))->data([
+            'type' => 'post-liked',
+            'post_id' => (string) $this->post->id,
+            'user_id' => (string) $this->liker->id,
+        ]);
     }
 
     public function databaseType(object $notifiable): string

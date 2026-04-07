@@ -7,6 +7,10 @@ use App\Models\Post;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
+use NotificationChannels\Fcm\FcmChannel;
+use NotificationChannels\Fcm\FcmMessage;
+use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class PostCommented extends Notification
 {
@@ -23,7 +27,25 @@ class PostCommented extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+
+        if (! empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toFcm(object $notifiable): FcmMessage
+    {
+        return (new FcmMessage(notification: new FcmNotification(
+            title: $this->commenter->name,
+            body: Str::limit($this->comment->body, 120),
+        )))->data([
+            'type' => 'post-commented',
+            'post_id' => (string) $this->post->id,
+            'comment_id' => (string) $this->comment->id,
+        ]);
     }
 
     public function databaseType(object $notifiable): string
