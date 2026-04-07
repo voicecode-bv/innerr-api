@@ -43,13 +43,17 @@ class CircleResource extends JsonResource
             'photo' => MediaUrl::sign($this->photo),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-            'members_count' => $this->members_count ?? 0,
-            'members' => $this->whenLoaded('members', fn () => $this->members->map(fn ($member) => [
-                'id' => $member->id,
-                'name' => $member->name,
-                'username' => $member->username,
-                'avatar' => MediaUrl::sign($member->avatar),
-            ])),
+            'members_count' => ($this->members_count ?? 0) + 1,
+            'members' => $this->whenLoaded('members', fn () => collect([$this->user, ...$this->members])
+                ->filter()
+                ->map(fn ($member) => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'username' => $member->username,
+                    'avatar' => MediaUrl::sign($member->avatar),
+                    'is_owner' => $member->id === $this->user_id,
+                ])
+                ->values()),
             'pending_invitations' => $this->whenLoaded('invitations', fn () => $this->invitations->map(fn ($invitation) => [
                 'id' => $invitation->id,
                 'email' => $invitation->email,

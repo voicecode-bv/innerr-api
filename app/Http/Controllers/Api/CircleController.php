@@ -122,8 +122,10 @@ class CircleController extends Controller
     {
         $this->authorize('view', $circle);
 
-        $circle->load('members:id,name,username,avatar')
-            ->loadCount('members');
+        $circle->load([
+            'user:id,name,username,avatar',
+            'members:id,name,username,avatar',
+        ])->loadCount('members');
 
         if ($request->user()->id === $circle->user_id || $circle->members_can_invite) {
             $circle->load(['invitations' => fn ($query) => $query->where('status', InvitationStatus::Pending)->with('user:id,username')]);

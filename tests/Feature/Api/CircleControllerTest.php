@@ -55,7 +55,25 @@ it('allows a member to view a circle and its members', function () {
         ->assertOk()
         ->assertJsonPath('data.id', $circle->id)
         ->assertJsonPath('data.is_owner', false)
-        ->assertJsonCount(2, 'data.members');
+        ->assertJsonCount(3, 'data.members')
+        ->assertJsonPath('data.members_count', 3);
+});
+
+it('includes the owner in the members list with is_owner flag', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $member = User::factory()->create();
+    $circle->members()->attach($member);
+
+    $response = $this->actingAs($owner)
+        ->getJson("/api/circles/{$circle->id}")
+        ->assertOk()
+        ->assertJsonCount(2, 'data.members')
+        ->assertJsonPath('data.members_count', 2);
+
+    $members = collect($response->json('data.members'))->keyBy('id');
+    expect($members[$owner->id]['is_owner'])->toBeTrue();
+    expect($members[$member->id]['is_owner'])->toBeFalse();
 });
 
 it('does not expose pending invitations to non-owner members', function () {
