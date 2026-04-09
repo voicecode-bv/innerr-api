@@ -113,9 +113,9 @@ class MediaUploadService
             return $file;
         }
 
-        // Use the ImageMagick CLI for HEIC conversion because the PHP
-        // Imagick extension often lacks HEIC delegate support, while the
-        // CLI `convert` binary does have it.
+        // Use heif-convert (from libheif) instead of ImageMagick because
+        // IM 6.x cannot handle iPhone HEIC files with auxiliary image
+        // references (depth maps, thumbnails, etc.).
         $heicPath = tempnam(sys_get_temp_dir(), 'heic_').'.'.$extension;
         copy($file->getPathname(), $heicPath);
 
@@ -123,7 +123,7 @@ class MediaUploadService
 
         try {
             $result = Process::run([
-                'convert', $heicPath, '-quality', '90', $jpegPath,
+                'heif-convert', '-q', '90', $heicPath, $jpegPath,
             ]);
 
             if ($result->failed() || ! file_exists($jpegPath)) {
