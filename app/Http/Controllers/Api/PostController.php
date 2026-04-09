@@ -57,6 +57,7 @@ class PostController extends Controller
         }
 
         $post->load($relations);
+        $post->loadExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $request->user()->id)]);
 
         return new PostResource($post);
     }
