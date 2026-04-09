@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Notifications;
+
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Notification;
+use NotificationChannels\Fcm\FcmChannel;
+use NotificationChannels\Fcm\FcmMessage;
+use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
+
+class NewCirclePost extends Notification implements ShouldQueue
+{
+    use Queueable;
+
+    public function __construct(
+        public User $poster,
+        public Post $post,
+    ) {}
+
+    /**
+     * @return array<int, string>
+     */
+    public function via(object $notifiable): array
+    {
+        $channels = ['database'];
+
+        if (! empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toFcm(object $notifiable): FcmMessage
+    {
+        return (new FcmMessage(notification: new FcmNotification(
+            title: $this->poster->name,
+            body: __('shared a new post'),
+        )))->data([
+            'type' => 'new-circle-post',
+            'post_id' => (string) $this->post->id,
+            'user_id' => (string) $this->poster->id,
+        ]);
+    }
+
+    public function databaseType(object $notifiable): string
+    {
+        return 'new-circle-post';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return [
+            'user_id' => $this->poster->id,
+            'user_name' => $this->poster->name,
+            'user_username' => $this->poster->username,
+            'user_avatar' => $this->poster->avatar,
+            'post_id' => $this->post->id,
+            'post_media_url' => $this->post->media_url,
+        ];
+    }
+}

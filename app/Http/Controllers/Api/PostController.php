@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
+use App\Models\User;
+use App\Notifications\NewCirclePost;
 use App\Services\MediaUploadService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use OpenApi\Attributes as OA;
 
 class PostController extends Controller
@@ -109,7 +112,18 @@ class PostController extends Controller
             'location' => $request->validated('location'),
         ]);
 
-        $post->circles()->attach($request->validated('circle_ids'));
+        $circleIds = $request->validated('circle_ids');
+
+        $post->circles()->attach($circleIds);
+
+        $recipients = User::where(function ($query) use ($circleIds) {
+            $query->whereHas('memberOfCircles', fn ($q) => $q->whereIn('circles.id', $circleIds))
+                ->orWhereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds));
+        })
+            ->whereNot('id', $request->user()->id)
+            ->get();
+
+        Notification::send($recipients, new NewCirclePost($request->user(), $post));
 
         $post->load('user:id,name,username,avatar');
 
