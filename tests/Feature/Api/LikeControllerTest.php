@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationPreference;
 use App\Models\Post;
 use App\Models\User;
 use App\Notifications\PostLiked;
@@ -33,7 +34,10 @@ it('can like another users post', function () {
 it('sends a push notification when the post owner has an fcm token', function () {
     Notification::fake();
 
-    $owner = User::factory()->create(['fcm_token' => 'test-token']);
+    $preferences = NotificationPreference::defaults();
+    $preferences['post_liked'] = true;
+
+    $owner = User::factory()->create(['fcm_token' => 'test-token', 'notification_preferences' => $preferences]);
     $post = Post::factory()->create(['user_id' => $owner->id]);
     $liker = User::factory()->create();
 

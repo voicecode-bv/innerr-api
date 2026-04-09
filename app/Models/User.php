@@ -21,6 +21,11 @@ class User extends Authenticatable implements HasLocalePreference
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'notification_preferences' => '{"post_liked":false,"post_commented":true,"comment_liked":true,"new_circle_post":true,"circle_invitation_accepted":true}',
+    ];
+
     /**
      * @return array<string, string>
      */

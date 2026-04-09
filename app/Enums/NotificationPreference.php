@@ -15,8 +15,12 @@ enum NotificationPreference: string
      */
     public static function defaults(): array
     {
-        return collect(self::cases())
-            ->mapWithKeys(fn (self $case) => [$case->value => true])
-            ->all();
+        return [
+            self::PostLiked->value => false,
+            self::PostCommented->value => true,
+            self::CommentLiked->value => true,
+            self::NewCirclePost->value => true,
+            self::CircleInvitationAccepted->value => true,
+        ];
     }
 }

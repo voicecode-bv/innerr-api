@@ -11,7 +11,10 @@ use App\Notifications\PostLiked;
 use NotificationChannels\Fcm\FcmChannel;
 
 it('includes fcm channel when preference is enabled', function () {
-    $user = new User(['fcm_token' => 'token']);
+    $preferences = NotificationPreference::defaults();
+    $preferences['post_liked'] = true;
+
+    $user = new User(['fcm_token' => 'token', 'notification_preferences' => $preferences]);
 
     $notification = new PostLiked(new User, new Post);
 
@@ -19,10 +22,7 @@ it('includes fcm channel when preference is enabled', function () {
 });
 
 it('excludes fcm channel when preference is disabled', function () {
-    $preferences = NotificationPreference::defaults();
-    $preferences['post_liked'] = false;
-
-    $user = new User(['fcm_token' => 'token', 'notification_preferences' => $preferences]);
+    $user = new User(['fcm_token' => 'token']);
 
     $notification = new PostLiked(new User, new Post);
 
@@ -63,17 +63,19 @@ it('excludes fcm for new_circle_post when disabled', function () {
     expect($notification->via($user))->not->toContain(FcmChannel::class);
 });
 
-it('defaults to fcm enabled when no preferences are stored', function () {
+it('respects default preferences for each notification type', function () {
     $user = new User(['fcm_token' => 'token']);
 
-    $notifications = [
-        new PostLiked(new User, new Post),
+    $enabledByDefault = [
         new PostCommented(new User, new Post, new Comment),
         new CommentLiked(new User, new Comment),
         new NewCirclePost(new User, new Post),
     ];
 
-    foreach ($notifications as $notification) {
+    foreach ($enabledByDefault as $notification) {
         expect($notification->via($user))->toContain(FcmChannel::class);
     }
+
+    $disabledByDefault = new PostLiked(new User, new Post);
+    expect($disabledByDefault->via($user))->not->toContain(FcmChannel::class);
 });
