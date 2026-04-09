@@ -112,10 +112,19 @@ class MediaUploadService
             return $file;
         }
 
+        // Copy the temp file with a .heic extension so ImageMagick can
+        // reliably detect the format (PHP temp files have no extension).
+        $heicPath = tempnam(sys_get_temp_dir(), 'heic_').'.'.$extension;
+        copy($file->getPathname(), $heicPath);
+
         $jpegPath = tempnam(sys_get_temp_dir(), 'heic_').'.jpg';
 
-        Image::decodePath($file->getPathname())
-            ->save($jpegPath, quality: 90);
+        try {
+            Image::decodePath($heicPath)
+                ->save($jpegPath, quality: 90);
+        } finally {
+            @unlink($heicPath);
+        }
 
         return new UploadedFile(
             $jpegPath,
