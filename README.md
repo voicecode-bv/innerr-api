@@ -41,6 +41,16 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Server Requirements
+
+`ffmpeg` is required on the server for HEIC/HEIF image support (iPhone photo uploads):
+
+```bash
+sudo apt-get install ffmpeg
+```
+
+`MediaUploadService` uses `ffmpeg` to convert HEIC photos to JPEG because both the PHP Imagick extension and ImageMagick 6.x/libheif fail on iPhone HEIC files with HDR gain maps.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
