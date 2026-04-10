@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/circle-invitations/{circleInvitation}/decline', [CircleInvitationController::class, 'decline'])->name('api.circle-invitations.decline');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('api.notifications.unread-count');
     Route::post('/notifications/read', [NotificationController::class, 'markAsRead'])->name('api.notifications.read');
     Route::get('/notification-preferences', [NotificationPreferenceController::class, 'index'])->name('api.notification-preferences.index');
     Route::put('/notification-preferences', [NotificationPreferenceController::class, 'update'])->name('api.notification-preferences.update');

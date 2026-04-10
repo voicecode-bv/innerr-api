@@ -35,6 +35,32 @@ class NotificationController extends Controller
         return NotificationResource::collection($notifications);
     }
 
+    #[OA\Get(
+        path: '/api/notifications/unread-count',
+        summary: 'Unread notification count',
+        description: 'Get the number of unread notifications for the authenticated user.',
+        tags: ['Notifications'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Unread count',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'count', type: 'integer'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ],
+    )]
+    public function unreadCount(Request $request): JsonResponse
+    {
+        $count = $request->user()->unreadNotifications()->count();
+
+        return response()->json(['count' => $count]);
+    }
+
     #[OA\Post(
         path: '/api/notifications/read',
         summary: 'Mark notifications as read',
