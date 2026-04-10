@@ -32,6 +32,7 @@ class CommentController extends Controller
                 required: ['body'],
                 properties: [
                     new OA\Property(property: 'body', type: 'string', maxLength: 1000, example: 'Great post!'),
+                    new OA\Property(property: 'parent_comment_id', type: 'integer', nullable: true, description: 'ID of the comment being replied to'),
                 ],
             ),
         ),
@@ -54,6 +55,7 @@ class CommentController extends Controller
     {
         $comment = $post->comments()->create([
             'user_id' => $request->user()->id,
+            'parent_comment_id' => $request->validated('parent_comment_id'),
             'body' => $request->validated('body'),
         ]);
 
