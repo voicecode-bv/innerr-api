@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MediaStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Resources\PostResource;
+use App\Jobs\TranscodeVideo;
 use App\Models\Post;
 use App\Models\User;
 use App\Notifications\NewCirclePost;
@@ -109,24 +111,39 @@ class PostController extends Controller
         $mimeType = $file->getMimeType();
         $mediaType = str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image';
 
-        // Generate the thumbnail from the local upload before the file
-        // is transcoded and moved to storage — avoids a round-trip download.
         $thumbnailPath = null;
+        $mediaStatus = MediaStatus::Ready;
+
         if ($mediaType === 'video') {
+            // Generate the thumbnail from the local upload before the file
+            // is stored — avoids a round-trip download from storage.
             $thumbnailPath = $media->generateVideoThumbnail(
                 $file->getPathname(), $request->user()->id, 'posts', isLocalPath: true,
             );
-        }
 
-        $path = $media->store($file, $request->user()->id, 'posts');
+            // Store the original video directly (no transcoding yet).
+            // The TranscodeVideo job will replace it with the transcoded version.
+            $path = $file->store(
+                "users/{$request->user()->id}/posts",
+                config('filesystems.media'),
+            );
+            $mediaStatus = MediaStatus::Processing;
+        } else {
+            $path = $media->store($file, $request->user()->id, 'posts');
+        }
 
         $post = $request->user()->posts()->create([
             'media_url' => $path,
             'media_type' => $mediaType,
+            'media_status' => $mediaStatus,
             'thumbnail_url' => $thumbnailPath,
             'caption' => $request->validated('caption'),
             'location' => $request->validated('location'),
         ]);
+
+        if ($mediaType === 'video') {
+            TranscodeVideo::dispatch($post);
+        }
 
         $circleIds = $request->validated('circle_ids');
 
