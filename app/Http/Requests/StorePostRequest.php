@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Circle;
+use App\Rules\MaxVideoDuration;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePostRequest extends FormRequest
@@ -18,7 +19,7 @@ class StorePostRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'media' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,heic,heif,mp4,mov,m4v', 'max:51200'],
+            'media' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,heic,heif,mp4,mov,m4v', 'max:256000', new MaxVideoDuration(180)],
             'caption' => ['nullable', 'string', 'max:2200'],
             'location' => ['nullable', 'string', 'max:255'],
             'circle_ids' => ['required', 'array', 'min:1'],

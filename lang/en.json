@@ -8,5 +8,7 @@
     ":name has invited you": ":name has invited you",
     "Hello!": "Hello!",
     ":name has invited you to join their circles.": ":name has invited you to join their circles.",
-    "If you don't have an account yet, please register first.": "If you don't have an account yet, please register first."
+    "If you don't have an account yet, please register first.": "If you don't have an account yet, please register first.",
+
+    "validation.max_video_duration": "The video may not be longer than :max minutes."
 }

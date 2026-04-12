@@ -27,7 +27,7 @@ class TranscodeVideo implements ShouldQueue
     /**
      * The maximum number of seconds the job can run.
      */
-    public int $timeout = 300;
+    public int $timeout = 600;
 
     public function __construct(
         public Post $post,

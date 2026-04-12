@@ -8,5 +8,7 @@
     ":name has invited you": ":name heeft je uitgenodigd",
     "Hello!": "Hallo!",
     ":name has invited you to join their circles.": ":name heeft je uitgenodigd om lid te worden van hun kringen.",
-    "If you don't have an account yet, please register first.": "Heb je nog geen account? Registreer je dan eerst."
+    "If you don't have an account yet, please register first.": "Heb je nog geen account? Registreer je dan eerst.",
+
+    "validation.max_video_duration": "De video mag maximaal :max minuten duren."
 }
