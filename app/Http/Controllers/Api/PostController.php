@@ -109,11 +109,21 @@ class PostController extends Controller
         $mimeType = $file->getMimeType();
         $mediaType = str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image';
 
+        // Generate the thumbnail from the local upload before the file
+        // is transcoded and moved to storage — avoids a round-trip download.
+        $thumbnailPath = null;
+        if ($mediaType === 'video') {
+            $thumbnailPath = $media->generateVideoThumbnail(
+                $file->getPathname(), $request->user()->id, 'posts', isLocalPath: true,
+            );
+        }
+
         $path = $media->store($file, $request->user()->id, 'posts');
 
         $post = $request->user()->posts()->create([
             'media_url' => $path,
             'media_type' => $mediaType,
+            'thumbnail_url' => $thumbnailPath,
             'caption' => $request->validated('caption'),
             'location' => $request->validated('location'),
         ]);
@@ -159,6 +169,7 @@ class PostController extends Controller
         $this->authorize('delete', $post);
 
         $media->delete($post->media_url);
+        $media->delete($post->thumbnail_url);
 
         $post->delete();
 
