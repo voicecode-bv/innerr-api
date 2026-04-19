@@ -100,7 +100,7 @@ class ProfileController extends Controller
             });
         }
 
-        return PostResource::collection($query->paginate(10));
+        return PostResource::collection($query->paginate(30));
     }
 
     #[OA\Put(

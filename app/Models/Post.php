@@ -11,12 +11,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable(['user_id', 'media_url', 'media_type', 'media_status', 'thumbnail_url', 'caption', 'location'])]
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Post $post) {
+            DB::table('notifications')
+                ->where('data->post_id', $post->id)
+                ->delete();
+        });
+    }
 
     /**
      * @return array<string, string>
