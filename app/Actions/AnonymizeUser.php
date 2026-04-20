@@ -23,8 +23,12 @@ class AnonymizeUser
             DB::table('password_reset_tokens')->where('email', $user->email)->delete();
 
             DB::table('notifications')
-                ->where('notifiable_type', $user->getMorphClass())
-                ->where('notifiable_id', $user->id)
+                ->where(function ($query) use ($user) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('notifiable_type', $user->getMorphClass())
+                            ->where('notifiable_id', $user->id);
+                    })->orWhere('data->user_id', $user->id);
+                })
                 ->delete();
 
             CircleInvitation::query()

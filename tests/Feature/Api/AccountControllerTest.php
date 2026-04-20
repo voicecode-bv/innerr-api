@@ -56,8 +56,9 @@ it('revokes all sanctum tokens for the user', function () {
     expect($user->tokens()->count())->toBe(0);
 });
 
-it('removes sessions, password reset tokens and notifications targeting the user', function () {
+it('removes sessions, password reset tokens and notifications targeting or about the user', function () {
     $user = User::factory()->create(['email' => 'alice@example.com']);
+    $other = User::factory()->create();
 
     DB::table('sessions')->insert([
         'id' => 'session-a',
@@ -73,12 +74,38 @@ it('removes sessions, password reset tokens and notifications targeting the user
         'created_at' => now(),
     ]);
 
+    // Notification received by the deleted user.
+    $received = (string) Str::uuid();
     DB::table('notifications')->insert([
-        'id' => (string) Str::uuid(),
-        'type' => 'test-notification',
+        'id' => $received,
+        'type' => 'received-notification',
         'notifiable_type' => (new User)->getMorphClass(),
         'notifiable_id' => $user->id,
         'data' => json_encode(['foo' => 'bar']),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Notification received by someone else, but about the deleted user (actor).
+    $about = (string) Str::uuid();
+    DB::table('notifications')->insert([
+        'id' => $about,
+        'type' => 'post-liked',
+        'notifiable_type' => (new User)->getMorphClass(),
+        'notifiable_id' => $other->id,
+        'data' => json_encode(['user_id' => $user->id, 'user_name' => 'Alice']),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Unrelated notification must stay.
+    $unrelated = (string) Str::uuid();
+    DB::table('notifications')->insert([
+        'id' => $unrelated,
+        'type' => 'post-liked',
+        'notifiable_type' => (new User)->getMorphClass(),
+        'notifiable_id' => $other->id,
+        'data' => json_encode(['user_id' => $other->id]),
         'created_at' => now(),
         'updated_at' => now(),
     ]);
@@ -87,7 +114,9 @@ it('removes sessions, password reset tokens and notifications targeting the user
 
     expect(DB::table('sessions')->where('user_id', $user->id)->count())->toBe(0)
         ->and(DB::table('password_reset_tokens')->where('email', 'alice@example.com')->count())->toBe(0)
-        ->and(DB::table('notifications')->where('notifiable_id', $user->id)->count())->toBe(0);
+        ->and(DB::table('notifications')->where('id', $received)->count())->toBe(0)
+        ->and(DB::table('notifications')->where('id', $about)->count())->toBe(0)
+        ->and(DB::table('notifications')->where('id', $unrelated)->count())->toBe(1);
 });
 
 it('deletes circles owned by the user and detaches pivots', function () {
