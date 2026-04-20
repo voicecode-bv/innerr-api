@@ -36,12 +36,11 @@ class AnonymizeUser
 
             $user->circles()->get()->each->delete();
 
-            $user->posts()->update([
-                'media_url' => null,
-                'thumbnail_url' => null,
-                'caption' => null,
-                'location' => null,
-            ]);
+            $user->likes()->get()->each->delete();
+
+            $user->comments()->get()->each->delete();
+
+            $user->posts()->get()->each->delete();
 
             $placeholder = Str::ulid()->toBase32();
 

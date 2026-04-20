@@ -123,36 +123,33 @@ it('deletes circle invitations where the user is invitee or inviter', function (
         ->and(CircleInvitation::find($unrelated->id))->not->toBeNull();
 });
 
-it('keeps the users posts but nulls out media, caption and location', function () {
+it('deletes all posts by the user', function () {
     $user = User::factory()->create();
-    $post = Post::factory()->for($user)->create([
-        'media_url' => 'users/1/posts/original.jpg',
-        'caption' => 'hello',
-        'location' => 'Amsterdam',
-    ]);
+    $posts = Post::factory()->count(3)->for($user)->create();
 
     $this->actingAs($user)->deleteJson('/api/account')->assertNoContent();
 
-    $post->refresh();
-    expect($post->exists)->toBeTrue()
-        ->and($post->media_url)->toBeNull()
-        ->and($post->caption)->toBeNull()
-        ->and($post->location)->toBeNull();
+    expect(Post::whereIn('id', $posts->pluck('id'))->count())->toBe(0);
 });
 
-it('keeps comments by the user so other users discussions remain intact', function () {
+it('deletes comments by the user but keeps other users comments', function () {
     $user = User::factory()->create();
     $other = User::factory()->create();
     $otherPost = Post::factory()->for($other)->create();
 
-    $comment = Comment::factory()->create([
+    $ownComment = Comment::factory()->create([
         'user_id' => $user->id,
+        'post_id' => $otherPost->id,
+    ]);
+    $otherComment = Comment::factory()->create([
+        'user_id' => $other->id,
         'post_id' => $otherPost->id,
     ]);
 
     $this->actingAs($user)->deleteJson('/api/account')->assertNoContent();
 
-    expect(Comment::find($comment->id))->not->toBeNull();
+    expect(Comment::find($ownComment->id))->toBeNull()
+        ->and(Comment::find($otherComment->id))->not->toBeNull();
 });
 
 it('deletes the user storage directory', function () {
