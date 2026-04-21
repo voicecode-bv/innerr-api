@@ -1,0 +1,345 @@
+/* Innerr mail theme — aligned with innerr-website and innerr-app
+ * Palette source: innerr-website/src/style.css
+ *   night       #162020   (primary text)
+ *   muted       #525858
+ *   teal        #1D5F5C   (brand accent / buttons / links)
+ *   teal-light  #2A7A76
+ *   warmwhite   #FEFAF3   (outer background)
+ *   cream       #FBF4EA
+ *   sand-50     #fdf8f3   (inner body background)
+ *   sand-100    #f9efe4
+ *   sand-200    #f0dcc6   (borders)
+ *   peach       #FBD9C0
+ *   accent      #C25A2E   (warm highlight, error)
+ */
+
+/* Base */
+
+body,
+body *:not(html):not(style):not(br):not(tr):not(code) {
+    box-sizing: border-box;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    position: relative;
+}
+
+body {
+    -webkit-text-size-adjust: none;
+    background-color: #FEFAF3;
+    color: #162020;
+    height: 100%;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    width: 100% !important;
+}
+
+p,
+ul,
+ol,
+blockquote {
+    line-height: 1.6;
+    text-align: start;
+}
+
+a {
+    color: #1D5F5C;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(29, 95, 92, 0.25);
+}
+
+a:hover {
+    border-bottom-color: #1D5F5C;
+}
+
+a img {
+    border: none;
+}
+
+/* Typography */
+
+h1 {
+    color: #162020;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-top: 0;
+    margin-bottom: 16px;
+    text-align: start;
+}
+
+h2 {
+    color: #162020;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 12px;
+    text-align: start;
+}
+
+h3 {
+    color: #162020;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+p {
+    color: #162020;
+    font-size: 16px;
+    line-height: 1.6em;
+    margin-top: 0;
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+p.sub {
+    color: #525858;
+    font-size: 13px;
+}
+
+img {
+    max-width: 100%;
+}
+
+/* Layout */
+
+.wrapper {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #FEFAF3;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.content {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+/* Header */
+
+.header {
+    padding: 32px 0 24px;
+    text-align: center;
+}
+
+.header a {
+    color: #1D5F5C;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    border-bottom: none;
+}
+
+/* Logo */
+
+.logo {
+    height: 64px;
+    margin-top: 0;
+    margin-bottom: 8px;
+    max-height: 64px;
+    width: 64px;
+}
+
+/* Body */
+
+.body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    background-color: #FEFAF3;
+    border-bottom: 1px solid #FEFAF3;
+    border-top: 1px solid #FEFAF3;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.inner-body {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    background-color: #ffffff;
+    border-color: #f0dcc6;
+    border-radius: 20px;
+    border-width: 1px;
+    box-shadow: 0 1px 2px rgba(22, 32, 32, 0.04), 0 8px 24px rgba(22, 32, 32, 0.06);
+    margin: 0 auto;
+    padding: 0;
+    width: 570px;
+}
+
+.inner-body a {
+    word-break: break-all;
+}
+
+/* Subcopy */
+
+.subcopy {
+    border-top: 1px solid #f0dcc6;
+    margin-top: 28px;
+    padding-top: 20px;
+}
+
+.subcopy p {
+    color: #525858;
+    font-size: 13px;
+    line-height: 1.6em;
+}
+
+/* Footer */
+
+.footer {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 570px;
+    margin: 0 auto;
+    padding: 24px 0 40px;
+    text-align: center;
+    width: 570px;
+}
+
+.footer p {
+    color: #525858;
+    font-size: 12px;
+    text-align: center;
+}
+
+.footer a {
+    color: #525858;
+    text-decoration: underline;
+    border-bottom: none;
+}
+
+/* Tables */
+
+.table table {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 24px auto;
+    width: 100%;
+}
+
+.table th {
+    border-bottom: 1px solid #f0dcc6;
+    color: #162020;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin: 0;
+    padding-bottom: 10px;
+    text-transform: uppercase;
+}
+
+.table td {
+    color: #525858;
+    font-size: 15px;
+    line-height: 20px;
+    margin: 0;
+    padding: 12px 0;
+}
+
+.content-cell {
+    max-width: 100vw;
+    padding: 40px 40px 32px;
+}
+
+/* Buttons */
+
+.action {
+    -premailer-cellpadding: 0;
+    -premailer-cellspacing: 0;
+    -premailer-width: 100%;
+    margin: 28px auto 24px;
+    padding: 0;
+    text-align: center;
+    width: 100%;
+    float: unset;
+}
+
+.button {
+    -webkit-text-size-adjust: none;
+    border-radius: 9999px;
+    color: #FEFAF3;
+    display: inline-block;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-decoration: none;
+}
+
+.button-blue,
+.button-primary {
+    background-color: #1D5F5C;
+    border-bottom: 12px solid #1D5F5C;
+    border-left: 28px solid #1D5F5C;
+    border-right: 28px solid #1D5F5C;
+    border-top: 12px solid #1D5F5C;
+}
+
+.button-green,
+.button-success {
+    background-color: #2A7A76;
+    border-bottom: 12px solid #2A7A76;
+    border-left: 28px solid #2A7A76;
+    border-right: 28px solid #2A7A76;
+    border-top: 12px solid #2A7A76;
+}
+
+.button-red,
+.button-error {
+    background-color: #C25A2E;
+    border-bottom: 12px solid #C25A2E;
+    border-left: 28px solid #C25A2E;
+    border-right: 28px solid #C25A2E;
+    border-top: 12px solid #C25A2E;
+}
+
+/* Panels */
+
+.panel {
+    border-left: #1D5F5C solid 4px;
+    border-radius: 4px;
+    margin: 24px 0;
+    overflow: hidden;
+}
+
+.panel-content {
+    background-color: #fdf8f3;
+    color: #162020;
+    padding: 18px 20px;
+}
+
+.panel-content p {
+    color: #162020;
+}
+
+.panel-item {
+    padding: 0;
+}
+
+.panel-item p:last-of-type {
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* Utilities */
+
+.break-all {
+    word-break: break-all;
+}
