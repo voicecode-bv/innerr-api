@@ -50,6 +50,11 @@ class CircleMemberInvitedByMemberNotification extends Notification implements Sh
         ]);
     }
 
+    public function databaseType(object $notifiable): string
+    {
+        return 'circle-member-invited-by-member';
+    }
+
     /**
      * @return array<string, mixed>
      */

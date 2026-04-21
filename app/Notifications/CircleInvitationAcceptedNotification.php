@@ -49,6 +49,11 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
         ]);
     }
 
+    public function databaseType(object $notifiable): string
+    {
+        return 'circle-invitation-accepted';
+    }
+
     /**
      * @return array<string, mixed>
      */
