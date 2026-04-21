@@ -50,6 +50,22 @@ it('includes is_liked on comments', function () {
         ->and($notLiked['likes_count'])->toBe(0);
 });
 
+it('returns comments ordered newest to oldest', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create();
+
+    $oldest = Comment::factory()->create(['post_id' => $post->id, 'created_at' => now()->subHours(3)]);
+    $middle = Comment::factory()->create(['post_id' => $post->id, 'created_at' => now()->subHours(2)]);
+    $newest = Comment::factory()->create(['post_id' => $post->id, 'created_at' => now()->subHour()]);
+
+    $ids = $this->actingAs($user)
+        ->getJson("/api/posts/{$post->id}")
+        ->assertSuccessful()
+        ->json('data.comments.*.id');
+
+    expect($ids)->toBe([$newest->id, $middle->id, $oldest->id]);
+});
+
 it('returns not found for non-existent post', function () {
     $this->actingAs(User::factory()->create())
         ->getJson('/api/posts/99999')
