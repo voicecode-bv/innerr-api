@@ -13,13 +13,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Soved\Laravel\Gdpr\Contracts\Portable as PortableContract;
+use Soved\Laravel\Gdpr\Portable;
 
 #[Fillable(['name', 'username', 'email', 'password', 'avatar', 'bio', 'locale', 'fcm_token', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements HasLocalePreference
+class User extends Authenticatable implements HasLocalePreference, PortableContract
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, Portable;
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -102,4 +104,18 @@ class User extends Authenticatable implements HasLocalePreference
     {
         return $this->locale;
     }
+
+    /**
+     * The relations to include in the downloadable data.
+     *
+     * @var array
+     */
+    protected $gdprWith = ['posts', 'likes', 'comments', 'circles'];
+
+    /**
+     * The attributes that should be hidden for the downloadable data.
+     *
+     * @var array
+     */
+    protected $gdprHidden = ['password', 'fcm_token'];
 }

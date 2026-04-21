@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AccountExportController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleInvitationController;
@@ -86,6 +87,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/account', AccountController::class)
         ->middleware('throttle:3,60')
         ->name('api.account.destroy');
+
+    Route::post('/account/export', AccountExportController::class)
+        ->middleware('throttle:3,60')
+        ->name('api.account.export');
 
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('api.profile.avatar.update');
