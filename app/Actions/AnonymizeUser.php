@@ -27,7 +27,7 @@ class AnonymizeUser
                     $query->where(function ($q) use ($user) {
                         $q->where('notifiable_type', $user->getMorphClass())
                             ->where('notifiable_id', $user->id);
-                    })->orWhere('data->user_id', $user->id);
+                    })->orWhereRaw("data::jsonb->>'user_id' = ?", [(string) $user->id]);
                 })
                 ->delete();
 

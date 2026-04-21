@@ -23,7 +23,7 @@ class Post extends Model
     {
         static::deleting(function (Post $post) {
             DB::table('notifications')
-                ->where('data->post_id', $post->id)
+                ->whereRaw("data::jsonb->>'post_id' = ?", [(string) $post->id])
                 ->delete();
         });
     }
