@@ -14,7 +14,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'bio', 'locale', 'fcm_token', 'notification_preferences', 'default_circle_ids', 'device_info'])]
+#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'bio', 'locale', 'fcm_token', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements HasLocalePreference
 {
