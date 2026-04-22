@@ -3,6 +3,9 @@
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
+use App\Notifications\CommentReplied;
+use App\Notifications\PostCommented;
+use Illuminate\Support\Facades\Notification;
 
 it('can store a comment on a post', function () {
     $user = User::factory()->create();
@@ -97,4 +100,64 @@ it('requires authentication to delete a comment', function () {
 
     $this->deleteJson("/api/comments/{$comment->id}")
         ->assertUnauthorized();
+});
+
+it('notifies the post owner when a top-level comment is added', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $commenter = User::factory()->create();
+
+    $this->actingAs($commenter)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Hi!'])
+        ->assertCreated();
+
+    Notification::assertSentTo($postOwner, PostCommented::class);
+});
+
+it('does not notify the post owner when a reply is added to a comment', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $commenter = User::factory()->create();
+    $parentComment = Comment::factory()->create([
+        'post_id' => $post->id,
+        'user_id' => $commenter->id,
+    ]);
+
+    $replier = User::factory()->create();
+
+    $this->actingAs($replier)
+        ->postJson("/api/posts/{$post->id}/comments", [
+            'body' => 'Reply!',
+            'parent_comment_id' => $parentComment->id,
+        ])
+        ->assertCreated();
+
+    Notification::assertNotSentTo($postOwner, PostCommented::class);
+    Notification::assertSentTo($commenter, CommentReplied::class);
+});
+
+it('does not send any notifications when a user replies to their own comment', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $commenter = User::factory()->create();
+    $parentComment = Comment::factory()->create([
+        'post_id' => $post->id,
+        'user_id' => $commenter->id,
+    ]);
+
+    $this->actingAs($commenter)
+        ->postJson("/api/posts/{$post->id}/comments", [
+            'body' => 'Replying to myself',
+            'parent_comment_id' => $parentComment->id,
+        ])
+        ->assertCreated();
+
+    Notification::assertNotSentTo($postOwner, PostCommented::class);
+    Notification::assertNotSentTo($commenter, CommentReplied::class);
 });

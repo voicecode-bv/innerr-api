@@ -62,11 +62,11 @@ class CommentController extends Controller
 
         $comment->load('user:id,name,username,avatar');
 
-        if ($request->user()->id !== $post->user_id) {
-            $post->user->notify(new PostCommented($request->user(), $post, $comment));
-        }
-
-        if ($comment->parent_comment_id !== null) {
+        if ($comment->parent_comment_id === null) {
+            if ($request->user()->id !== $post->user_id) {
+                $post->user->notify(new PostCommented($request->user(), $post, $comment));
+            }
+        } else {
             $comment->load('parentComment.user');
             $parentAuthor = $comment->parentComment->user;
 
