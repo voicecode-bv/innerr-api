@@ -59,6 +59,11 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
     public function toArray(object $notifiable): array
     {
         return [
+            'title' => __('Ownership transfer requested'),
+            'body' => __(':name wants to transfer ":circle" to you', [
+                'name' => $this->transfer->fromUser->name,
+                'circle' => $this->transfer->circle->name,
+            ]),
             'transfer_id' => $this->transfer->id,
             'circle_id' => $this->transfer->circle_id,
             'circle_name' => $this->transfer->circle->name,

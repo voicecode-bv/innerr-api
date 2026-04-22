@@ -59,6 +59,11 @@ class CircleOwnershipTransferAcceptedNotification extends Notification implement
     public function toArray(object $notifiable): array
     {
         return [
+            'title' => __('Ownership transfer accepted'),
+            'body' => __(':name is now the owner of :circle', [
+                'name' => $this->transfer->toUser->name,
+                'circle' => $this->transfer->circle->name,
+            ]),
             'transfer_id' => $this->transfer->id,
             'circle_id' => $this->transfer->circle_id,
             'circle_name' => $this->transfer->circle->name,
