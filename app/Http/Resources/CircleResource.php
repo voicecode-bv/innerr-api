@@ -42,6 +42,28 @@ use OpenApi\Attributes as OA;
                 ],
             ),
         ),
+        new OA\Property(
+            property: 'pending_ownership_transfer',
+            type: 'object',
+            nullable: true,
+            description: 'Pending ownership transfer for this circle, if any. Only returned to the current owner and the target user.',
+            properties: [
+                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
+                new OA\Property(property: 'from_user', properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'username', type: 'string'),
+                    new OA\Property(property: 'avatar', type: 'string', nullable: true),
+                ], type: 'object'),
+                new OA\Property(property: 'to_user', properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'username', type: 'string'),
+                    new OA\Property(property: 'avatar', type: 'string', nullable: true),
+                ], type: 'object'),
+            ],
+        ),
     ],
 )]
 class CircleResource extends JsonResource
@@ -76,6 +98,36 @@ class CircleResource extends JsonResource
                 'username' => $invitation->user?->username,
                 'created_at' => $invitation->created_at,
             ])),
+            'pending_ownership_transfer' => $this->whenLoaded('ownershipTransfers', function () use ($request) {
+                $transfer = $this->ownershipTransfers->first();
+
+                if ($transfer === null) {
+                    return null;
+                }
+
+                $userId = $request->user()?->id;
+
+                if ($userId !== $transfer->from_user_id && $userId !== $transfer->to_user_id) {
+                    return null;
+                }
+
+                return [
+                    'id' => $transfer->id,
+                    'created_at' => $transfer->created_at,
+                    'from_user' => [
+                        'id' => $transfer->fromUser->id,
+                        'name' => $transfer->fromUser->name,
+                        'username' => $transfer->fromUser->username,
+                        'avatar' => MediaUrl::sign($transfer->fromUser->avatar),
+                    ],
+                    'to_user' => [
+                        'id' => $transfer->toUser->id,
+                        'name' => $transfer->toUser->name,
+                        'username' => $transfer->toUser->username,
+                        'avatar' => MediaUrl::sign($transfer->toUser->avatar),
+                    ],
+                ];
+            }),
         ];
     }
 }

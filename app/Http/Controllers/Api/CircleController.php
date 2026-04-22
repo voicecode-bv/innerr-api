@@ -133,6 +133,11 @@ class CircleController extends Controller
             $circle->load(['invitations' => fn ($query) => $query->where('status', InvitationStatus::Pending)->with('user:id,username')]);
         }
 
+        $circle->load(['ownershipTransfers' => fn ($query) => $query
+            ->where('status', InvitationStatus::Pending)
+            ->with(['fromUser:id,name,username,avatar', 'toUser:id,name,username,avatar']),
+        ]);
+
         return new CircleResource($circle);
     }
 

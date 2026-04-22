@@ -222,6 +222,66 @@ it('cannot decline another users transfer', function () {
         ->assertForbidden();
 });
 
+it('exposes pending ownership transfer on the circle detail for the owner', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $circle->members()->attach($member);
+
+    $transfer = CircleOwnershipTransfer::factory()->create([
+        'circle_id' => $circle->id,
+        'from_user_id' => $owner->id,
+        'to_user_id' => $member->id,
+        'status' => InvitationStatus::Pending,
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/circles/{$circle->id}")
+        ->assertOk()
+        ->assertJsonPath('data.pending_ownership_transfer.id', $transfer->id)
+        ->assertJsonPath('data.pending_ownership_transfer.to_user.id', $member->id)
+        ->assertJsonPath('data.pending_ownership_transfer.from_user.id', $owner->id);
+});
+
+it('exposes pending ownership transfer on the circle detail for the target', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $circle->members()->attach($member);
+
+    $transfer = CircleOwnershipTransfer::factory()->create([
+        'circle_id' => $circle->id,
+        'from_user_id' => $owner->id,
+        'to_user_id' => $member->id,
+        'status' => InvitationStatus::Pending,
+    ]);
+
+    $this->actingAs($member)
+        ->getJson("/api/circles/{$circle->id}")
+        ->assertOk()
+        ->assertJsonPath('data.pending_ownership_transfer.id', $transfer->id);
+});
+
+it('hides pending ownership transfer from uninvolved members', function () {
+    $owner = User::factory()->create();
+    $target = User::factory()->create();
+    $bystander = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $circle->members()->attach([$target->id, $bystander->id]);
+
+    CircleOwnershipTransfer::factory()->create([
+        'circle_id' => $circle->id,
+        'from_user_id' => $owner->id,
+        'to_user_id' => $target->id,
+        'status' => InvitationStatus::Pending,
+    ]);
+
+    $this->actingAs($bystander)
+        ->getJson("/api/circles/{$circle->id}")
+        ->assertOk()
+        ->assertJsonPath('data.pending_ownership_transfer', null);
+});
+
 it('allows a new transfer after a previous one was declined', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
