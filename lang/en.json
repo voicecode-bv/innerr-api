@@ -10,5 +10,10 @@
     ":name has invited you to join their circles.": ":name has invited you to join their circles.",
     "If you don't have an account yet, please register first.": "If you don't have an account yet, please register first.",
 
+    "Ownership transfer requested": "Ownership transfer requested",
+    ":name wants to transfer \":circle\" to you": ":name wants to transfer \":circle\" to you",
+    "Ownership transfer accepted": "Ownership transfer accepted",
+    ":name is now the owner of :circle": ":name is now the owner of :circle",
+
     "validation.max_video_duration": "The video may not be longer than :max minutes."
 }

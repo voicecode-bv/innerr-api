@@ -10,6 +10,8 @@ enum NotificationPreference: string
     case CommentReplied = 'comment_replied';
     case NewCirclePost = 'new_circle_post';
     case CircleInvitationAccepted = 'circle_invitation_accepted';
+    case CircleOwnershipTransferRequested = 'circle_ownership_transfer_requested';
+    case CircleOwnershipTransferAccepted = 'circle_ownership_transfer_accepted';
 
     /**
      * @return array<string, bool>
@@ -23,6 +25,8 @@ enum NotificationPreference: string
             self::CommentReplied->value => true,
             self::NewCirclePost->value => true,
             self::CircleInvitationAccepted->value => true,
+            self::CircleOwnershipTransferRequested->value => true,
+            self::CircleOwnershipTransferAccepted->value => true,
         ];
     }
 }

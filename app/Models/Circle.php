@@ -51,6 +51,14 @@ class Circle extends Model
     }
 
     /**
+     * @return HasMany<CircleOwnershipTransfer, $this>
+     */
+    public function ownershipTransfers(): HasMany
+    {
+        return $this->hasMany(CircleOwnershipTransfer::class);
+    }
+
+    /**
      * @return BelongsToMany<Post, $this>
      */
     public function posts(): BelongsToMany

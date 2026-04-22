@@ -26,6 +26,11 @@ class CirclePolicy
         return $user->id === $circle->user_id;
     }
 
+    public function transferOwnership(User $user, Circle $circle): bool
+    {
+        return $user->id === $circle->user_id;
+    }
+
     public function invite(User $user, Circle $circle): bool
     {
         if ($user->id === $circle->user_id) {

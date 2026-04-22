@@ -15,6 +15,11 @@
     ":name has joined :circle": ":name is lid geworden van :circle",
     ":name has accepted your invitation and joined the circle \":circle\".": ":name heeft je uitnodiging geaccepteerd en is lid geworden van de kring \":circle\".",
 
+    "Ownership transfer requested": "Eigenaarschap overdracht aangevraagd",
+    ":name wants to transfer \":circle\" to you": ":name wil \":circle\" aan jou overdragen",
+    "Ownership transfer accepted": "Eigenaarschap overdracht geaccepteerd",
+    ":name is now the owner of :circle": ":name is nu de eigenaar van :circle",
+
     "Your data export is ready": "Je data-export staat klaar",
     "Your personal data export is ready to download.": "Je persoonlijke data-export staat klaar om te downloaden.",
     "Download your data": "Download je gegevens",

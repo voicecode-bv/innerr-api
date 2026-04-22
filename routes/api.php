@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleInvitationController;
 use App\Http\Controllers\Api\CircleMemberController;
+use App\Http\Controllers\Api\CircleOwnershipTransferController;
 use App\Http\Controllers\Api\CommentController;
 use App\Http\Controllers\Api\CommentLikeController;
 use App\Http\Controllers\Api\DefaultCircleController;
@@ -72,6 +73,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/circle-invitations', [CircleInvitationController::class, 'index'])->name('api.circle-invitations.index');
     Route::post('/circle-invitations/{circleInvitation}/accept', [CircleInvitationController::class, 'accept'])->name('api.circle-invitations.accept');
     Route::post('/circle-invitations/{circleInvitation}/decline', [CircleInvitationController::class, 'decline'])->name('api.circle-invitations.decline');
+
+    Route::post('/circles/{circle}/ownership-transfer', [CircleOwnershipTransferController::class, 'store'])->name('api.circle-ownership-transfers.store');
+    Route::delete('/circles/{circle}/ownership-transfer/{circleOwnershipTransfer}', [CircleOwnershipTransferController::class, 'destroy'])->name('api.circle-ownership-transfers.destroy');
+    Route::get('/circle-ownership-transfers', [CircleOwnershipTransferController::class, 'index'])->name('api.circle-ownership-transfers.index');
+    Route::post('/circle-ownership-transfers/{circleOwnershipTransfer}/accept', [CircleOwnershipTransferController::class, 'accept'])->name('api.circle-ownership-transfers.accept');
+    Route::post('/circle-ownership-transfers/{circleOwnershipTransfer}/decline', [CircleOwnershipTransferController::class, 'decline'])->name('api.circle-ownership-transfers.decline');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('api.notifications.unread-count');
