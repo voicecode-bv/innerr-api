@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\MediaStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
+use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostResource;
 use App\Jobs\TranscodeVideo;
 use App\Models\Post;
@@ -164,6 +165,57 @@ class PostController extends Controller
         return (new PostResource($post))
             ->response()
             ->setStatusCode(201);
+    }
+
+    #[OA\Put(
+        path: '/api/posts/{post}',
+        summary: 'Update post',
+        description: 'Update the caption and/or circles of a post. Requires ownership.',
+        tags: ['Posts'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
+                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Post updated',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', ref: '#/components/schemas/Post'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Post not found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    public function update(UpdatePostRequest $request, Post $post): PostResource
+    {
+        $this->authorize('update', $post);
+
+        if ($request->has('caption')) {
+            $post->update(['caption' => $request->validated('caption')]);
+        }
+
+        if ($request->has('circle_ids')) {
+            $post->circles()->sync($request->validated('circle_ids'));
+        }
+
+        $post->load(['user:id,name,username,avatar', 'circles:id,name']);
+
+        return new PostResource($post);
     }
 
     #[OA\Delete(

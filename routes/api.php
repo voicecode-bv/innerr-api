@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/posts/{post}', [PostController::class, 'show'])->name('api.posts.show');
     Route::post('/posts', [PostController::class, 'store'])->name('api.posts.store');
+    Route::put('/posts/{post}', [PostController::class, 'update'])->name('api.posts.update');
     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('api.posts.destroy');
 
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('api.comments.store');

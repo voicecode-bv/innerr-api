@@ -203,6 +203,121 @@ it('requires authentication to store a post', function () {
         ->assertUnauthorized();
 });
 
+it('can update caption on own post', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'caption' => 'Original caption',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['caption' => 'Updated caption'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.caption', 'Updated caption');
+
+    expect($post->fresh()->caption)->toBe('Updated caption');
+});
+
+it('can clear caption on own post', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'caption' => 'Original caption',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['caption' => null])
+        ->assertSuccessful()
+        ->assertJsonPath('data.caption', null);
+
+    expect($post->fresh()->caption)->toBeNull();
+});
+
+it('can sync circles on own post', function () {
+    $user = User::factory()->create();
+    $originalCircle = Circle::factory()->create(['user_id' => $user->id]);
+    $newCircle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $post->circles()->attach($originalCircle);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['circle_ids' => [$newCircle->id]])
+        ->assertSuccessful()
+        ->assertJsonPath('data.circles.0.id', $newCircle->id);
+
+    expect($post->fresh()->circles->pluck('id')->all())->toBe([$newCircle->id]);
+});
+
+it('can update caption and circles together', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'caption' => 'Original',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'caption' => 'Updated',
+            'circle_ids' => [$circle->id],
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.caption', 'Updated')
+        ->assertJsonPath('data.circles.0.id', $circle->id);
+});
+
+it('can update a post as a circle member', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create();
+    $circle->members()->attach($user);
+    $post = Post::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['circle_ids' => [$circle->id]])
+        ->assertSuccessful();
+});
+
+it('cannot update a post with circles the user does not belong to', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $otherCircle = Circle::factory()->create();
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['circle_ids' => [$otherCircle->id]])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('circle_ids.0');
+});
+
+it('validates update post fields', function (array $data, string $errorField) {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", $data)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($errorField);
+})->with([
+    'caption too long' => [['caption' => str_repeat('a', 2201)], 'caption'],
+    'empty circle_ids' => [['circle_ids' => []], 'circle_ids'],
+    'circle_ids not array' => [['circle_ids' => 1], 'circle_ids'],
+]);
+
+it('cannot update another users post', function () {
+    $post = Post::factory()->create();
+
+    $this->actingAs(User::factory()->create())
+        ->putJson("/api/posts/{$post->id}", ['caption' => 'Hijacked'])
+        ->assertForbidden();
+});
+
+it('requires authentication to update a post', function () {
+    $post = Post::factory()->create();
+
+    $this->putJson("/api/posts/{$post->id}", ['caption' => 'x'])
+        ->assertUnauthorized();
+});
+
 it('can delete own post', function () {
     Storage::fake('public');
     $user = User::factory()->create();
