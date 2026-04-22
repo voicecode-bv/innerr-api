@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\LikeController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferenceController;
 use App\Http\Controllers\Api\OAuthController;
+use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\WaitingListEntryController;
@@ -83,6 +84,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/device-token', [DeviceTokenController::class, 'store'])->name('api.device-token.store');
     Route::post('/device-info', [DeviceInfoController::class, 'store'])->name('api.device-info.store');
+
+    Route::post('/onboarding/complete', OnboardingController::class)->name('api.onboarding.complete');
 
     Route::delete('/account', AccountController::class)
         ->middleware('throttle:3,60')

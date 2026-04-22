@@ -74,8 +74,11 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
         $circleName = $this->invitation->circle->name;
 
         return (new MailMessage)
-            ->subject("{$this->acceptedByName} has joined {$circleName}")
-            ->greeting('Good news!')
-            ->line("{$this->acceptedByName} has accepted your invitation and joined the circle \"{$circleName}\".");
+            ->subject(__(':name has joined :circle', ['name' => $this->acceptedByName, 'circle' => $circleName]))
+            ->greeting(__('Good news!'))
+            ->line(__(':name has accepted your invitation and joined the circle ":circle".', [
+                'name' => $this->acceptedByName,
+                'circle' => $circleName,
+            ]));
     }
 }
