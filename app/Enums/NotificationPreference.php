@@ -12,6 +12,7 @@ enum NotificationPreference: string
     case CircleInvitationAccepted = 'circle_invitation_accepted';
     case CircleOwnershipTransferRequested = 'circle_ownership_transfer_requested';
     case CircleOwnershipTransferAccepted = 'circle_ownership_transfer_accepted';
+    case CircleOwnershipTransferDeclined = 'circle_ownership_transfer_declined';
 
     /**
      * @return array<string, bool>
@@ -27,6 +28,7 @@ enum NotificationPreference: string
             self::CircleInvitationAccepted->value => true,
             self::CircleOwnershipTransferRequested->value => true,
             self::CircleOwnershipTransferAccepted->value => true,
+            self::CircleOwnershipTransferDeclined->value => true,
         ];
     }
 }

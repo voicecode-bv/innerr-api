@@ -12,7 +12,7 @@ use NotificationChannels\Fcm\FcmChannel;
 use NotificationChannels\Fcm\FcmMessage;
 use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
-class CircleOwnershipTransferRequestedNotification extends Notification implements ShouldQueue
+class CircleOwnershipTransferDeclinedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
@@ -27,7 +27,7 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
     {
         $channels = ['mail', 'database'];
 
-        if (! empty($notifiable->fcm_token) && $notifiable->wantsPushNotification(NotificationPreference::CircleOwnershipTransferRequested)) {
+        if (! empty($notifiable->fcm_token) && $notifiable->wantsPushNotification(NotificationPreference::CircleOwnershipTransferDeclined)) {
             $channels[] = FcmChannel::class;
         }
 
@@ -36,29 +36,28 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
 
     public function toMail(object $notifiable): MailMessage
     {
-        $fromName = $this->transfer->fromUser->name;
+        $toName = $this->transfer->toUser->name;
         $circleName = $this->transfer->circle->name;
 
         return (new MailMessage)
-            ->subject(__(':name wants to transfer ":circle" to you', ['name' => $fromName, 'circle' => $circleName]))
+            ->subject(__(':name declined ownership of :circle', ['name' => $toName, 'circle' => $circleName]))
             ->greeting(__('Hello :name!', ['name' => $notifiable->name]))
-            ->line(__(':name wants to transfer ownership of the circle ":circle" to you.', [
-                'name' => $fromName,
+            ->line(__(':name declined the ownership transfer of the circle ":circle". You remain the owner.', [
+                'name' => $toName,
                 'circle' => $circleName,
-            ]))
-            ->line(__('Open the app to accept or decline this request.'));
+            ]));
     }
 
     public function toFcm(object $notifiable): FcmMessage
     {
         return (new FcmMessage(notification: new FcmNotification(
-            title: __('Ownership transfer requested'),
-            body: __(':name wants to transfer ":circle" to you', [
-                'name' => $this->transfer->fromUser->name,
+            title: __('Ownership transfer declined'),
+            body: __(':name declined ownership of :circle', [
+                'name' => $this->transfer->toUser->name,
                 'circle' => $this->transfer->circle->name,
             ]),
         )))->data([
-            'type' => 'circle-ownership-transfer-requested',
+            'type' => 'circle-ownership-transfer-declined',
             'circle_id' => (string) $this->transfer->circle_id,
             'transfer_id' => (string) $this->transfer->id,
         ]);
@@ -66,7 +65,7 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
 
     public function databaseType(object $notifiable): string
     {
-        return 'circle-ownership-transfer-requested';
+        return 'circle-ownership-transfer-declined';
     }
 
     /**
@@ -78,10 +77,10 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
             'transfer_id' => $this->transfer->id,
             'circle_id' => $this->transfer->circle_id,
             'circle_name' => $this->transfer->circle->name,
-            'from_user_id' => $this->transfer->from_user_id,
-            'from_user_name' => $this->transfer->fromUser->name,
-            'from_user_username' => $this->transfer->fromUser->username,
-            'from_user_avatar' => $this->transfer->fromUser->avatar,
+            'to_user_id' => $this->transfer->to_user_id,
+            'to_user_name' => $this->transfer->toUser->name,
+            'to_user_username' => $this->transfer->toUser->username,
+            'to_user_avatar' => $this->transfer->toUser->avatar,
         ];
     }
 }

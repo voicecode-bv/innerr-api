@@ -5,6 +5,7 @@ use App\Models\Circle;
 use App\Models\CircleOwnershipTransfer;
 use App\Models\User;
 use App\Notifications\CircleOwnershipTransferAcceptedNotification;
+use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -190,7 +191,9 @@ it('cannot accept an already accepted transfer', function () {
         ->assertForbidden();
 });
 
-it('declines a pending transfer without swapping ownership', function () {
+it('declines a pending transfer without swapping ownership and notifies the owner', function () {
+    Notification::fake();
+
     $owner = User::factory()->create();
     $member = User::factory()->create();
     $circle = Circle::factory()->for($owner)->create();
@@ -210,6 +213,8 @@ it('declines a pending transfer without swapping ownership', function () {
 
     expect($transfer->fresh()->status)->toBe(InvitationStatus::Declined);
     expect($circle->fresh()->user_id)->toBe($owner->id);
+
+    Notification::assertSentTo($owner, CircleOwnershipTransferDeclinedNotification::class);
 });
 
 it('cannot decline another users transfer', function () {

@@ -19,6 +19,13 @@
     ":name wants to transfer \":circle\" to you": ":name wil \":circle\" aan jou overdragen",
     "Ownership transfer accepted": "Eigenaarschap overdracht geaccepteerd",
     ":name is now the owner of :circle": ":name is nu de eigenaar van :circle",
+    "Ownership transfer declined": "Eigenaarschap overdracht geweigerd",
+    ":name declined ownership of :circle": ":name heeft het eigenaarschap van :circle geweigerd",
+
+    ":name wants to transfer ownership of the circle \":circle\" to you.": ":name wil het eigenaarschap van de kring \":circle\" aan jou overdragen.",
+    "Open the app to accept or decline this request.": "Open de app om dit verzoek te accepteren of te weigeren.",
+    ":name accepted your ownership transfer and is now the owner of the circle \":circle\".": ":name heeft je eigenaarschap overdracht geaccepteerd en is nu de eigenaar van de kring \":circle\".",
+    ":name declined the ownership transfer of the circle \":circle\". You remain the owner.": ":name heeft de eigenaarschap overdracht van de kring \":circle\" geweigerd. Jij blijft de eigenaar.",
 
     "Your data export is ready": "Je data-export staat klaar",
     "Your personal data export is ready to download.": "Je persoonlijke data-export staat klaar om te downloaden.",

@@ -14,6 +14,13 @@
     ":name wants to transfer \":circle\" to you": ":name wants to transfer \":circle\" to you",
     "Ownership transfer accepted": "Ownership transfer accepted",
     ":name is now the owner of :circle": ":name is now the owner of :circle",
+    "Ownership transfer declined": "Ownership transfer declined",
+    ":name declined ownership of :circle": ":name declined ownership of :circle",
+
+    ":name wants to transfer ownership of the circle \":circle\" to you.": ":name wants to transfer ownership of the circle \":circle\" to you.",
+    "Open the app to accept or decline this request.": "Open the app to accept or decline this request.",
+    ":name accepted your ownership transfer and is now the owner of the circle \":circle\".": ":name accepted your ownership transfer and is now the owner of the circle \":circle\".",
+    ":name declined the ownership transfer of the circle \":circle\". You remain the owner.": ":name declined the ownership transfer of the circle \":circle\". You remain the owner.",
 
     "validation.max_video_duration": "The video may not be longer than :max minutes."
 }

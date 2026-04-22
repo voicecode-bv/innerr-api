@@ -9,6 +9,7 @@ use App\Http\Resources\CircleOwnershipTransferResource;
 use App\Models\Circle;
 use App\Models\CircleOwnershipTransfer;
 use App\Notifications\CircleOwnershipTransferAcceptedNotification;
+use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -243,6 +244,10 @@ class CircleOwnershipTransferController extends Controller
         }
 
         $circleOwnershipTransfer->update(['status' => InvitationStatus::Declined]);
+
+        $circleOwnershipTransfer->fromUser->notify(
+            new CircleOwnershipTransferDeclinedNotification($circleOwnershipTransfer)
+        );
 
         return response()->json(['message' => 'Ownership transfer declined.']);
     }
