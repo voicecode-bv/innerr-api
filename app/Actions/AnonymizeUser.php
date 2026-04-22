@@ -59,6 +59,8 @@ class AnonymizeUser
                 'notification_preferences' => null,
                 'default_circle_ids' => null,
                 'device_info' => null,
+                'apple_id' => null,
+                'google_id' => null,
                 'email_verified_at' => null,
                 'remember_token' => null,
                 'anonymized_at' => now(),
