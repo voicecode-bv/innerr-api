@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use MatanYadaev\EloquentSpatial\Enums\Srid;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 
 it('can show a post with relations', function () {
     $post = Post::factory()->create();
@@ -208,6 +210,145 @@ it('requires authentication to store a post', function () {
         ->assertUnauthorized();
 });
 
+it('extracts EXIF metadata when uploading a JPEG', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $fixture = new UploadedFile(
+        __DIR__.'/../../fixtures/photo-with-exif.jpg',
+        'photo.jpg',
+        'image/jpeg',
+        null,
+        true,
+    );
+
+    $response = $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => $fixture,
+            'circle_ids' => [$circle->id],
+        ])
+        ->assertCreated();
+
+    expect($response->json('data.taken_at'))->not->toBeNull()
+        ->and($response->json('data.latitude'))->toEqualWithDelta(48.858331, 0.0001)
+        ->and($response->json('data.longitude'))->toEqualWithDelta(2.294497, 0.0001);
+
+    $post = Post::first();
+    expect($post->taken_at->format('Y-m-d H:i:s'))->toBe('2024-06-15 14:30:00')
+        ->and($post->latitude)->toEqualWithDelta(48.858331, 0.0001)
+        ->and($post->longitude)->toEqualWithDelta(2.294497, 0.0001);
+});
+
+it('stores null EXIF fields when the image has no EXIF', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $fixture = new UploadedFile(
+        __DIR__.'/../../fixtures/photo-without-exif.jpg',
+        'photo.jpg',
+        'image/jpeg',
+        null,
+        true,
+    );
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => $fixture,
+            'circle_ids' => [$circle->id],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.taken_at', null)
+        ->assertJsonPath('data.latitude', null)
+        ->assertJsonPath('data.longitude', null);
+
+    $post = Post::first();
+    expect($post->taken_at)->toBeNull()
+        ->and($post->coordinates)->toBeNull();
+});
+
+it('lets client-supplied EXIF override what would be extracted from the file', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    // Use the EXIF fixture but client overrides — client values must win.
+    $fixture = new UploadedFile(
+        __DIR__.'/../../fixtures/photo-with-exif.jpg',
+        'photo.jpg',
+        'image/jpeg',
+        null,
+        true,
+    );
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => $fixture,
+            'circle_ids' => [$circle->id],
+            'taken_at' => '2023-01-01T12:00:00Z',
+            'latitude' => 52.370216,
+            'longitude' => 4.895168,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.latitude', 52.370216)
+        ->assertJsonPath('data.longitude', 4.895168);
+
+    $post = Post::first();
+    expect($post->taken_at->format('Y-m-d'))->toBe('2023-01-01')
+        ->and($post->latitude)->toEqualWithDelta(52.370216, 0.0001);
+});
+
+it('rejects out-of-range EXIF values', function (array $data, string $errorField) {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $payload = array_merge([
+        'media' => UploadedFile::fake()->image('photo.jpg'),
+        'circle_ids' => [$circle->id],
+    ], $data);
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', $payload)
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors($errorField);
+})->with([
+    'latitude > 90' => [['latitude' => 91, 'longitude' => 0], 'latitude'],
+    'latitude < -90' => [['latitude' => -91, 'longitude' => 0], 'latitude'],
+    'longitude > 180' => [['latitude' => 0, 'longitude' => 181], 'longitude'],
+    'taken_at in future' => [['taken_at' => '2099-01-01T00:00:00Z'], 'taken_at'],
+    'taken_at too old' => [['taken_at' => '1980-01-01T00:00:00Z'], 'taken_at'],
+    'lat without lng' => [['latitude' => 12.34], 'longitude'],
+    'lng without lat' => [['longitude' => 56.78], 'longitude'],
+]);
+
+it('finds posts within a radius using PostGIS ST_DWithin', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+
+    // Eiffel Tower
+    $near = Post::factory()->create([
+        'user_id' => $user->id,
+        'coordinates' => new Point(48.858331, 2.294497, Srid::WGS84->value),
+    ]);
+
+    // Amsterdam, ~430 km away
+    Post::factory()->create([
+        'user_id' => $user->id,
+        'coordinates' => new Point(52.370216, 4.895168, Srid::WGS84->value),
+    ]);
+
+    $center = new Point(48.858000, 2.294000, Srid::WGS84->value);
+
+    $found = Post::query()
+        ->whereDistanceSphere('coordinates', $center, '<=', 5000) // 5km radius
+        ->pluck('id')
+        ->all();
+
+    expect($found)->toBe([$near->id]);
+});
+
 it('throttles post creation', function () {
     Storage::fake('public');
     $user = User::factory()->create();
@@ -383,10 +524,14 @@ it('removes comments and notifications when deleting a post', function () {
         ->deleteJson("/api/posts/{$post->id}")
         ->assertNoContent();
 
+    $countNotificationsForPost = fn (int $postId): int => $user->notifications()
+        ->whereRaw("data::jsonb->>'post_id' = ?", [(string) $postId])
+        ->count();
+
     expect(Comment::where('post_id', $post->id)->count())->toBe(0)
         ->and(Comment::where('post_id', $otherPost->id)->count())->toBe(1)
-        ->and($user->notifications()->where('data->post_id', $post->id)->count())->toBe(0)
-        ->and($user->notifications()->where('data->post_id', $otherPost->id)->count())->toBe(1);
+        ->and($countNotificationsForPost($post->id))->toBe(0)
+        ->and($countNotificationsForPost($otherPost->id))->toBe(1);
 });
 
 it('cannot delete another users post', function () {

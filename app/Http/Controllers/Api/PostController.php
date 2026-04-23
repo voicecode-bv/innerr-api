@@ -12,10 +12,13 @@ use App\Models\Post;
 use App\Models\User;
 use App\Notifications\NewCirclePost;
 use App\Services\MediaUploadService;
+use App\Support\ExifExtractor;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use MatanYadaev\EloquentSpatial\Enums\Srid;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 use OpenApi\Attributes as OA;
 
 class PostController extends Controller
@@ -115,6 +118,7 @@ class PostController extends Controller
         $thumbnailPath = null;
         $thumbnailSmallPath = null;
         $mediaStatus = MediaStatus::Ready;
+        $exif = ['taken_at' => null, 'latitude' => null, 'longitude' => null];
 
         if ($mediaType === 'video') {
             // Generate the thumbnail from the local upload before the file
@@ -131,10 +135,17 @@ class PostController extends Controller
             );
             $mediaStatus = MediaStatus::Processing;
         } else {
+            // Read EXIF before MediaUploadService runs — convertHeicToJpeg may
+            // replace the UploadedFile, and Intervention strips EXIF on save.
+            $exif = ExifExtractor::fromUploadedFile($file);
+
             $thumbnailPath = $media->generateImageThumbnail($file, $request->user()->id, 'posts');
             $thumbnailSmallPath = $media->generateImageThumbnail($file, $request->user()->id, 'posts', size: 100);
             $path = $media->store($file, $request->user()->id, 'posts');
         }
+
+        $latitude = $request->validated('latitude') ?? $exif['latitude'];
+        $longitude = $request->validated('longitude') ?? $exif['longitude'];
 
         $post = $request->user()->posts()->create([
             'media_url' => $path,
@@ -144,6 +155,10 @@ class PostController extends Controller
             'thumbnail_small_url' => $thumbnailSmallPath,
             'caption' => $request->validated('caption'),
             'location' => $request->validated('location'),
+            'taken_at' => $request->validated('taken_at') ?? $exif['taken_at'],
+            'coordinates' => ($latitude !== null && $longitude !== null)
+                ? new Point((float) $latitude, (float) $longitude, Srid::WGS84->value)
+                : null,
         ]);
 
         if ($mediaType === 'video') {

@@ -19,6 +19,9 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'media_status', type: 'string', enum: ['processing', 'ready', 'failed'], description: 'Processing status of the media. Videos start as "processing" until transcoding completes.'),
         new OA\Property(property: 'caption', type: 'string', nullable: true),
         new OA\Property(property: 'location', type: 'string', nullable: true),
+        new OA\Property(property: 'taken_at', type: 'string', format: 'date-time', nullable: true, description: 'Capture time read from EXIF, if present.'),
+        new OA\Property(property: 'latitude', type: 'number', format: 'float', nullable: true, description: 'GPS latitude from EXIF, decimal degrees.'),
+        new OA\Property(property: 'longitude', type: 'number', format: 'float', nullable: true, description: 'GPS longitude from EXIF, decimal degrees.'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'user', type: 'object', properties: [
@@ -59,6 +62,9 @@ class PostResource extends JsonResource
             'media_status' => $this->media_status?->value ?? 'ready',
             'caption' => $this->caption,
             'location' => $this->location,
+            'taken_at' => $this->taken_at,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'user' => [
