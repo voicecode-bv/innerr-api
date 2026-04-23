@@ -58,6 +58,21 @@ it('requires authentication to store a comment', function () {
         ->assertUnauthorized();
 });
 
+it('throttles comment creation', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create();
+
+    $this->actingAs($user);
+
+    foreach (range(1, 30) as $i) {
+        $this->postJson("/api/posts/{$post->id}/comments", ['body' => "Comment {$i}"])
+            ->assertCreated();
+    }
+
+    $this->postJson("/api/posts/{$post->id}/comments", ['body' => 'Too many'])
+        ->assertStatus(429);
+});
+
 it('returns not found for commenting on non-existent post', function () {
     $this->actingAs(User::factory()->create())
         ->postJson('/api/posts/99999/comments', ['body' => 'Hello'])

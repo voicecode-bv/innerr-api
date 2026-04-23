@@ -50,11 +50,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/feed', FeedController::class)->name('api.feed');
 
     Route::get('/posts/{post}', [PostController::class, 'show'])->name('api.posts.show');
-    Route::post('/posts', [PostController::class, 'store'])->name('api.posts.store');
+    Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:10,1')->name('api.posts.store');
     Route::put('/posts/{post}', [PostController::class, 'update'])->name('api.posts.update');
     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('api.posts.destroy');
 
-    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->name('api.comments.store');
+    Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->middleware('throttle:30,1')->name('api.comments.store');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('api.comments.destroy');
 
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('api.likes.store');

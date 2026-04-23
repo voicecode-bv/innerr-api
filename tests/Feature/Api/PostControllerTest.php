@@ -203,6 +203,26 @@ it('requires authentication to store a post', function () {
         ->assertUnauthorized();
 });
 
+it('throttles post creation', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user);
+
+    foreach (range(1, 10) as $i) {
+        $this->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image("photo-{$i}.jpg"),
+            'circle_ids' => [$circle->id],
+        ])->assertCreated();
+    }
+
+    $this->postJson('/api/posts', [
+        'media' => UploadedFile::fake()->image('photo-extra.jpg'),
+        'circle_ids' => [$circle->id],
+    ])->assertStatus(429);
+});
+
 it('can update caption on own post', function () {
     $user = User::factory()->create();
     $post = Post::factory()->create([
