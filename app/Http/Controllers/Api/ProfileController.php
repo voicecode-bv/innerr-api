@@ -177,9 +177,12 @@ class ProfileController extends Controller
         $user = $request->user();
 
         $media->delete($user->avatar);
+        $media->delete($user->avatar_thumbnail);
+
+        $file = $request->file('avatar');
 
         $path = $media->store(
-            $request->file('avatar'),
+            $file,
             $user->id,
             'avatars',
             width: 500,
@@ -187,7 +190,12 @@ class ProfileController extends Controller
             cover: true,
         );
 
-        $user->update(['avatar' => $path]);
+        $thumbnailPath = $media->generateImageThumbnail($file, $user->id, 'avatars', size: 100);
+
+        $user->update([
+            'avatar' => $path,
+            'avatar_thumbnail' => $thumbnailPath,
+        ]);
 
         return response()->json([
             'user' => new UserResource($user),
@@ -219,7 +227,8 @@ class ProfileController extends Controller
 
         if ($user->avatar) {
             $media->delete($user->avatar);
-            $user->update(['avatar' => null]);
+            $media->delete($user->avatar_thumbnail);
+            $user->update(['avatar' => null, 'avatar_thumbnail' => null]);
         }
 
         return response()->json([

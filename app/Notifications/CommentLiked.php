@@ -62,6 +62,7 @@ class CommentLiked extends Notification implements ShouldQueue
             'user_name' => $this->liker->name,
             'user_username' => $this->liker->username,
             'user_avatar' => $this->liker->avatar,
+            'user_avatar_thumbnail' => $this->liker->avatar_thumbnail,
             'comment_id' => $this->comment->id,
             'comment_body' => $this->comment->body,
             'post_id' => $this->comment->post_id,

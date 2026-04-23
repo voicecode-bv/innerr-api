@@ -62,8 +62,10 @@ class NewCirclePost extends Notification implements ShouldQueue
             'user_name' => $this->poster->name,
             'user_username' => $this->poster->username,
             'user_avatar' => $this->poster->avatar,
+            'user_avatar_thumbnail' => $this->poster->avatar_thumbnail,
             'post_id' => $this->post->id,
             'post_media_url' => $this->post->media_url,
+            'post_thumbnail_small_url' => $this->post->thumbnail_small_url,
         ];
     }
 }

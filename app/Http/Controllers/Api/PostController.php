@@ -113,6 +113,7 @@ class PostController extends Controller
         $mediaType = str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image';
 
         $thumbnailPath = null;
+        $thumbnailSmallPath = null;
         $mediaStatus = MediaStatus::Ready;
 
         if ($mediaType === 'video') {
@@ -131,6 +132,7 @@ class PostController extends Controller
             $mediaStatus = MediaStatus::Processing;
         } else {
             $thumbnailPath = $media->generateImageThumbnail($file, $request->user()->id, 'posts');
+            $thumbnailSmallPath = $media->generateImageThumbnail($file, $request->user()->id, 'posts', size: 100);
             $path = $media->store($file, $request->user()->id, 'posts');
         }
 
@@ -139,6 +141,7 @@ class PostController extends Controller
             'media_type' => $mediaType,
             'media_status' => $mediaStatus,
             'thumbnail_url' => $thumbnailPath,
+            'thumbnail_small_url' => $thumbnailSmallPath,
             'caption' => $request->validated('caption'),
             'location' => $request->validated('location'),
         ]);
@@ -240,6 +243,7 @@ class PostController extends Controller
 
         $media->delete($post->media_url);
         $media->delete($post->thumbnail_url);
+        $media->delete($post->thumbnail_small_url);
 
         $post->delete();
 

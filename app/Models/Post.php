@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 
-#[Fillable(['user_id', 'media_url', 'media_type', 'media_status', 'thumbnail_url', 'caption', 'location'])]
+#[Fillable(['user_id', 'media_url', 'media_type', 'media_status', 'thumbnail_url', 'thumbnail_small_url', 'caption', 'location'])]
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */

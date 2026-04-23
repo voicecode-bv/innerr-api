@@ -15,20 +15,19 @@ class NotificationResource extends JsonResource
     {
         $data = $this->data;
 
-        if (isset($data['user_avatar'])) {
-            $data['user_avatar'] = MediaUrl::sign($data['user_avatar']);
-        }
-
-        if (isset($data['from_user_avatar'])) {
-            $data['from_user_avatar'] = MediaUrl::sign($data['from_user_avatar']);
-        }
-
-        if (isset($data['to_user_avatar'])) {
-            $data['to_user_avatar'] = MediaUrl::sign($data['to_user_avatar']);
-        }
-
-        if (isset($data['post_media_url'])) {
-            $data['post_media_url'] = MediaUrl::sign($data['post_media_url']);
+        foreach ([
+            'user_avatar',
+            'user_avatar_thumbnail',
+            'from_user_avatar',
+            'from_user_avatar_thumbnail',
+            'to_user_avatar',
+            'to_user_avatar_thumbnail',
+            'post_media_url',
+            'post_thumbnail_small_url',
+        ] as $key) {
+            if (isset($data[$key])) {
+                $data[$key] = MediaUrl::sign($data[$key]);
+            }
         }
 
         $data = $this->decorateWithText($data);

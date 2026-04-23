@@ -112,6 +112,11 @@ it('can store a post with an image and circles', function () {
     expect($post->media_url)->toStartWith("users/{$user->id}/posts/");
     expect($post->thumbnail_url)->toStartWith("users/{$user->id}/posts/thumbnails/");
     Storage::disk('public')->assertExists($post->thumbnail_url);
+    expect($post->thumbnail_small_url)->toStartWith("users/{$user->id}/posts/thumbnails/");
+    Storage::disk('public')->assertExists($post->thumbnail_small_url);
+
+    [$width, $height] = getimagesize(Storage::disk('public')->path($post->thumbnail_small_url));
+    expect($width)->toBe(100)->and($height)->toBe(100);
 });
 
 it('can store a post with a video', function () {

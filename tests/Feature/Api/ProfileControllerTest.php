@@ -262,11 +262,16 @@ it('can upload an avatar', function () {
         ->assertOk()
         ->assertJsonStructure(['user' => ['avatar']]);
 
-    expect($user->fresh()->avatar)->not->toBeNull();
+    expect($user->fresh()->avatar)->not->toBeNull()
+        ->and($user->fresh()->avatar_thumbnail)->not->toBeNull();
 
     Storage::disk('public')->assertExists(
         str_replace(Storage::disk('public')->url(''), '', $user->fresh()->avatar),
     );
+    Storage::disk('public')->assertExists($user->fresh()->avatar_thumbnail);
+
+    [$width, $height] = getimagesize(Storage::disk('public')->path($user->fresh()->avatar_thumbnail));
+    expect($width)->toBe(100)->and($height)->toBe(100);
 });
 
 it('deletes old avatar when uploading a new one', function () {
@@ -309,6 +314,7 @@ it('can delete avatar', function () {
         ->assertOk();
 
     $avatarPath = str_replace(Storage::disk('public')->url(''), '', $user->fresh()->avatar);
+    $thumbnailPath = $user->fresh()->avatar_thumbnail;
 
     // Delete avatar
     $this->actingAs($user)
@@ -316,8 +322,10 @@ it('can delete avatar', function () {
         ->assertOk()
         ->assertJsonPath('user.avatar', null);
 
-    expect($user->fresh()->avatar)->toBeNull();
+    expect($user->fresh()->avatar)->toBeNull()
+        ->and($user->fresh()->avatar_thumbnail)->toBeNull();
     Storage::disk('public')->assertMissing($avatarPath);
+    Storage::disk('public')->assertMissing($thumbnailPath);
 });
 
 it('validates avatar must be an image', function () {

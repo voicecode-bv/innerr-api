@@ -64,6 +64,7 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
             'user_name' => $this->acceptedByName,
             'user_username' => $this->invitation->user?->username,
             'user_avatar' => $this->invitation->user?->avatar,
+            'user_avatar_thumbnail' => $this->invitation->user?->avatar_thumbnail,
             'circle_id' => $this->invitation->circle_id,
             'circle_name' => $this->invitation->circle->name,
         ];

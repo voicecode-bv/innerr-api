@@ -66,8 +66,10 @@ class CommentReplied extends Notification implements ShouldQueue
             'user_name' => $this->replier->name,
             'user_username' => $this->replier->username,
             'user_avatar' => $this->replier->avatar,
+            'user_avatar_thumbnail' => $this->replier->avatar_thumbnail,
             'post_id' => $this->post->id,
             'post_media_url' => $this->post->media_url,
+            'post_thumbnail_small_url' => $this->post->thumbnail_small_url,
             'comment_id' => $this->reply->id,
             'comment_body' => $this->reply->body,
         ];

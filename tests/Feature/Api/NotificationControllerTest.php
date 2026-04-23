@@ -122,6 +122,30 @@ it('can mark specific notifications as read', function () {
     expect($user->readNotifications()->count())->toBe(1);
 });
 
+it('includes signed small-thumbnail URLs for avatar and post media', function () {
+    $postOwner = User::factory()->create();
+    $liker = User::factory()->create([
+        'avatar' => 'users/1/avatars/avatar.jpg',
+        'avatar_thumbnail' => 'users/1/avatars/thumbnails/avatar-sm.jpg',
+    ]);
+    $post = Post::factory()->create([
+        'user_id' => $postOwner->id,
+        'thumbnail_small_url' => 'users/2/posts/thumbnails/post-sm.jpg',
+    ]);
+
+    $this->actingAs($liker)->postJson("/api/posts/{$post->id}/like");
+
+    $data = $this->actingAs($postOwner)
+        ->getJson('/api/notifications')
+        ->assertOk()
+        ->json('data.0.data');
+
+    expect($data['user_avatar_thumbnail'])->toContain('avatar-sm.jpg')
+        ->and($data['user_avatar_thumbnail'])->toContain('signature=')
+        ->and($data['post_thumbnail_small_url'])->toContain('post-sm.jpg')
+        ->and($data['post_thumbnail_small_url'])->toContain('signature=');
+});
+
 it('requires authentication to view notifications', function () {
     $this->getJson('/api/notifications')->assertUnauthorized();
 });

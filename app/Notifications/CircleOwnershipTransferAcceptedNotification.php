@@ -81,6 +81,7 @@ class CircleOwnershipTransferAcceptedNotification extends Notification implement
             'to_user_name' => $this->transfer->toUser->name,
             'to_user_username' => $this->transfer->toUser->username,
             'to_user_avatar' => $this->transfer->toUser->avatar,
+            'to_user_avatar_thumbnail' => $this->transfer->toUser->avatar_thumbnail,
         ];
     }
 }
