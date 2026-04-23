@@ -1,11 +1,48 @@
 <?php
 
 use App\Enums\NotificationPreference;
+use App\Models\Like;
 use App\Models\Post;
 use App\Models\User;
 use App\Notifications\PostLiked;
 use Illuminate\Support\Facades\Notification;
 use NotificationChannels\Fcm\FcmChannel;
+
+it('lists users who liked a post, newest first', function () {
+    $post = Post::factory()->create();
+    $older = User::factory()->create(['name' => 'Older Liker']);
+    $newer = User::factory()->create(['name' => 'Newer Liker']);
+
+    Like::factory()->create([
+        'likeable_id' => $post->id,
+        'likeable_type' => Post::class,
+        'user_id' => $older->id,
+        'created_at' => now()->subMinute(),
+    ]);
+    Like::factory()->create([
+        'likeable_id' => $post->id,
+        'likeable_type' => Post::class,
+        'user_id' => $newer->id,
+        'created_at' => now(),
+    ]);
+
+    $response = $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}/likes")
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2)
+        ->assertJsonCount(2, 'data');
+
+    expect($response->json('data.0.id'))->toBe($newer->id);
+    expect($response->json('data.1.id'))->toBe($older->id);
+    expect($response->json('data.0'))->toHaveKeys(['id', 'name', 'username', 'avatar']);
+});
+
+it('requires authentication to list likes', function () {
+    $post = Post::factory()->create();
+
+    $this->getJson("/api/posts/{$post->id}/likes")
+        ->assertUnauthorized();
+});
 
 it('cannot like own post', function () {
     $user = User::factory()->create();
