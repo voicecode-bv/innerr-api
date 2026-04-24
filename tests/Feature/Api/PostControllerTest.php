@@ -268,6 +268,37 @@ it('stores null EXIF fields when the image has no EXIF', function () {
         ->and($post->coordinates)->toBeNull();
 });
 
+it('stores client-supplied coordinates when the cropped file has no EXIF', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $fixture = new UploadedFile(
+        __DIR__.'/../../fixtures/photo-without-exif.jpg',
+        'photo.jpg',
+        'image/jpeg',
+        null,
+        true,
+    );
+
+    $this->actingAs($user)
+        ->post('/api/posts', [
+            'media' => $fixture,
+            'circle_ids' => [$circle->id],
+            'taken_at' => '2024-06-15T14:30:00Z',
+            'latitude' => 52.370216,
+            'longitude' => 4.895168,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.latitude', 52.370216)
+        ->assertJsonPath('data.longitude', 4.895168);
+
+    $post = Post::first();
+    expect($post->taken_at->format('Y-m-d H:i'))->toBe('2024-06-15 14:30')
+        ->and($post->latitude)->toEqualWithDelta(52.370216, 0.0001)
+        ->and($post->longitude)->toEqualWithDelta(4.895168, 0.0001);
+});
+
 it('lets client-supplied EXIF override what would be extracted from the file', function () {
     Storage::fake('public');
     $user = User::factory()->create();

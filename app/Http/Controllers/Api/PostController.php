@@ -16,6 +16,7 @@ use App\Support\ExifExtractor;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
 use MatanYadaev\EloquentSpatial\Objects\Point;
@@ -115,6 +116,18 @@ class PostController extends Controller
         $mimeType = $file->getMimeType();
         $mediaType = str_starts_with((string) $mimeType, 'video/') ? 'video' : 'image';
 
+        Log::info('[post-store] incoming location payload', [
+            'content_type' => $request->header('Content-Type'),
+            'has_latitude' => $request->has('latitude'),
+            'has_longitude' => $request->has('longitude'),
+            'filled_latitude' => $request->filled('latitude'),
+            'filled_longitude' => $request->filled('longitude'),
+            'raw_latitude' => $request->input('latitude'),
+            'raw_longitude' => $request->input('longitude'),
+            'raw_taken_at' => $request->input('taken_at'),
+            'input_keys' => array_keys($request->all()),
+        ]);
+
         $thumbnailPath = null;
         $thumbnailSmallPath = null;
         $mediaStatus = MediaStatus::Ready;
@@ -146,6 +159,15 @@ class PostController extends Controller
 
         $latitude = $request->validated('latitude') ?? $exif['latitude'];
         $longitude = $request->validated('longitude') ?? $exif['longitude'];
+
+        Log::info('[post-store] resolved location', [
+            'exif_latitude' => $exif['latitude'],
+            'exif_longitude' => $exif['longitude'],
+            'validated_latitude' => $request->validated('latitude'),
+            'validated_longitude' => $request->validated('longitude'),
+            'final_latitude' => $latitude,
+            'final_longitude' => $longitude,
+        ]);
 
         $post = $request->user()->posts()->create([
             'media_url' => $path,
