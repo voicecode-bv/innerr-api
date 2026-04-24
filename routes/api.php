@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferenceController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceKeyController;
@@ -49,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
     Route::get('/feed', FeedController::class)->name('api.feed');
+
+    Route::get('/photos/map', PhotoMapController::class)->name('api.photos.map');
 
     Route::get('/posts/{post}', [PostController::class, 'show'])->name('api.posts.show');
     Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:10,1')->name('api.posts.store');
