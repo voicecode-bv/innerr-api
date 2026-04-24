@@ -53,12 +53,30 @@ sudo apt-get install cmake build-essential libde265-dev libjpeg-dev libpng-dev l
 
 # Compile libheif 1.19+ from source (Ubuntu's default version is too old)
 cd /tmp
-git clone --depth 1 https://github.com/nickersk/libheif.git
+git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.git
 cd libheif && mkdir build && cd build
 cmake --preset=release ..
 make -j$(nproc)
 sudo make install
 sudo ldconfig
+```
+
+Verify the installation:
+
+```bash
+# Binary path + libheif version (expect 1.19+)
+which heif-convert
+heif-convert --version | head -1
+pkg-config --modversion libheif
+
+# Sanity-check a real HEIC file
+heif-convert /path/to/photo.heic /tmp/out.jpg && file /tmp/out.jpg
+```
+
+Confirm that PHP sees the binary (restart PHP-FPM after `ldconfig` if `which` is empty inside PHP):
+
+```bash
+php artisan tinker --execute 'dump(trim(shell_exec("which heif-convert")), trim(shell_exec("heif-convert --version 2>&1 | head -1")));'
 ```
 
 `MediaUploadService` uses `heif-convert` to convert HEIC photos to JPEG because the PHP Imagick extension and ImageMagick 6.x cannot reliably decode iPhone HEIC files with HDR gain maps.
