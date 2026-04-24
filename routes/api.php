@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\ServiceKeyController;
 use App\Http\Controllers\Api\WaitingListEntryController;
 use App\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
@@ -109,4 +110,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('api.profile.avatar.delete');
     Route::get('/profiles/{user:username}', [ProfileController::class, 'show'])->name('api.profiles.show');
     Route::get('/profiles/{user:username}/posts', [ProfileController::class, 'posts'])->name('api.profiles.posts');
+
+    Route::get('/service-keys', ServiceKeyController::class)->name('api.service-keys.index');
 });
