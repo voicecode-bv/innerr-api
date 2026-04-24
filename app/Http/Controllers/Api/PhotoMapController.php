@@ -95,9 +95,12 @@ class PhotoMapController extends Controller
         $posts = Post::query()
             ->select(['id', 'user_id', 'media_type', 'thumbnail_small_url', 'thumbnail_url', 'coordinates', 'taken_at'])
             ->whereNotNull('coordinates')
-            ->whereRaw(
-                'coordinates && ST_MakeEnvelope(?, ?, ?, ?, 4326)::geography',
-                [$west, $south, $east, $north],
+            ->when(
+                $east - $west < 180 && $north - $south < 180,
+                fn ($query) => $query->whereRaw(
+                    'coordinates && ST_MakeEnvelope(?, ?, ?, ?, 4326)::geography',
+                    [$west, $south, $east, $north],
+                ),
             )
             ->when($mediaType !== 'all', fn ($query) => $query->where('media_type', $mediaType))
             ->where(function ($query) use ($user) {

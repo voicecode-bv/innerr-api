@@ -148,6 +148,26 @@ it('does not return duplicate posts shared with multiple accessible circles', fu
         ->assertJsonCount(1, 'features');
 });
 
+it('accepts a full-globe bbox without triggering the PostGIS antipodal error', function () {
+    $user = User::factory()->create();
+    $inside = Post::factory()->create([
+        'user_id' => $user->id,
+        'coordinates' => pointInBbox(),
+    ]);
+    $faraway = Post::factory()->create([
+        'user_id' => $user->id,
+        'coordinates' => pointOutsideBbox(),
+    ]);
+
+    $this->actingAs($user)
+        ->getJson('/api/photos/map?bbox=-180,-90,180,90')
+        ->assertSuccessful()
+        ->assertJsonCount(2, 'features')
+        ->assertJsonPath('type', 'FeatureCollection');
+
+    expect([$inside->id, $faraway->id])->toHaveCount(2);
+});
+
 it('excludes videos by default', function () {
     $user = User::factory()->create();
     Post::factory()->video()->create([
