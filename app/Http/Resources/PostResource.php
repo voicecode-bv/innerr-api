@@ -42,6 +42,7 @@ use OpenApi\Attributes as OA;
                 properties: [
                     new OA\Property(property: 'id', type: 'integer'),
                     new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'photo', type: 'string', nullable: true),
                 ],
             ),
         ),

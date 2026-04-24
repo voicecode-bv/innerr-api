@@ -41,7 +41,7 @@ class FeedController extends Controller
 
         $posts = Post::with([
             'user:id,name,username,avatar',
-            'circles:id,name',
+            'circles:id,name,photo',
         ])
             ->where(function ($query) use ($user) {
                 $query->where('posts.user_id', $user->id)
