@@ -43,6 +43,8 @@ Boost provides your agent 15+ tools and skills that help agents build Laravel ap
 
 ## Server Requirements
 
+### `heif-convert` (HEIC/HEIF support)
+
 `heif-convert` (libheif 1.19+) is required on the server for HEIC/HEIF image support (iPhone photo uploads):
 
 ```bash
@@ -60,6 +62,72 @@ sudo ldconfig
 ```
 
 `MediaUploadService` uses `heif-convert` to convert HEIC photos to JPEG because the PHP Imagick extension and ImageMagick 6.x cannot reliably decode iPhone HEIC files with HDR gain maps.
+
+### PostGIS (post EXIF coordinates)
+
+Posts store the GPS coordinates extracted from photo EXIF in a `geography(Point, 4326)` column on the `posts` table. PostGIS must be installed and enabled on every Postgres database the app talks to.
+
+#### On Laravel Forge (production / staging)
+
+1. SSH into the Forge server and install PostGIS for the matching Postgres major version:
+
+   ```bash
+   psql --version                                       # e.g. PostgreSQL 16.x
+   sudo apt-get update
+   sudo apt-get install -y postgresql-16-postgis-3      # match the major version
+   ```
+
+2. Enable the extension on the site database (one-time):
+
+   ```bash
+   sudo -u postgres psql -d <db-name> -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+   sudo -u postgres psql -d <db-name> -c "SELECT PostGIS_Version();"
+   ```
+
+3. Run pending migrations from the site directory:
+
+   ```bash
+   cd /home/forge/<site>
+   php artisan migrate --force
+   ```
+
+The `enable_postgis_extension` migration runs `CREATE EXTENSION IF NOT EXISTS postgis` and is idempotent. The migration requires a superuser role (the default Forge `forge` role qualifies); if it fails with `permission denied to create extension`, run step 2 once manually as `postgres` and re-run the migration.
+
+#### Local development
+
+Herd's bundled Postgres works the same way:
+
+```bash
+psql -U root -d innerr -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+php artisan migrate
+```
+
+#### Verifying a database has everything
+
+```sh
+psql -U <user> -d <db> -tAc "SELECT extname || ' ' || extversion FROM pg_extension WHERE extname='postgis'"
+psql -U <user> -d <db> -tAc "SELECT column_name, udt_name FROM information_schema.columns WHERE table_name='posts' AND column_name IN ('taken_at','coordinates') ORDER BY column_name"
+psql -U <user> -d <db> -tAc "SELECT indexname FROM pg_indexes WHERE tablename='posts' AND indexname='posts_coordinates_gist'"
+```
+
+You should see `postgis 3.x`, both EXIF columns (`taken_at timestamp`, `coordinates geography`), and the GiST index name.
+
+## Running tests
+
+Tests run against a dedicated Postgres database with PostGIS enabled (the spatial functions used by EXIF post coordinates do not exist in SQLite). One-time local setup:
+
+```bash
+psql -U root -d postgres -c "CREATE DATABASE innerr_test;"
+psql -U root -d innerr_test -c "CREATE EXTENSION postgis;"
+```
+
+Then run tests as usual:
+
+```bash
+php artisan test --compact
+```
+
+The DB connection is wired up in `phpunit.xml`; `RefreshDatabase` re-runs migrations into the clean schema for each test class.
 
 ## Contributing
 
