@@ -85,6 +85,7 @@ class PostResource extends JsonResource
             $data['circles'] = $this->whenLoaded('circles', fn () => $this->circles->map(fn ($circle) => [
                 'id' => $circle->id,
                 'name' => $circle->name,
+                'photo' => MediaUrl::sign($circle->photo),
             ]));
         }
 
