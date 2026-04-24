@@ -50,4 +50,8 @@ return [
         'private_key' => env('APPLE_PRIVATE_KEY'),
     ],
 
+    'mapbox' => [
+        'public_token' => env('MAPBOX_PUBLIC_TOKEN'),
+    ],
+
 ];
