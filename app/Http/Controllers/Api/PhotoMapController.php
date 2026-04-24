@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Post;
+use App\Models\User;
 use App\Support\MediaUrl;
+use Closure;
+use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -79,6 +82,67 @@ class PhotoMapController extends Controller
     )]
     public function __invoke(Request $request): JsonResponse
     {
+        $authUser = $request->user();
+
+        return $this->buildResponse($request, function (Builder $query) use ($authUser): void {
+            $query->where(function (Builder $q) use ($authUser): void {
+                $q->where('posts.user_id', $authUser->id)
+                    ->orWhereHas('circles', function (Builder $circle) use ($authUser): void {
+                        $circle->where('circles.user_id', $authUser->id)
+                            ->orWhereHas('members', fn (Builder $m) => $m->whereKey($authUser->id));
+                    });
+            });
+        });
+    }
+
+    #[OA\Get(
+        path: '/api/profiles/{username}/photos/map',
+        summary: 'Photos for map (profile)',
+        description: 'Return a user\'s photos with coordinates as a GeoJSON FeatureCollection. When viewing another user\'s profile, results are limited to posts that appear in at least one circle the authenticated user owns or is a member of, so photos in circles the authenticated user does not belong to are never exposed. When viewing the authenticated user\'s own profile, all of their posts are returned. A bounding box is required and the result is capped at '.self::MAX_RESULTS.' features.',
+        tags: ['Photos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'username', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(
+                name: 'bbox',
+                in: 'query',
+                required: true,
+                description: 'Bounding box as "west,south,east,north" in WGS84 decimal degrees.',
+                schema: new OA\Schema(type: 'string', example: '4.7,52.3,5.0,52.5'),
+            ),
+            new OA\Parameter(
+                name: 'media_type',
+                in: 'query',
+                required: false,
+                description: 'Filter by media type. Defaults to "image".',
+                schema: new OA\Schema(type: 'string', enum: ['image', 'video', 'all'], default: 'image'),
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'GeoJSON FeatureCollection of photos with coordinates.'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'User not found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    public function profile(Request $request, User $user): JsonResponse
+    {
+        $authUser = $request->user();
+
+        return $this->buildResponse($request, function (Builder $query) use ($authUser, $user): void {
+            $query->where('posts.user_id', $user->id);
+
+            if ($authUser->id !== $user->id) {
+                $query->whereHas('circles', function (Builder $circle) use ($authUser): void {
+                    $circle->where('circles.user_id', $authUser->id)
+                        ->orWhereHas('members', fn (Builder $m) => $m->whereKey($authUser->id));
+                });
+            }
+        });
+    }
+
+    private function buildResponse(Request $request, Closure $applyVisibilityScope): JsonResponse
+    {
         $validated = $request->validate([
             'bbox' => ['required', 'string', 'regex:/^-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?,-?\d+(\.\d+)?$/'],
             'media_type' => ['sometimes', Rule::in(['image', 'video', 'all'])],
@@ -89,29 +153,23 @@ class PhotoMapController extends Controller
         abort_if($west >= $east || $south >= $north, 422, 'Invalid bounding box: west must be less than east and south must be less than north.');
         abort_if($south < -90 || $north > 90 || $west < -180 || $east > 180, 422, 'Bounding box coordinates out of range.');
 
-        $user = $request->user();
         $mediaType = $validated['media_type'] ?? 'image';
 
-        $posts = Post::query()
+        $query = Post::query()
             ->select(['id', 'user_id', 'media_type', 'thumbnail_small_url', 'thumbnail_url', 'coordinates', 'taken_at'])
             ->whereNotNull('coordinates')
             ->when(
                 $east - $west < 180 && $north - $south < 180,
-                fn ($query) => $query->whereRaw(
+                fn (Builder $q) => $q->whereRaw(
                     'coordinates && ST_MakeEnvelope(?, ?, ?, ?, 4326)::geography',
                     [$west, $south, $east, $north],
                 ),
             )
-            ->when($mediaType !== 'all', fn ($query) => $query->where('media_type', $mediaType))
-            ->where(function ($query) use ($user) {
-                $query->where('posts.user_id', $user->id)
-                    ->orWhereHas('circles', function ($q) use ($user) {
-                        $q->where('circles.user_id', $user->id)
-                            ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
-                    });
-            })
-            ->limit(self::MAX_RESULTS + 1)
-            ->get();
+            ->when($mediaType !== 'all', fn (Builder $q) => $q->where('media_type', $mediaType));
+
+        $applyVisibilityScope($query);
+
+        $posts = $query->limit(self::MAX_RESULTS + 1)->get();
 
         $truncated = $posts->count() > self::MAX_RESULTS;
         $posts = $posts->take(self::MAX_RESULTS);

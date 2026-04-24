@@ -113,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('api.profile.avatar.delete');
     Route::get('/profiles/{user:username}', [ProfileController::class, 'show'])->name('api.profiles.show');
     Route::get('/profiles/{user:username}/posts', [ProfileController::class, 'posts'])->name('api.profiles.posts');
+    Route::get('/profiles/{user:username}/photos/map', [PhotoMapController::class, 'profile'])->name('api.profiles.photos.map');
 
     Route::get('/service-keys', ServiceKeyController::class)->name('api.service-keys.index');
 });
