@@ -54,4 +54,8 @@ return [
         'public_token' => env('MAPBOX_PUBLIC_TOKEN'),
     ],
 
+    'flare' => [
+        'public_key' => env('FLARE_PUBLIC_KEY'),
+    ],
+
 ];

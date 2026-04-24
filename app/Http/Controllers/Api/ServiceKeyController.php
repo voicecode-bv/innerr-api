@@ -39,7 +39,7 @@ class ServiceKeyController extends Controller
                 'public_token' => config('services.mapbox.public_token'),
             ],
             'flare' => [
-                'key' => config('flare.key'),
+                'key' => config('services.flare.public_key'),
             ],
         ]);
     }
