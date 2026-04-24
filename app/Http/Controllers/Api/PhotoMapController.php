@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Circle;
 use App\Models\Post;
 use App\Models\User;
 use App\Support\MediaUrl;
 use Closure;
 use Illuminate\Contracts\Database\Eloquent\Builder;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,6 +17,8 @@ use OpenApi\Attributes as OA;
 
 class PhotoMapController extends Controller
 {
+    use AuthorizesRequests;
+
     private const MAX_RESULTS = 5000;
 
     #[OA\Get(
@@ -138,6 +142,46 @@ class PhotoMapController extends Controller
                         ->orWhereHas('members', fn (Builder $m) => $m->whereKey($authUser->id));
                 });
             }
+        });
+    }
+
+    #[OA\Get(
+        path: '/api/circles/{circle}/photos/map',
+        summary: 'Photos for map (circle)',
+        description: 'Return photos posted in a single circle as a GeoJSON FeatureCollection. Restricted to circles the authenticated user owns or is a member of. A bounding box is required and the result is capped at '.self::MAX_RESULTS.' features.',
+        tags: ['Photos'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(
+                name: 'bbox',
+                in: 'query',
+                required: true,
+                description: 'Bounding box as "west,south,east,north" in WGS84 decimal degrees.',
+                schema: new OA\Schema(type: 'string', example: '4.7,52.3,5.0,52.5'),
+            ),
+            new OA\Parameter(
+                name: 'media_type',
+                in: 'query',
+                required: false,
+                description: 'Filter by media type. Defaults to "image".',
+                schema: new OA\Schema(type: 'string', enum: ['image', 'video', 'all'], default: 'image'),
+            ),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'GeoJSON FeatureCollection of photos with coordinates.'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Circle not found'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    public function circle(Request $request, Circle $circle): JsonResponse
+    {
+        $this->authorize('view', $circle);
+
+        return $this->buildResponse($request, function (Builder $query) use ($circle): void {
+            $query->whereHas('circles', fn (Builder $q) => $q->whereKey($circle->id));
         });
     }
 

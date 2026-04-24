@@ -423,3 +423,100 @@ describe('profile map', function () {
             ->assertJsonPath('features.0.id', $video->id);
     });
 });
+
+describe('circle map', function () {
+    it('requires authentication', function () {
+        $circle = Circle::factory()->create();
+
+        $this->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertUnauthorized();
+    });
+
+    it('returns 404 for an unknown circle', function () {
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/circles/99999/photos/map?bbox='.BBOX)
+            ->assertNotFound();
+    });
+
+    it('returns 403 when the user is not a member or owner of the circle', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertForbidden();
+    });
+
+    it('returns posts in the circle when the user owns it', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create(['user_id' => $user->id]);
+        $post = Post::factory()->create(['coordinates' => pointInBbox()]);
+        $post->circles()->attach($circle);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'features')
+            ->assertJsonPath('features.0.id', $post->id);
+    });
+
+    it('returns posts in the circle when the user is a member', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create();
+        $circle->members()->attach($user);
+        $post = Post::factory()->create(['coordinates' => pointInBbox()]);
+        $post->circles()->attach($circle);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'features')
+            ->assertJsonPath('features.0.id', $post->id);
+    });
+
+    it('excludes posts that are not in the circle', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create(['user_id' => $user->id]);
+        $otherCircle = Circle::factory()->create(['user_id' => $user->id]);
+        $post = Post::factory()->create(['coordinates' => pointInBbox()]);
+        $post->circles()->attach($otherCircle);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'features');
+    });
+
+    it('excludes posts outside the bbox', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create(['user_id' => $user->id]);
+        $post = Post::factory()->create(['coordinates' => pointOutsideBbox()]);
+        $post->circles()->attach($circle);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'features');
+    });
+
+    it('excludes videos by default and includes them when media_type=video', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->create(['user_id' => $user->id]);
+        $image = Post::factory()->create(['coordinates' => pointInBbox()]);
+        $image->circles()->attach($circle);
+        $video = Post::factory()->video()->create(['coordinates' => pointInBbox()]);
+        $video->circles()->attach($circle);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX)
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'features')
+            ->assertJsonPath('features.0.id', $image->id);
+
+        $this->actingAs($user)
+            ->getJson('/api/circles/'.$circle->id.'/photos/map?bbox='.BBOX.'&media_type=video')
+            ->assertSuccessful()
+            ->assertJsonCount(1, 'features')
+            ->assertJsonPath('features.0.id', $video->id);
+    });
+});
