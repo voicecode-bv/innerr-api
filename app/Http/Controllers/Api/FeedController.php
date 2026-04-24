@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PostResource;
+use App\Models\Circle;
 use App\Models\Post;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use OpenApi\Attributes as OA;
 
 class FeedController extends Controller
 {
+    use AuthorizesRequests;
+
     #[OA\Get(
         path: '/api/feed',
         summary: 'Feed',
@@ -50,6 +54,51 @@ class FeedController extends Controller
                             ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
                     });
             })
+            ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $user->id)])
+            ->latest()
+            ->paginate(10);
+
+        return PostResource::collection($posts);
+    }
+
+    #[OA\Get(
+        path: '/api/circles/{circle}/feed',
+        summary: 'Circle feed',
+        description: 'Return a paginated feed of posts in a single circle, newest first. Restricted to circles the authenticated user owns or is a member of.',
+        tags: ['Feed'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Paginated list of posts',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(ref: '#/components/schemas/Post')),
+                        new OA\Property(property: 'links', type: 'object'),
+                        new OA\Property(property: 'meta', type: 'object'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Circle not found'),
+        ],
+    )]
+    public function circle(Request $request, Circle $circle): AnonymousResourceCollection
+    {
+        $this->authorize('view', $circle);
+
+        $user = $request->user();
+
+        $posts = Post::with([
+            'user:id,name,username,avatar',
+            'circles:id,name,photo',
+        ])
+            ->whereHas('circles', fn ($query) => $query->whereKey($circle->id))
             ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $user->id)])
             ->latest()
             ->paginate(10);

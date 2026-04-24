@@ -69,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/comments/{comment}/like', [CommentLikeController::class, 'destroy'])->name('api.comment-likes.destroy');
 
     Route::apiResource('circles', CircleController::class);
+    Route::get('/circles/{circle}/feed', [FeedController::class, 'circle'])->name('api.circles.feed');
     Route::get('/circles/{circle}/photos/map', [PhotoMapController::class, 'circle'])->name('api.circles.photos.map');
     Route::put('/circles/{circle}/settings', [CircleController::class, 'updateSettings'])->name('api.circles.settings.update');
     Route::post('/circles/{circle}/photo', [CircleController::class, 'updatePhoto'])->name('api.circles.photo.update');
