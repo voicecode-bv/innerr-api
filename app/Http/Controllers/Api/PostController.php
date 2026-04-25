@@ -92,6 +92,7 @@ class PostController extends Controller
                         new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                         new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true),
                         new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
+                        new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
                     ],
                 ),
             ),
@@ -215,7 +216,7 @@ class PostController extends Controller
     #[OA\Put(
         path: '/api/posts/{post}',
         summary: 'Update post',
-        description: 'Update the caption and/or circles of a post. Requires ownership.',
+        description: 'Update the caption, circles, and/or tags of a post. Requires ownership. To assign or remove tags, send `tag_ids` with the full desired set: tags absent from the array are detached (and their `usage_count` is decremented), new ones are attached (and their `usage_count` is incremented). Send `tag_ids: []` to remove all tags.',
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
@@ -227,6 +228,7 @@ class PostController extends Controller
                 properties: [
                     new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                     new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
+                    new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
                 ],
             ),
         ),
