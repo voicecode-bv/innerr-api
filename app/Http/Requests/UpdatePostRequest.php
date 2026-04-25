@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Circle;
+use App\Models\Tag;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePostRequest extends FormRequest
@@ -32,6 +33,16 @@ class UpdatePostRequest extends FormRequest
                 $userId = $this->user()->id;
 
                 if ($circle->user_id !== $userId && ! $circle->members()->where('user_id', $userId)->exists()) {
+                    $fail(__('validation.exists', ['attribute' => $attribute]));
+                }
+            }],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', function (string $attribute, mixed $value, \Closure $fail) {
+                $exists = Tag::where('id', $value)
+                    ->where('user_id', $this->user()->id)
+                    ->exists();
+
+                if (! $exists) {
                     $fail(__('validation.exists', ['attribute' => $attribute]));
                 }
             }],

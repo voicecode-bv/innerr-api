@@ -76,6 +76,14 @@ class User extends Authenticatable implements HasLocalePreference, PortableContr
     }
 
     /**
+     * @return HasMany<Tag, $this>
+     */
+    public function tags(): HasMany
+    {
+        return $this->hasMany(Tag::class);
+    }
+
+    /**
      * @return BelongsToMany<Circle, $this>
      */
     public function memberOfCircles(): BelongsToMany

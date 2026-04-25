@@ -4,6 +4,7 @@ use App\Models\Circle;
 use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Post;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -606,4 +607,97 @@ it('converts heic uploads to jpeg', function () {
     expect($storedFile)->toEndWith('.jpg');
     Storage::disk('public')->assertExists($post->media_url);
     Storage::disk('public')->assertExists("users/{$user->id}/originals/posts/{$storedFile}");
+});
+
+it('attaches tags to a new post and increments usage_count', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+    $travel = Tag::factory()->for($user)->create(['name' => 'travel']);
+    $food = Tag::factory()->for($user)->create(['name' => 'food']);
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => [$circle->id],
+            'tag_ids' => [$travel->id, $food->id],
+        ])
+        ->assertCreated();
+
+    $post = Post::first();
+    expect($post->tags()->pluck('tags.id')->all())->toEqualCanonicalizing([$travel->id, $food->id]);
+    expect($travel->fresh()->usage_count)->toBe(1);
+    expect($food->fresh()->usage_count)->toBe(1);
+});
+
+it('rejects tag_ids that belong to another user', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+    $otherUsersTag = Tag::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => [$circle->id],
+            'tag_ids' => [$otherUsersTag->id],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('tag_ids.0');
+});
+
+it('syncs tags on update and adjusts usage_count both ways', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->for($user)->create();
+    $kept = Tag::factory()->for($user)->create();
+    $removed = Tag::factory()->for($user)->create();
+    $added = Tag::factory()->for($user)->create();
+    $post->syncTags([$kept->id, $removed->id]);
+
+    expect($kept->fresh()->usage_count)->toBe(1);
+    expect($removed->fresh()->usage_count)->toBe(1);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'tag_ids' => [$kept->id, $added->id],
+        ])
+        ->assertOk();
+
+    expect($post->tags()->pluck('tags.id')->all())->toEqualCanonicalizing([$kept->id, $added->id]);
+    expect($kept->fresh()->usage_count)->toBe(1);
+    expect($removed->fresh()->usage_count)->toBe(0);
+    expect($added->fresh()->usage_count)->toBe(1);
+});
+
+it('decrements usage_count for all tags when a post is deleted', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->for($user)->create();
+    $tag = Tag::factory()->for($user)->create();
+    $post->syncTags([$tag->id]);
+
+    expect($tag->fresh()->usage_count)->toBe(1);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/posts/{$post->id}")
+        ->assertNoContent();
+
+    expect($tag->fresh()->usage_count)->toBe(0);
+});
+
+it('includes tags only for the post owner on show', function () {
+    $owner = User::factory()->create();
+    $post = Post::factory()->for($owner)->create();
+    $tag = Tag::factory()->for($owner)->create(['name' => 'travel']);
+    $post->syncTags([$tag->id]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/posts/{$post->id}")
+        ->assertOk()
+        ->assertJsonPath('data.tags.0.id', $tag->id)
+        ->assertJsonPath('data.tags.0.name', 'travel');
+
+    $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}")
+        ->assertOk()
+        ->assertJsonMissingPath('data.tags');
 });

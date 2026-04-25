@@ -66,6 +66,7 @@ class PostController extends Controller
 
         if ($request->user()?->id === $post->user_id) {
             $relations[] = 'circles:id,name';
+            $relations[] = 'tags:id,name';
         }
 
         $post->load($relations);
@@ -191,6 +192,10 @@ class PostController extends Controller
 
         $post->circles()->attach($circleIds);
 
+        if ($request->filled('tag_ids')) {
+            $post->syncTags($request->validated('tag_ids'));
+        }
+
         $recipients = User::where(function ($query) use ($circleIds) {
             $query->whereHas('memberOfCircles', fn ($q) => $q->whereIn('circles.id', $circleIds))
                 ->orWhereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds));
@@ -253,7 +258,11 @@ class PostController extends Controller
             $post->circles()->sync($request->validated('circle_ids'));
         }
 
-        $post->load(['user:id,name,username,avatar', 'circles:id,name']);
+        if ($request->has('tag_ids')) {
+            $post->syncTags($request->validated('tag_ids') ?? []);
+        }
+
+        $post->load(['user:id,name,username,avatar', 'circles:id,name', 'tags:id,name']);
 
         return new PostResource($post);
     }

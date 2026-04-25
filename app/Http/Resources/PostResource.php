@@ -46,6 +46,17 @@ use OpenApi\Attributes as OA;
                 ],
             ),
         ),
+        new OA\Property(
+            property: 'tags',
+            type: 'array',
+            description: 'Tags the post is labeled with. Only included when the authenticated user is the post owner.',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'name', type: 'string'),
+                ],
+            ),
+        ),
     ],
 )]
 class PostResource extends JsonResource
@@ -86,6 +97,11 @@ class PostResource extends JsonResource
                 'id' => $circle->id,
                 'name' => $circle->name,
                 'photo' => MediaUrl::sign($circle->photo),
+            ]));
+
+            $data['tags'] = $this->whenLoaded('tags', fn () => $this->tags->map(fn ($tag) => [
+                'id' => $tag->id,
+                'name' => $tag->name,
             ]));
         }
 

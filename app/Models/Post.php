@@ -28,6 +28,37 @@ class Post extends Model
             DB::table('notifications')
                 ->whereRaw("data::jsonb->>'post_id' = ?", [(string) $post->id])
                 ->delete();
+
+            $tagIds = $post->tags()->pluck('tags.id')->all();
+
+            if ($tagIds !== []) {
+                Tag::whereIn('id', $tagIds)->decrement('usage_count');
+            }
+        });
+    }
+
+    /**
+     * Sync the tags attached to this post and keep each tag's denormalized
+     * `usage_count` in step with the changes.
+     *
+     * @param  array<int, int>  $tagIds
+     */
+    public function syncTags(array $tagIds): void
+    {
+        DB::transaction(function () use ($tagIds) {
+            $current = $this->tags()->pluck('tags.id')->all();
+            $toAttach = array_values(array_diff($tagIds, $current));
+            $toDetach = array_values(array_diff($current, $tagIds));
+
+            if ($toAttach !== []) {
+                $this->tags()->attach($toAttach);
+                Tag::whereIn('id', $toAttach)->increment('usage_count');
+            }
+
+            if ($toDetach !== []) {
+                $this->tags()->detach($toDetach);
+                Tag::whereIn('id', $toDetach)->decrement('usage_count');
+            }
         });
     }
 
@@ -83,5 +114,13 @@ class Post extends Model
     public function circles(): BelongsToMany
     {
         return $this->belongsToMany(Circle::class)->withTimestamps();
+    }
+
+    /**
+     * @return BelongsToMany<Tag, $this>
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class)->withTimestamps();
     }
 }

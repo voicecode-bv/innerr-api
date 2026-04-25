@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceKeyController;
+use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\WaitingListEntryController;
 use App\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
@@ -67,6 +68,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/comments/{comment}/like', [CommentLikeController::class, 'store'])->name('api.comment-likes.store');
     Route::delete('/comments/{comment}/like', [CommentLikeController::class, 'destroy'])->name('api.comment-likes.destroy');
+
+    Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
+    Route::post('/tags', [TagController::class, 'store'])->name('api.tags.store');
+    Route::put('/tags/{tag}', [TagController::class, 'update'])->name('api.tags.update');
+    Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('api.tags.destroy');
 
     Route::apiResource('circles', CircleController::class);
     Route::get('/circles/{circle}/feed', [FeedController::class, 'circle'])->name('api.circles.feed');
