@@ -145,14 +145,14 @@ it('paginates profile posts', function () {
     $viewer = User::factory()->create();
     $user = User::factory()->create();
     $circle = Circle::factory()->for($viewer)->create();
-    Post::factory()->count(35)->create(['user_id' => $user->id])->each(
+    Post::factory()->count(25)->create(['user_id' => $user->id])->each(
         fn (Post $post) => $post->circles()->attach($circle),
     );
 
     $this->actingAs($viewer)
         ->getJson("/api/profiles/{$user->username}/posts")
         ->assertSuccessful()
-        ->assertJsonCount(30, 'data');
+        ->assertJsonCount(21, 'data');
 });
 
 it('requires authentication to view profile posts', function () {

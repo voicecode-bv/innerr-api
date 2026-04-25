@@ -256,10 +256,10 @@ describe('circle feed', function () {
             ->and($ids[1])->toBe($oldest->id);
     });
 
-    it('paginates with 10 per page', function () {
+    it('paginates with 21 per page', function () {
         $user = User::factory()->create();
         $circle = Circle::factory()->create(['user_id' => $user->id]);
-        $posts = Post::factory()->count(12)->create();
+        $posts = Post::factory()->count(23)->create();
         foreach ($posts as $post) {
             $post->circles()->attach($circle);
         }
@@ -267,7 +267,7 @@ describe('circle feed', function () {
         $this->actingAs($user)
             ->getJson('/api/circles/'.$circle->id.'/feed')
             ->assertSuccessful()
-            ->assertJsonCount(10, 'data')
+            ->assertJsonCount(21, 'data')
             ->assertJsonStructure(['data', 'links', 'meta']);
 
         $this->actingAs($user)

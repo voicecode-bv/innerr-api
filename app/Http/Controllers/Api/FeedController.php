@@ -101,7 +101,7 @@ class FeedController extends Controller
             ->whereHas('circles', fn ($query) => $query->whereKey($circle->id))
             ->withExists(['likes as is_liked' => fn ($query) => $query->where('user_id', $user->id)])
             ->latest()
-            ->paginate(10);
+            ->paginate(21);
 
         return PostResource::collection($posts);
     }
