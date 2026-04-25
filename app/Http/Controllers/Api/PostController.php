@@ -65,7 +65,7 @@ class PostController extends Controller
         ];
 
         if ($request->user()?->id === $post->user_id) {
-            $relations[] = 'circles:id,name';
+            $relations[] = 'circles:id,name,photo';
             $relations[] = 'tags:id,name';
         }
 
@@ -264,7 +264,7 @@ class PostController extends Controller
             $post->syncTags($request->validated('tag_ids') ?? []);
         }
 
-        $post->load(['user:id,name,username,avatar', 'circles:id,name', 'tags:id,name']);
+        $post->load(['user:id,name,username,avatar', 'circles:id,name,photo', 'tags:id,name']);
 
         return new PostResource($post);
     }
