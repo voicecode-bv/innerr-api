@@ -271,7 +271,7 @@ it('can upload an avatar', function () {
     Storage::disk('public')->assertExists($user->fresh()->avatar_thumbnail);
 
     [$width, $height] = getimagesize(Storage::disk('public')->path($user->fresh()->avatar_thumbnail));
-    expect($width)->toBe(100)->and($height)->toBe(100);
+    expect($width)->toBe(150)->and($height)->toBe(150);
 });
 
 it('deletes old avatar when uploading a new one', function () {

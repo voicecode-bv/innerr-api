@@ -190,7 +190,7 @@ class ProfileController extends Controller
             cover: true,
         );
 
-        $thumbnailPath = $media->generateImageThumbnail($file, $user->id, 'avatars', size: 100);
+        $thumbnailPath = $media->generateImageThumbnail($file, $user->id, 'avatars', size: 150);
 
         $user->update([
             'avatar' => $path,

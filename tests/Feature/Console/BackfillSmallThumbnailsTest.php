@@ -44,10 +44,10 @@ it('backfills small thumbnails for posts and avatars without one', function () {
     Storage::disk('public')->assertExists($post->thumbnail_small_url);
 
     [$width, $height] = getimagesize(Storage::disk('public')->path($user->avatar_thumbnail));
-    expect($width)->toBe(100)->and($height)->toBe(100);
+    expect($width)->toBe(150)->and($height)->toBe(150);
 
     [$width, $height] = getimagesize(Storage::disk('public')->path($post->thumbnail_small_url));
-    expect($width)->toBe(100)->and($height)->toBe(100);
+    expect($width)->toBe(150)->and($height)->toBe(150);
 });
 
 it('skips posts where the source media is missing', function () {

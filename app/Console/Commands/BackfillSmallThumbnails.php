@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('thumbnails:backfill-small {--chunk=200 : Number of records to process per chunk}')]
-#[Description('Generate 100x100 thumbnails for image posts and user avatars that do not have one yet.')]
+#[Description('Generate 150x150 thumbnails for image posts and user avatars that do not have one yet.')]
 class BackfillSmallThumbnails extends Command
 {
     public function handle(MediaUploadService $media): int
@@ -49,7 +49,7 @@ class BackfillSmallThumbnails extends Command
         $query->chunkById($chunk, function ($posts) use ($media, $bar, &$generated, &$skipped) {
             foreach ($posts as $post) {
                 $path = $media->generateImageThumbnailFromPath(
-                    $post->media_url, $post->user_id, 'posts', size: 100,
+                    $post->media_url, $post->user_id, 'posts', size: 150,
                 );
 
                 if ($path === null) {
@@ -98,7 +98,7 @@ class BackfillSmallThumbnails extends Command
         $query->chunkById($chunk, function ($users) use ($media, $bar, &$generated, &$skipped) {
             foreach ($users as $user) {
                 $path = $media->generateImageThumbnailFromPath(
-                    $user->avatar, $user->id, 'avatars', size: 100,
+                    $user->avatar, $user->id, 'avatars', size: 150,
                 );
 
                 if ($path === null) {

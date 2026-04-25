@@ -119,7 +119,7 @@ it('can store a post with an image and circles', function () {
     Storage::disk('public')->assertExists($post->thumbnail_small_url);
 
     [$width, $height] = getimagesize(Storage::disk('public')->path($post->thumbnail_small_url));
-    expect($width)->toBe(100)->and($height)->toBe(100);
+    expect($width)->toBe(150)->and($height)->toBe(150);
 });
 
 it('can store a post with a video', function () {

@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
 /** @mixin Post */
 #[OA\Schema(
     schema: 'ProfilePost',
-    description: 'Compact post representation for profile grids. `media_url` points to a 400×400 thumbnail when available, falling back to the full-size media URL.',
+    description: 'Compact post representation for profile grids. `media_url` points to a 150×150 grid thumbnail when available, falling back to the 400×400 thumbnail and finally the full-size media URL.',
     properties: [
         new OA\Property(property: 'id', type: 'integer'),
         new OA\Property(property: 'media_url', type: 'string'),
@@ -35,7 +35,7 @@ class ProfilePostResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'media_url' => MediaUrl::sign($this->thumbnail_url ?? $this->media_url),
+            'media_url' => MediaUrl::sign($this->thumbnail_small_url ?? $this->thumbnail_url ?? $this->media_url),
             'media_type' => $this->media_type,
             'media_status' => $this->media_status?->value ?? 'ready',
             'caption' => $this->caption,
