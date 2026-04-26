@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TagType;
 use Database\Factories\TagFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['user_id', 'name'])]
+#[Fillable(['user_id', 'type', 'name'])]
 class Tag extends Model
 {
     /** @use HasFactory<TagFactory> */
@@ -17,6 +18,7 @@ class Tag extends Model
 
     /** @var array<string, mixed> */
     protected $attributes = [
+        'type' => 'tag',
         'usage_count' => 0,
     ];
 
@@ -26,6 +28,7 @@ class Tag extends Model
     protected function casts(): array
     {
         return [
+            'type' => TagType::class,
             'usage_count' => 'integer',
         ];
     }

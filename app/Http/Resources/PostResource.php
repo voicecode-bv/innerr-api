@@ -50,10 +50,11 @@ use OpenApi\Attributes as OA;
         new OA\Property(
             property: 'tags',
             type: 'array',
-            description: 'Tags the post is labeled with. Only included when the authenticated user is the post owner.',
+            description: 'Tags and persons the post is labeled with. Only included when the authenticated user is the post owner. Use `type` to distinguish between regular tags and persons.',
             items: new OA\Items(
                 properties: [
                     new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'type', type: 'string', enum: ['tag', 'person']),
                     new OA\Property(property: 'name', type: 'string'),
                 ],
             ),
@@ -103,6 +104,7 @@ class PostResource extends JsonResource
 
             $data['tags'] = $this->whenLoaded('tags', fn () => $this->tags->map(fn ($tag) => [
                 'id' => $tag->id,
+                'type' => $tag->type->value,
                 'name' => $tag->name,
             ]));
         }

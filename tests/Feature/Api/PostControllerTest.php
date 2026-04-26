@@ -688,13 +688,17 @@ it('includes tags only for the post owner on show', function () {
     $owner = User::factory()->create();
     $post = Post::factory()->for($owner)->create();
     $tag = Tag::factory()->for($owner)->create(['name' => 'travel']);
-    $post->syncTags([$tag->id]);
+    $person = Tag::factory()->for($owner)->person()->create(['name' => 'Sarah']);
+    $post->syncTags([$tag->id, $person->id]);
 
-    $this->actingAs($owner)
+    $response = $this->actingAs($owner)
         ->getJson("/api/posts/{$post->id}")
-        ->assertOk()
-        ->assertJsonPath('data.tags.0.id', $tag->id)
-        ->assertJsonPath('data.tags.0.name', 'travel');
+        ->assertOk();
+
+    $tags = collect($response->json('data.tags'))->keyBy('id');
+
+    expect($tags[$tag->id])->toMatchArray(['id' => $tag->id, 'type' => 'tag', 'name' => 'travel']);
+    expect($tags[$person->id])->toMatchArray(['id' => $person->id, 'type' => 'person', 'name' => 'Sarah']);
 
     $this->actingAs(User::factory()->create())
         ->getJson("/api/posts/{$post->id}")

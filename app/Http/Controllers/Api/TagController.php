@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\TagType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTagRequest;
 use App\Http\Requests\UpdateTagRequest;
@@ -11,6 +12,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rules\Enum;
 use OpenApi\Attributes as OA;
 
 class TagController extends Controller
@@ -20,9 +22,12 @@ class TagController extends Controller
     #[OA\Get(
         path: '/api/tags',
         summary: 'List tags',
-        description: 'Return the authenticated user\'s tags. Sorted by `usage_count` descending so the most-used (favorite) tags come first.',
+        description: 'Return the authenticated user\'s tags. Sorted by `usage_count` descending so the most-used (favorite) tags come first. Optionally filter by `type` to retrieve only regular tags or only persons.',
         tags: ['Tags'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'type', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['tag', 'person'])),
+        ],
         responses: [
             new OA\Response(
                 response: 200,
@@ -38,7 +43,12 @@ class TagController extends Controller
     )]
     public function index(Request $request): AnonymousResourceCollection
     {
+        $request->validate([
+            'type' => ['sometimes', new Enum(TagType::class)],
+        ]);
+
         $tags = $request->user()->tags()
+            ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
             ->orderByDesc('usage_count')
             ->orderBy('name')
             ->get();
@@ -49,7 +59,7 @@ class TagController extends Controller
     #[OA\Post(
         path: '/api/tags',
         summary: 'Create tag',
-        description: 'Create a new tag for the authenticated user. Tag names must be unique per user.',
+        description: 'Create a new tag (or person) for the authenticated user. Names must be unique per user per type.',
         tags: ['Tags'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
@@ -57,6 +67,7 @@ class TagController extends Controller
             content: new OA\JsonContent(
                 required: ['name'],
                 properties: [
+                    new OA\Property(property: 'type', type: 'string', enum: ['tag', 'person'], default: 'tag', description: 'The kind of entry. Defaults to `tag`.'),
                     new OA\Property(property: 'name', type: 'string', maxLength: 50, example: 'travel'),
                 ],
             ),

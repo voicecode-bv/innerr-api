@@ -12,6 +12,7 @@ use OpenApi\Attributes as OA;
     schema: 'Tag',
     properties: [
         new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'type', type: 'string', enum: ['tag', 'person'], description: 'Distinguishes regular tags from person tags. Persons are stored as tags but represent people the user can attach to posts.'),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'usage_count', type: 'integer', description: 'Denormalized count of how many of the user\'s posts this tag is attached to.'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
@@ -27,6 +28,7 @@ class TagResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'type' => $this->type->value,
             'name' => $this->name,
             'usage_count' => $this->usage_count,
             'created_at' => $this->created_at,
