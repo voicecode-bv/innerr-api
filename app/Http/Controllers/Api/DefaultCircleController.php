@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Circle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -71,11 +72,14 @@ class DefaultCircleController extends Controller
             'circle_ids.*' => ['integer', 'exists:circles,id'],
         ]);
 
-        // Only keep circle IDs the user actually owns or is a member of
-        $userCircleIds = $request->user()->circles()->pluck('id')
-            ->merge($request->user()->memberOfCircles()->pluck('circles.id'))
-            ->unique()
-            ->values();
+        $userId = $request->user()->id;
+
+        $userCircleIds = Circle::query()
+            ->whereIn('id', $validated['circle_ids'])
+            ->where(fn ($query) => $query
+                ->where('user_id', $userId)
+                ->orWhereHas('members', fn ($q) => $q->whereKey($userId)))
+            ->pluck('id');
 
         $filteredIds = collect($validated['circle_ids'])
             ->intersect($userCircleIds)

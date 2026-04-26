@@ -50,6 +50,7 @@ class CircleController extends Controller
             })
             ->withCount('members')
             ->latest()
+            ->limit(500)
             ->get();
 
         return CircleResource::collection($circles);

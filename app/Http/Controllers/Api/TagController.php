@@ -54,6 +54,7 @@ class TagController extends Controller
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
             ->orderByDesc('usage_count')
             ->orderBy('name')
+            ->limit(1000)
             ->get();
 
         return TagResource::collection($tags);
