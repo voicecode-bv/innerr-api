@@ -27,7 +27,7 @@ it('can show a post with relations', function () {
             'data' => [
                 'id', 'media_url', 'media_type', 'caption', 'location',
                 'user' => ['id', 'name', 'username', 'avatar'],
-                'likes_count', 'comments_count', 'comments', 'likes',
+                'likes_count', 'comments_count', 'comments',
             ],
         ]);
 });

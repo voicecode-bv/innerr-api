@@ -1,6 +1,21 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
+
+it('does not log the fcm token', function () {
+    $user = User::factory()->create();
+
+    Log::spy();
+
+    $this->actingAs($user)
+        ->postJson('/api/device-token', ['token' => 'sensitive-fcm-token'])
+        ->assertNoContent();
+
+    Log::shouldNotHaveReceived('info', function (string $message) {
+        return str_contains($message, 'sensitive-fcm-token');
+    });
+});
 
 it('stores the fcm token for the authenticated user', function () {
     $user = User::factory()->create();

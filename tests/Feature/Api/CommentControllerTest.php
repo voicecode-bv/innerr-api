@@ -155,6 +155,26 @@ it('does not notify the post owner when a reply is added to a comment', function
     Notification::assertSentTo($commenter, CommentReplied::class);
 });
 
+it('rejects a parent_comment_id from a different post', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create();
+    $otherPost = Post::factory()->create();
+    $otherComment = Comment::factory()->create(['post_id' => $otherPost->id]);
+
+    $this->actingAs($user)
+        ->postJson("/api/posts/{$post->id}/comments", [
+            'body' => 'Cross-post reply attempt',
+            'parent_comment_id' => $otherComment->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['parent_comment_id']);
+
+    $this->assertDatabaseMissing('comments', [
+        'post_id' => $post->id,
+        'parent_comment_id' => $otherComment->id,
+    ]);
+});
+
 it('does not send any notifications when a user replies to their own comment', function () {
     Notification::fake();
 

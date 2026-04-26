@@ -140,11 +140,11 @@ class LikeController extends Controller
     )]
     public function destroy(Request $request, Post $post): JsonResponse
     {
-        $post->likes()
+        $like = $post->likes()
             ->where('user_id', $request->user()->id)
-            ->get()
-            ->each
-            ->delete();
+            ->first();
+
+        $like?->delete();
 
         return response()->json([
             'liked' => false,

@@ -83,11 +83,11 @@ class CommentLikeController extends Controller
     )]
     public function destroy(Request $request, Comment $comment): JsonResponse
     {
-        $comment->likes()
+        $like = $comment->likes()
             ->where('user_id', $request->user()->id)
-            ->get()
-            ->each
-            ->delete();
+            ->first();
+
+        $like?->delete();
 
         return response()->json([
             'liked' => false,

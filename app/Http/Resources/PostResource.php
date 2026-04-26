@@ -94,7 +94,6 @@ class PostResource extends JsonResource
             'comments_count' => $this->comments_count ?? 0,
             'is_liked' => (bool) ($this->is_liked ?? false),
             'comments' => CommentResource::collection($this->whenLoaded('comments')),
-            'likes' => $this->whenLoaded('likes'),
         ];
 
         if ($request->user()?->id === $this->user_id) {

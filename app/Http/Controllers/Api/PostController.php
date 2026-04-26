@@ -61,7 +61,6 @@ class PostController extends Controller
                         ->withExists(['likes as is_liked' => fn ($lq) => $lq->where('user_id', $request->user()->id)]),
                 ])
                 ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $request->user()->id)]),
-            'likes',
         ];
 
         if ($request->user()?->id === $post->user_id) {
