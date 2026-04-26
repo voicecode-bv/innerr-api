@@ -12,11 +12,58 @@ use App\Notifications\PostCommented;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use OpenApi\Attributes as OA;
 
 class CommentController extends Controller
 {
     use AuthorizesRequests;
+
+    #[OA\Get(
+        path: '/api/posts/{post}/comments',
+        summary: 'List comments',
+        description: 'Return a paginated list of top-level comments for a post, newest first. Each comment includes its replies (oldest first).',
+        tags: ['Comments'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Paginated list of comments',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(ref: '#/components/schemas/Comment')),
+                        new OA\Property(property: 'links', type: 'object'),
+                        new OA\Property(property: 'meta', type: 'object'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'Post not found'),
+        ],
+    )]
+    public function index(Request $request, Post $post): AnonymousResourceCollection
+    {
+        $userId = $request->user()->id;
+
+        $comments = $post->comments()
+            ->whereNull('parent_comment_id')
+            ->with([
+                'user:id,name,username,avatar',
+                'replies' => fn ($q) => $q->oldest()
+                    ->with('user:id,name,username,avatar')
+                    ->withExists(['likes as is_liked' => fn ($lq) => $lq->where('user_id', $userId)]),
+            ])
+            ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $userId)])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return CommentResource::collection($comments);
+    }
 
     #[OA\Post(
         path: '/api/posts/{post}/comments',

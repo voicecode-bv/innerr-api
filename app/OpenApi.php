@@ -6,8 +6,8 @@ use OpenApi\Attributes as OA;
 
 #[OA\Info(
     version: '1.0.0',
-    title: 'Cosmic Tiger API',
-    description: 'Social media API with posts, comments, likes, and feeds.',
+    title: 'Innerr API',
+    description: 'Innerr API with posts, comments, likes, and feeds.',
 )]
 #[OA\SecurityScheme(
     securityScheme: 'sanctum',

@@ -7,6 +7,85 @@ use App\Notifications\CommentReplied;
 use App\Notifications\PostCommented;
 use Illuminate\Support\Facades\Notification;
 
+it('returns paginated top-level comments for a post, newest first, with nested replies', function () {
+    $post = Post::factory()->create();
+
+    $oldTopLevel = Comment::factory()->create([
+        'post_id' => $post->id,
+        'created_at' => now()->subMinutes(10),
+    ]);
+    $newTopLevel = Comment::factory()->create([
+        'post_id' => $post->id,
+        'created_at' => now(),
+    ]);
+    $reply = Comment::factory()->create([
+        'post_id' => $post->id,
+        'parent_comment_id' => $oldTopLevel->id,
+    ]);
+
+    $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}/comments")
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.id', $newTopLevel->id)
+        ->assertJsonPath('data.1.id', $oldTopLevel->id)
+        ->assertJsonPath('data.1.replies.0.id', $reply->id)
+        ->assertJsonStructure([
+            'data' => [
+                ['id', 'body', 'created_at', 'user' => ['id'], 'replies'],
+            ],
+            'links',
+            'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+        ]);
+});
+
+it('paginates comments at 20 per page', function () {
+    $post = Post::factory()->create();
+    Comment::factory()->count(25)->create(['post_id' => $post->id]);
+
+    $response = $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}/comments")
+        ->assertOk()
+        ->assertJsonCount(20, 'data')
+        ->assertJsonPath('meta.total', 25)
+        ->assertJsonPath('meta.last_page', 2);
+
+    $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}/comments?page=2")
+        ->assertOk()
+        ->assertJsonCount(5, 'data');
+});
+
+it('requires authentication to list comments', function () {
+    $post = Post::factory()->create();
+
+    $this->getJson("/api/posts/{$post->id}/comments")
+        ->assertUnauthorized();
+});
+
+it('returns not found when listing comments for a non-existent post', function () {
+    $this->actingAs(User::factory()->create())
+        ->getJson('/api/posts/99999/comments')
+        ->assertNotFound();
+});
+
+it('reflects is_liked on listed comments for the authenticated user', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create();
+    $comment = Comment::factory()->create(['post_id' => $post->id]);
+    $comment->likes()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->getJson("/api/posts/{$post->id}/comments")
+        ->assertOk()
+        ->assertJsonPath('data.0.is_liked', true);
+
+    $this->actingAs(User::factory()->create())
+        ->getJson("/api/posts/{$post->id}/comments")
+        ->assertOk()
+        ->assertJsonPath('data.0.is_liked', false);
+});
+
 it('can store a comment on a post', function () {
     $user = User::factory()->create();
     $post = Post::factory()->create();
