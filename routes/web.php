@@ -9,3 +9,7 @@ Route::get('/', function () {
 
 Route::get('/api/docs', [DocumentationController::class, 'ui'])->name('api.docs');
 Route::get('/api/docs/openapi.json', [DocumentationController::class, 'spec'])->name('api.docs.spec');
+
+Route::get('test', function () {
+    auth()->loginUsingId(1);
+});
