@@ -73,6 +73,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tags', [TagController::class, 'store'])->name('api.tags.store');
     Route::put('/tags/{tag}', [TagController::class, 'update'])->name('api.tags.update');
     Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('api.tags.destroy');
+    Route::post('/tags/{tag}/avatar', [TagController::class, 'updateAvatar'])->name('api.tags.avatar.update');
+    Route::delete('/tags/{tag}/avatar', [TagController::class, 'deleteAvatar'])->name('api.tags.avatar.delete');
 
     Route::apiResource('circles', CircleController::class);
     Route::get('/circles/{circle}/feed', [FeedController::class, 'circle'])->name('api.circles.feed');
