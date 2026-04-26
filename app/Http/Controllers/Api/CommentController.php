@@ -55,14 +55,60 @@ class CommentController extends Controller
                 'user:id,name,username,avatar',
                 'replies' => fn ($q) => $q->oldest()
                     ->with('user:id,name,username,avatar')
-                    ->withExists(['likes as is_liked' => fn ($lq) => $lq->where('user_id', $userId)]),
+                    ->withCount('likes')
+                    ->withExists(['likes as is_liked' => fn ($lq) => $lq->where('user_id', $userId)])
+                    ->limit(10),
             ])
+            ->withCount(['likes', 'replies'])
             ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $userId)])
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
         return CommentResource::collection($comments);
+    }
+
+    #[OA\Get(
+        path: '/api/comments/{comment}/replies',
+        summary: 'List replies',
+        description: 'Return a paginated list of replies for a comment, oldest first.',
+        tags: ['Comments'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 10, maximum: 50)),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Paginated list of replies',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(ref: '#/components/schemas/Comment')),
+                        new OA\Property(property: 'links', type: 'object'),
+                        new OA\Property(property: 'meta', type: 'object'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'Comment not found'),
+        ],
+    )]
+    public function replies(Request $request, Comment $comment): AnonymousResourceCollection
+    {
+        $userId = $request->user()->id;
+        $perPage = min(50, max(1, (int) $request->integer('per_page', 10)));
+
+        $replies = $comment->replies()
+            ->with('user:id,name,username,avatar')
+            ->withCount('likes')
+            ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $userId)])
+            ->oldest()
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return CommentResource::collection($replies);
     }
 
     #[OA\Post(

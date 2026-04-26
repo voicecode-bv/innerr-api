@@ -25,6 +25,7 @@ use OpenApi\Attributes as OA;
         ]),
         new OA\Property(property: 'likes_count', type: 'integer'),
         new OA\Property(property: 'is_liked', type: 'boolean'),
+        new OA\Property(property: 'replies_count', type: 'integer'),
         new OA\Property(property: 'replies', type: 'array', items: new OA\Items(ref: '#/components/schemas/Comment')),
     ],
 )]
@@ -49,6 +50,7 @@ class CommentResource extends JsonResource
             ],
             'likes_count' => $this->likes_count ?? 0,
             'is_liked' => (bool) ($this->is_liked ?? false),
+            'replies_count' => $this->replies_count ?? 0,
             'replies' => CommentResource::collection($this->whenLoaded('replies')),
         ];
     }

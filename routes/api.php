@@ -63,6 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/posts/{post}/comments', [CommentController::class, 'index'])->name('api.comments.index');
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->middleware('throttle:30,1')->name('api.comments.store');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('api.comments.destroy');
+    Route::get('/comments/{comment}/replies', [CommentController::class, 'replies'])->name('api.comments.replies');
 
     Route::get('/posts/{post}/likes', [LikeController::class, 'index'])->name('api.likes.index');
     Route::post('/posts/{post}/like', [LikeController::class, 'store'])->name('api.likes.store');
