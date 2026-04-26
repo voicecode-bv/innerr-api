@@ -52,6 +52,7 @@ class PostController extends Controller
     {
         $relations = [
             'user:id,name,username,avatar',
+            'persons:id,name,birthdate,avatar_thumbnail,user_id',
             'comments' => fn ($query) => $query->whereNull('parent_comment_id')->latest()
                 ->with([
                     'user:id,name,username,avatar',
@@ -64,7 +65,7 @@ class PostController extends Controller
 
         if ($request->user()?->id === $post->user_id) {
             $relations[] = 'circles:id,name,photo';
-            $relations[] = 'tags:id,type,name,birthdate,avatar_thumbnail';
+            $relations[] = 'tags:id,name';
         }
 
         $post->load($relations);
@@ -90,7 +91,8 @@ class PostController extends Controller
                         new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                         new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true),
                         new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
-                        new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
+                        new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of personal tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
+                        new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of persons to tag on this post. Each person must belong to at least one of the selected `circle_ids`.'),
                     ],
                 ),
             ),
@@ -174,6 +176,10 @@ class PostController extends Controller
             $post->syncTags($request->validated('tag_ids'));
         }
 
+        if ($request->filled('person_ids')) {
+            $post->syncPersons($request->validated('person_ids'));
+        }
+
         User::where(function ($query) use ($circleIds) {
             $query->whereHas('memberOfCircles', fn ($q) => $q->whereIn('circles.id', $circleIds))
                 ->orWhereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds));
@@ -193,7 +199,7 @@ class PostController extends Controller
     #[OA\Put(
         path: '/api/posts/{post}',
         summary: 'Update post',
-        description: 'Update the caption, circles, and/or tags of a post. Requires ownership. To assign or remove tags, send `tag_ids` with the full desired set: tags absent from the array are detached (and their `usage_count` is decremented), new ones are attached (and their `usage_count` is incremented). Send `tag_ids: []` to remove all tags.',
+        description: 'Update the caption, circles, tags, and/or persons of a post. Requires ownership. `tag_ids` and `person_ids` follow sync semantics: send the full desired set (empty array detaches all). The `usage_count` is adjusted both ways.',
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
@@ -205,7 +211,8 @@ class PostController extends Controller
                 properties: [
                     new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                     new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
-                    new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
+                    new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of personal tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
+                    new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of person IDs. Each person must belong to at least one of the post\'s circles. Send an empty array to detach all persons.'),
                 ],
             ),
         ),
@@ -241,7 +248,16 @@ class PostController extends Controller
             $post->syncTags($request->validated('tag_ids') ?? []);
         }
 
-        $post->load(['user:id,name,username,avatar', 'circles:id,name,photo', 'tags:id,type,name,birthdate,avatar_thumbnail']);
+        if ($request->has('person_ids')) {
+            $post->syncPersons($request->validated('person_ids') ?? []);
+        }
+
+        $post->load([
+            'user:id,name,username,avatar',
+            'circles:id,name,photo',
+            'tags:id,name',
+            'persons:id,name,birthdate,avatar_thumbnail,user_id',
+        ]);
 
         return new PostResource($post);
     }

@@ -2,7 +2,9 @@
 
 use App\Models\Circle;
 use App\Models\Like;
+use App\Models\Person;
 use App\Models\Post;
+use App\Models\Tag;
 use App\Models\User;
 
 it('returns posts from circles the user owns', function () {
@@ -173,6 +175,107 @@ it('returns empty data when no posts exist', function () {
 it('requires authentication to view feed', function () {
     $this->getJson('/api/feed')
         ->assertUnauthorized();
+});
+
+describe('person filters', function () {
+    it('filters posts by person_ids', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+
+        $oma = Person::factory()->for($user, 'creator')->create();
+        $oma->circles()->attach($circle);
+
+        $matching = Post::factory()->for($user)->create();
+        $matching->circles()->attach($circle);
+        $matching->syncPersons([$oma->id]);
+
+        $other = Post::factory()->for($user)->create();
+        $other->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?person_ids[]='.$oma->id)
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($matching->id);
+    });
+
+    it('returns nothing when filtering by a person from another user\'s circle', function () {
+        $stranger = User::factory()->create();
+        $strangerCircle = Circle::factory()->for($stranger)->create();
+        $strangerPerson = Person::factory()->for($stranger, 'creator')->create();
+        $strangerPerson->circles()->attach($strangerCircle);
+        $strangerPost = Post::factory()->for($stranger)->create();
+        $strangerPost->circles()->attach($strangerCircle);
+        $strangerPost->syncPersons([$strangerPerson->id]);
+
+        $user = User::factory()->create();
+        $ownCircle = Circle::factory()->for($user)->create();
+        $ownPost = Post::factory()->for($user)->create();
+        $ownPost->circles()->attach($ownCircle);
+
+        $this->actingAs($user)
+            ->getJson('/api/feed?person_ids[]='.$strangerPerson->id)
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    });
+
+    it('exposes persons attached to posts to fellow circle members', function () {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+        $circle->members()->attach($member);
+
+        $person = Person::factory()->for($owner, 'creator')->create(['name' => 'Oma Marie']);
+        $person->circles()->attach($circle);
+
+        $post = Post::factory()->for($owner)->create();
+        $post->circles()->attach($circle);
+        $post->syncPersons([$person->id]);
+
+        $response = $this->actingAs($member)
+            ->getJson('/api/feed')
+            ->assertSuccessful();
+
+        expect($response->json('data.0.persons'))->toHaveCount(1)
+            ->and($response->json('data.0.persons.0.name'))->toBe('Oma Marie');
+    });
+});
+
+describe('tag filters', function () {
+    it('filters posts by tag_ids for the authenticated user', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+        $tag = Tag::factory()->for($user)->create();
+
+        $matching = Post::factory()->for($user)->create();
+        $matching->circles()->attach($circle);
+        $matching->syncTags([$tag->id]);
+
+        $other = Post::factory()->for($user)->create();
+        $other->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?tag_ids[]='.$tag->id)
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($matching->id);
+    });
+
+    it('returns nothing when filtering by another user\'s tag', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+        $post = Post::factory()->for($user)->create();
+        $post->circles()->attach($circle);
+
+        $foreignTag = Tag::factory()->create(); // belongs to a different user
+
+        $this->actingAs($user)
+            ->getJson('/api/feed?tag_ids[]='.$foreignTag->id)
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    });
 });
 
 describe('circle feed', function () {

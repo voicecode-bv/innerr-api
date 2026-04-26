@@ -3,6 +3,7 @@
 use App\Models\Circle;
 use App\Models\Comment;
 use App\Models\Like;
+use App\Models\Person;
 use App\Models\Post;
 use App\Models\Tag;
 use App\Models\User;
@@ -669,6 +670,64 @@ it('syncs tags on update and adjusts usage_count both ways', function () {
     expect($added->fresh()->usage_count)->toBe(1);
 });
 
+it('attaches persons to a new post and increments usage_count', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($user)->create();
+    $oma = Person::factory()->for($user, 'creator')->create();
+    $opa = Person::factory()->for($user, 'creator')->create();
+    $oma->circles()->attach($circle);
+    $opa->circles()->attach($circle);
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => [$circle->id],
+            'person_ids' => [$oma->id, $opa->id],
+        ])
+        ->assertCreated();
+
+    $post = Post::first();
+    expect($post->persons()->pluck('people.id')->all())->toEqualCanonicalizing([$oma->id, $opa->id]);
+    expect($oma->fresh()->usage_count)->toBe(1);
+    expect($opa->fresh()->usage_count)->toBe(1);
+});
+
+it('rejects person_ids from a circle the post is not in', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circleA = Circle::factory()->for($user)->create();
+    $circleB = Circle::factory()->for($user)->create();
+    $person = Person::factory()->for($user, 'creator')->create();
+    $person->circles()->attach($circleB);
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => UploadedFile::fake()->image('photo.jpg'),
+            'circle_ids' => [$circleA->id],
+            'person_ids' => [$person->id],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('person_ids.0');
+});
+
+it('decrements usage_count for all persons when a post is deleted', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($user)->create();
+    $person = Person::factory()->for($user, 'creator')->create();
+    $person->circles()->attach($circle);
+    $post = Post::factory()->for($user)->create();
+    $post->syncPersons([$person->id]);
+
+    expect($person->fresh()->usage_count)->toBe(1);
+
+    $this->actingAs($user)
+        ->deleteJson("/api/posts/{$post->id}")
+        ->assertNoContent();
+
+    expect($person->fresh()->usage_count)->toBe(0);
+});
+
 it('decrements usage_count for all tags when a post is deleted', function () {
     $user = User::factory()->create();
     $post = Post::factory()->for($user)->create();
@@ -688,8 +747,7 @@ it('includes tags only for the post owner on show', function () {
     $owner = User::factory()->create();
     $post = Post::factory()->for($owner)->create();
     $tag = Tag::factory()->for($owner)->create(['name' => 'travel']);
-    $person = Tag::factory()->for($owner)->person()->create(['name' => 'Sarah']);
-    $post->syncTags([$tag->id, $person->id]);
+    $post->syncTags([$tag->id]);
 
     $response = $this->actingAs($owner)
         ->getJson("/api/posts/{$post->id}")
@@ -697,8 +755,7 @@ it('includes tags only for the post owner on show', function () {
 
     $tags = collect($response->json('data.tags'))->keyBy('id');
 
-    expect($tags[$tag->id])->toMatchArray(['id' => $tag->id, 'type' => 'tag', 'name' => 'travel']);
-    expect($tags[$person->id])->toMatchArray(['id' => $person->id, 'type' => 'person', 'name' => 'Sarah']);
+    expect($tags[$tag->id])->toMatchArray(['id' => $tag->id, 'name' => 'travel']);
 
     $this->actingAs(User::factory()->create())
         ->getJson("/api/posts/{$post->id}")

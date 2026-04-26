@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\NotificationPreferenceController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OnboardingController;
+use App\Http\Controllers\Api\PersonController;
 use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
@@ -73,8 +74,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tags', [TagController::class, 'store'])->name('api.tags.store');
     Route::put('/tags/{tag}', [TagController::class, 'update'])->name('api.tags.update');
     Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('api.tags.destroy');
-    Route::post('/tags/{tag}/avatar', [TagController::class, 'updateAvatar'])->name('api.tags.avatar.update');
-    Route::delete('/tags/{tag}/avatar', [TagController::class, 'deleteAvatar'])->name('api.tags.avatar.delete');
+
+    Route::get('/persons', [PersonController::class, 'index'])->name('api.persons.index');
+    Route::post('/persons', [PersonController::class, 'store'])->name('api.persons.store');
+    Route::put('/persons/{person}', [PersonController::class, 'update'])->name('api.persons.update');
+    Route::delete('/persons/{person}', [PersonController::class, 'destroy'])->name('api.persons.destroy');
+    Route::post('/persons/{person}/avatar', [PersonController::class, 'updateAvatar'])->name('api.persons.avatar.update');
+    Route::delete('/persons/{person}/avatar', [PersonController::class, 'deleteAvatar'])->name('api.persons.avatar.delete');
+    Route::post('/persons/{person}/circles/{circle}', [PersonController::class, 'attachCircle'])->name('api.persons.circles.attach');
+    Route::delete('/persons/{person}/circles/{circle}', [PersonController::class, 'detachCircle'])->name('api.persons.circles.detach');
 
     Route::apiResource('circles', CircleController::class);
     Route::get('/circles/{circle}/feed', [FeedController::class, 'circle'])->name('api.circles.feed');

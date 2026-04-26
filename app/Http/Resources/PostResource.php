@@ -36,6 +36,20 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'is_liked', type: 'boolean'),
         new OA\Property(property: 'comments', type: 'array', items: new OA\Items(ref: '#/components/schemas/Comment')),
         new OA\Property(
+            property: 'persons',
+            type: 'array',
+            description: 'Persons tagged on the post. Visible to anyone who can see the post (persons are shared within a circle).',
+            items: new OA\Items(
+                properties: [
+                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'name', type: 'string'),
+                    new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'avatar_thumbnail', type: 'string', nullable: true),
+                    new OA\Property(property: 'user_id', type: 'integer', nullable: true),
+                ],
+            ),
+        ),
+        new OA\Property(
             property: 'circles',
             type: 'array',
             description: 'Circles the post is shared with. Only included when the authenticated user is the post owner.',
@@ -50,14 +64,11 @@ use OpenApi\Attributes as OA;
         new OA\Property(
             property: 'tags',
             type: 'array',
-            description: 'Tags and persons the post is labeled with. Only included when the authenticated user is the post owner. Use `type` to distinguish between regular tags and persons. `birthdate` and `avatar_thumbnail` are only populated for persons.',
+            description: 'Personal tags the post is labeled with. Only included when the authenticated user is the post owner — tags are private per user.',
             items: new OA\Items(
                 properties: [
                     new OA\Property(property: 'id', type: 'integer'),
-                    new OA\Property(property: 'type', type: 'string', enum: ['tag', 'person']),
                     new OA\Property(property: 'name', type: 'string'),
-                    new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
-                    new OA\Property(property: 'avatar_thumbnail', type: 'string', nullable: true),
                 ],
             ),
         ),
@@ -94,6 +105,13 @@ class PostResource extends JsonResource
             'comments_count' => $this->comments_count ?? 0,
             'is_liked' => (bool) ($this->is_liked ?? false),
             'comments' => CommentResource::collection($this->whenLoaded('comments')),
+            'persons' => $this->whenLoaded('persons', fn () => $this->persons->map(fn ($person) => [
+                'id' => $person->id,
+                'name' => $person->name,
+                'birthdate' => $person->birthdate?->toDateString(),
+                'avatar_thumbnail' => MediaUrl::sign($person->avatar_thumbnail),
+                'user_id' => $person->user_id,
+            ])),
         ];
 
         if ($request->user()?->id === $this->user_id) {
@@ -105,10 +123,7 @@ class PostResource extends JsonResource
 
             $data['tags'] = $this->whenLoaded('tags', fn () => $this->tags->map(fn ($tag) => [
                 'id' => $tag->id,
-                'type' => $tag->type->value,
                 'name' => $tag->name,
-                'birthdate' => $tag->birthdate?->toDateString(),
-                'avatar_thumbnail' => MediaUrl::sign($tag->avatar_thumbnail),
             ]));
         }
 

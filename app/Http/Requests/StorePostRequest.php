@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Rules\AccessibleCircle;
 use App\Rules\MaxVideoDuration;
 use App\Rules\OwnedTag;
+use App\Rules\TaggablePerson;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -31,7 +32,20 @@ class StorePostRequest extends FormRequest
             'circle_ids.*' => ['integer', new AccessibleCircle($this->user())],
             'tag_ids' => ['sometimes', 'array'],
             'tag_ids.*' => ['integer', new OwnedTag($this->user())],
+            'person_ids' => ['sometimes', 'array'],
+            'person_ids.*' => ['integer', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
         ];
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function effectiveCircleIds(): array
+    {
+        return array_values(array_filter(array_map(
+            fn ($id) => is_numeric($id) ? (int) $id : null,
+            (array) $this->input('circle_ids', [])
+        )));
     }
 
     public function withValidator(Validator $validator): void

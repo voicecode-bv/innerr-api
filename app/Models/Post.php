@@ -34,6 +34,12 @@ class Post extends Model
             if ($tagIds !== []) {
                 Tag::whereIn('id', $tagIds)->decrement('usage_count');
             }
+
+            $personIds = $post->persons()->pluck('people.id')->all();
+
+            if ($personIds !== []) {
+                Person::whereIn('id', $personIds)->decrement('usage_count');
+            }
         });
     }
 
@@ -58,6 +64,31 @@ class Post extends Model
             if ($toDetach !== []) {
                 $this->tags()->detach($toDetach);
                 Tag::whereIn('id', $toDetach)->decrement('usage_count');
+            }
+        });
+    }
+
+    /**
+     * Sync the persons attached to this post and keep each person's
+     * denormalized `usage_count` in step with the changes.
+     *
+     * @param  array<int, int>  $personIds
+     */
+    public function syncPersons(array $personIds): void
+    {
+        DB::transaction(function () use ($personIds) {
+            $current = $this->persons()->pluck('people.id')->all();
+            $toAttach = array_values(array_diff($personIds, $current));
+            $toDetach = array_values(array_diff($current, $personIds));
+
+            if ($toAttach !== []) {
+                $this->persons()->attach($toAttach);
+                Person::whereIn('id', $toAttach)->increment('usage_count');
+            }
+
+            if ($toDetach !== []) {
+                $this->persons()->detach($toDetach);
+                Person::whereIn('id', $toDetach)->decrement('usage_count');
             }
         });
     }
@@ -122,5 +153,13 @@ class Post extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class)->withTimestamps();
+    }
+
+    /**
+     * @return BelongsToMany<Person, $this>
+     */
+    public function persons(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class)->withTimestamps();
     }
 }

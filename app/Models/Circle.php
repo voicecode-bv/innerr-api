@@ -65,4 +65,12 @@ class Circle extends Model
     {
         return $this->belongsToMany(Post::class)->withTimestamps();
     }
+
+    /**
+     * @return BelongsToMany<Person, $this>
+     */
+    public function persons(): BelongsToMany
+    {
+        return $this->belongsToMany(Person::class)->withTimestamps();
+    }
 }
