@@ -9,6 +9,7 @@ enum NotificationPreference: string
     case CommentLiked = 'comment_liked';
     case CommentReplied = 'comment_replied';
     case NewCirclePost = 'new_circle_post';
+    case PostTagged = 'post_tagged';
     case CircleInvitationAccepted = 'circle_invitation_accepted';
     case CircleOwnershipTransferRequested = 'circle_ownership_transfer_requested';
     case CircleOwnershipTransferAccepted = 'circle_ownership_transfer_accepted';
@@ -25,6 +26,7 @@ enum NotificationPreference: string
             self::CommentLiked->value => true,
             self::CommentReplied->value => true,
             self::NewCirclePost->value => true,
+            self::PostTagged->value => true,
             self::CircleInvitationAccepted->value => true,
             self::CircleOwnershipTransferRequested->value => true,
             self::CircleOwnershipTransferAccepted->value => true,

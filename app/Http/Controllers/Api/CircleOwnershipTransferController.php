@@ -11,6 +11,7 @@ use App\Models\CircleOwnershipTransfer;
 use App\Notifications\CircleOwnershipTransferAcceptedNotification;
 use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
+use App\Services\MemberPersonSyncer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -176,7 +177,7 @@ class CircleOwnershipTransferController extends Controller
             new OA\Response(response: 403, description: 'Forbidden'),
         ],
     )]
-    public function accept(Request $request, CircleOwnershipTransfer $circleOwnershipTransfer): JsonResponse
+    public function accept(Request $request, CircleOwnershipTransfer $circleOwnershipTransfer, MemberPersonSyncer $memberPersons): JsonResponse
     {
         if ($circleOwnershipTransfer->to_user_id !== $request->user()->id) {
             abort(403);
@@ -186,7 +187,7 @@ class CircleOwnershipTransferController extends Controller
             abort(403);
         }
 
-        DB::transaction(function () use ($circleOwnershipTransfer) {
+        DB::transaction(function () use ($circleOwnershipTransfer, $memberPersons) {
             $circle = $circleOwnershipTransfer->circle;
             $previousOwnerId = $circle->user_id;
             $newOwnerId = $circleOwnershipTransfer->to_user_id;
@@ -194,6 +195,9 @@ class CircleOwnershipTransferController extends Controller
             $circle->update(['user_id' => $newOwnerId]);
             $circle->members()->detach($newOwnerId);
             $circle->members()->syncWithoutDetaching([$previousOwnerId]);
+
+            $memberPersons->attach($circle, $circleOwnershipTransfer->toUser);
+            $memberPersons->attach($circle, $circleOwnershipTransfer->fromUser);
 
             CircleOwnershipTransfer::where('circle_id', $circle->id)
                 ->where('id', '!=', $circleOwnershipTransfer->id)

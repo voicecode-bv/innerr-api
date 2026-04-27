@@ -260,14 +260,9 @@ class PersonController extends Controller
         $this->authorize('attachToCircle', [$person, $circle]);
 
         if ($person->user_id !== null) {
-            $linkedUserIsMember = $circle->user_id === $person->user_id
-                || $circle->members()->whereKey($person->user_id)->exists();
-
-            if (! $linkedUserIsMember) {
-                throw ValidationException::withMessages([
-                    'user_id' => __('The person\'s linked user is not a member of this circle.'),
-                ]);
-            }
+            throw ValidationException::withMessages([
+                'person' => __('Member persons are managed by circle membership and cannot be attached manually.'),
+            ]);
         }
 
         $person->circles()->syncWithoutDetaching([$circle->id]);
@@ -297,6 +292,12 @@ class PersonController extends Controller
     {
         $this->authorize('detachFromCircle', [$person, $circle]);
 
+        if ($person->user_id !== null) {
+            throw ValidationException::withMessages([
+                'person' => __('Member persons are managed by circle membership and cannot be detached manually. Remove the user from the circle instead.'),
+            ]);
+        }
+
         $person->circles()->detach($circle->id);
         $person->load('circles:id');
 
@@ -322,6 +323,12 @@ class PersonController extends Controller
     public function destroy(Person $person): JsonResponse
     {
         $this->authorize('delete', $person);
+
+        if ($person->user_id !== null) {
+            throw ValidationException::withMessages([
+                'person' => __('Member persons cannot be deleted. Remove the user from the circle instead.'),
+            ]);
+        }
 
         $person->delete();
 

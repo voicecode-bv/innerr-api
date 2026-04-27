@@ -53,6 +53,7 @@ class FeedController extends Controller
             'user:id,name,username,avatar',
             'circles:id,name,photo',
             'persons:id,name,birthdate,avatar_thumbnail,user_id',
+            'persons.user:id,username',
         ])
             ->where(function ($q) use ($user) {
                 $q->where('posts.user_id', $user->id)
@@ -113,6 +114,7 @@ class FeedController extends Controller
             'user:id,name,username,avatar',
             'circles:id,name,photo',
             'persons:id,name,birthdate,avatar_thumbnail,user_id',
+            'persons.user:id,username',
         ])
             ->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
 

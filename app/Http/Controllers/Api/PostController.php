@@ -8,9 +8,11 @@ use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostResource;
 use App\Jobs\TranscodeVideo;
+use App\Models\Person;
 use App\Models\Post;
 use App\Models\User;
 use App\Notifications\NewCirclePost;
+use App\Notifications\PostTagged;
 use App\Services\MediaUploadService;
 use App\Support\ExifExtractor;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -52,7 +54,7 @@ class PostController extends Controller
     {
         $relations = [
             'user:id,name,username,avatar',
-            'persons:id,name,birthdate,avatar_thumbnail,user_id',
+            'persons:id,name,birthdate,avatar_thumbnail,user_id', 'persons.user:id,username',
             'comments' => fn ($query) => $query->whereNull('parent_comment_id')->latest()
                 ->with([
                     'user:id,name,username,avatar',
@@ -176,8 +178,17 @@ class PostController extends Controller
             $post->syncTags($request->validated('tag_ids'));
         }
 
+        $newlyTaggedUserIds = [];
+
         if ($request->filled('person_ids')) {
-            $post->syncPersons($request->validated('person_ids'));
+            $personIds = $request->validated('person_ids');
+            $post->syncPersons($personIds);
+
+            $newlyTaggedUserIds = Person::whereIn('id', $personIds)
+                ->whereNotNull('user_id')
+                ->where('user_id', '!=', $request->user()->id)
+                ->pluck('user_id')
+                ->all();
         }
 
         User::where(function ($query) use ($circleIds) {
@@ -185,9 +196,17 @@ class PostController extends Controller
                 ->orWhereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds));
         })
             ->whereNot('id', $request->user()->id)
+            ->whereNotIn('id', $newlyTaggedUserIds)
             ->chunkById(200, function ($recipients) use ($request, $post): void {
                 Notification::send($recipients, new NewCirclePost($request->user(), $post));
             });
+
+        if ($newlyTaggedUserIds !== []) {
+            User::whereIn('id', $newlyTaggedUserIds)
+                ->chunkById(200, function ($recipients) use ($request, $post): void {
+                    Notification::send($recipients, new PostTagged($request->user(), $post));
+                });
+        }
 
         $post->load('user:id,name,username,avatar');
 
@@ -249,14 +268,33 @@ class PostController extends Controller
         }
 
         if ($request->has('person_ids')) {
-            $post->syncPersons($request->validated('person_ids') ?? []);
+            $personIds = $request->validated('person_ids') ?? [];
+            $previousPersonIds = $post->persons()->pluck('people.id')->all();
+            $post->syncPersons($personIds);
+
+            $newPersonIds = array_values(array_diff($personIds, $previousPersonIds));
+
+            if ($newPersonIds !== []) {
+                $newlyTaggedUserIds = Person::whereIn('id', $newPersonIds)
+                    ->whereNotNull('user_id')
+                    ->where('user_id', '!=', $request->user()->id)
+                    ->pluck('user_id')
+                    ->all();
+
+                if ($newlyTaggedUserIds !== []) {
+                    User::whereIn('id', $newlyTaggedUserIds)
+                        ->chunkById(200, function ($recipients) use ($request, $post): void {
+                            Notification::send($recipients, new PostTagged($request->user(), $post));
+                        });
+                }
+            }
         }
 
         $post->load([
             'user:id,name,username,avatar',
             'circles:id,name,photo',
             'tags:id,name',
-            'persons:id,name,birthdate,avatar_thumbnail,user_id',
+            'persons:id,name,birthdate,avatar_thumbnail,user_id', 'persons.user:id,username',
         ]);
 
         return new PostResource($post);

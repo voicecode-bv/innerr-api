@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Models\CircleInvitation;
 use App\Models\User;
+use App\Services\MemberPersonSyncer;
 use App\Support\MediaUrl;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -35,6 +36,8 @@ class AnonymizeUser
                 ->where('user_id', $user->id)
                 ->orWhere('inviter_id', $user->id)
                 ->delete();
+
+            app(MemberPersonSyncer::class)->detachAll($user);
 
             $user->memberOfCircles()->detach();
 

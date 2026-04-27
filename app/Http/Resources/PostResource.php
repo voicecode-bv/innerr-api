@@ -46,6 +46,7 @@ use OpenApi\Attributes as OA;
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
                     new OA\Property(property: 'avatar_thumbnail', type: 'string', nullable: true),
                     new OA\Property(property: 'user_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'user_username', type: 'string', nullable: true, description: 'Username of the linked user account, if `user_id` is set. Use this to link to the user\'s profile.'),
                 ],
             ),
         ),
@@ -111,6 +112,7 @@ class PostResource extends JsonResource
                 'birthdate' => $person->birthdate?->toDateString(),
                 'avatar_thumbnail' => MediaUrl::sign($person->avatar_thumbnail),
                 'user_id' => $person->user_id,
+                'user_username' => $person->relationLoaded('user') ? $person->user?->username : null,
             ])),
         ];
 

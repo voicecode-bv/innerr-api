@@ -10,6 +10,7 @@ use App\Models\CircleInvitation;
 use App\Models\User;
 use App\Notifications\CircleInvitationNotification;
 use App\Notifications\CircleMemberInvitedByMemberNotification;
+use App\Services\MemberPersonSyncer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Notification;
@@ -133,7 +134,7 @@ class CircleMemberController extends Controller
             new OA\Response(response: 404, description: 'Circle or user not found'),
         ],
     )]
-    public function destroy(Circle $circle, User $user): JsonResponse
+    public function destroy(Circle $circle, User $user, MemberPersonSyncer $memberPersons): JsonResponse
     {
         $this->authorize('update', $circle);
 
@@ -142,6 +143,7 @@ class CircleMemberController extends Controller
         }
 
         $circle->members()->detach($user->id);
+        $memberPersons->detach($circle, $user);
 
         return response()->json(null, 204);
     }

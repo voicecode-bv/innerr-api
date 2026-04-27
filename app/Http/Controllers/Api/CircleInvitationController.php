@@ -8,6 +8,7 @@ use App\Http\Resources\CircleInvitationResource;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
 use App\Notifications\CircleInvitationAcceptedNotification;
+use App\Services\MemberPersonSyncer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -105,7 +106,7 @@ class CircleInvitationController extends Controller
             new OA\Response(response: 404, description: 'Invitation not found'),
         ],
     )]
-    public function accept(Request $request, CircleInvitation $circleInvitation): JsonResponse
+    public function accept(Request $request, CircleInvitation $circleInvitation, MemberPersonSyncer $memberPersons): JsonResponse
     {
         if ($circleInvitation->user_id !== $request->user()->id) {
             abort(403);
@@ -124,6 +125,8 @@ class CircleInvitationController extends Controller
         $circleInvitation->update(['status' => InvitationStatus::Accepted]);
 
         $circleInvitation->circle->members()->syncWithoutDetaching([$circleInvitation->user_id]);
+
+        $memberPersons->attach($circleInvitation->circle, $request->user());
 
         $circleInvitation->inviter->notify(
             new CircleInvitationAcceptedNotification($circleInvitation, $request->user()->name)

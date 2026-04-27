@@ -10,6 +10,7 @@ use App\Http\Requests\UpdateCircleSettingsRequest;
 use App\Http\Resources\CircleResource;
 use App\Models\Circle;
 use App\Services\MediaUploadService;
+use App\Services\MemberPersonSyncer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -86,9 +87,11 @@ class CircleController extends Controller
             new OA\Response(response: 422, description: 'Validation error'),
         ],
     )]
-    public function store(StoreCircleRequest $request): JsonResponse
+    public function store(StoreCircleRequest $request, MemberPersonSyncer $memberPersons): JsonResponse
     {
         $circle = $request->user()->circles()->create($request->validated());
+
+        $memberPersons->attach($circle, $request->user());
 
         $circle->loadCount('members');
 
