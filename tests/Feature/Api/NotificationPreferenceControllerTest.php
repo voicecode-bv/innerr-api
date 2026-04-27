@@ -27,43 +27,68 @@ it('returns stored preferences', function () {
         ->and($response->json('data.post_commented'))->toBeTrue();
 });
 
-it('can update notification preferences', function () {
+it('can update a single preference without affecting the others', function () {
     $user = User::factory()->create();
 
-    $payload = NotificationPreference::defaults();
-    $payload['post_liked'] = false;
-    $payload['comment_liked'] = false;
-
     $this->actingAs($user)
-        ->putJson('/api/notification-preferences', $payload)
+        ->putJson('/api/notification-preferences', ['post_liked' => true])
         ->assertOk()
-        ->assertJsonPath('data.post_liked', false)
-        ->assertJsonPath('data.comment_liked', false)
-        ->assertJsonPath('data.post_commented', true);
+        ->assertJsonPath('data.post_liked', true)
+        ->assertJsonPath('data.post_commented', NotificationPreference::defaults()['post_commented']);
 
-    expect($user->fresh()->notification_preferences['post_liked'])->toBeFalse();
-    expect($user->fresh()->notification_preferences['comment_liked'])->toBeFalse();
+    $stored = $user->fresh()->notification_preferences;
+    expect($stored['post_liked'])->toBeTrue();
+
+    foreach (NotificationPreference::defaults() as $key => $default) {
+        if ($key === 'post_liked') {
+            continue;
+        }
+        expect($stored[$key])->toBe($default);
+    }
 });
 
-it('validates all preference keys are required', function () {
+it('persists unknown keys verbatim so the client can introduce new preferences', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->putJson('/api/notification-preferences', [
+            'post_liked' => false,
+            'experimental_digest_email' => true,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.experimental_digest_email', true)
+        ->assertJsonPath('data.post_liked', false);
+
+    $stored = $user->fresh()->notification_preferences;
+    expect($stored['experimental_digest_email'])->toBeTrue()
+        ->and($stored['post_liked'])->toBeFalse();
+});
+
+it('rejects an empty body', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->putJson('/api/notification-preferences', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(array_column(NotificationPreference::cases(), 'value'));
+        ->assertJsonValidationErrors(['preferences']);
 });
 
-it('validates preference values must be booleans', function () {
+it('rejects non-boolean values', function () {
     $user = User::factory()->create();
 
-    $payload = collect(NotificationPreference::cases())
-        ->mapWithKeys(fn (NotificationPreference $case) => [$case->value => 'invalid'])
-        ->all();
+    $this->actingAs($user)
+        ->putJson('/api/notification-preferences', ['post_liked' => 'yes'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['post_liked']);
+});
+
+it('rejects malformed preference keys', function () {
+    $user = User::factory()->create();
 
     $this->actingAs($user)
-        ->putJson('/api/notification-preferences', $payload)
-        ->assertUnprocessable();
+        ->putJson('/api/notification-preferences', ['Post-Liked' => true])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['Post-Liked']);
 });
 
 it('requires authentication', function () {

@@ -52,15 +52,12 @@ class NotificationPreferenceController extends Controller
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
             required: true,
+            description: 'Send any subset of preference keys with boolean values. Unknown keys are stored as-is — only the provided keys are updated, the rest keep their current value.',
             content: new OA\JsonContent(
-                required: ['post_liked', 'post_commented', 'comment_liked', 'comment_replied', 'new_circle_post', 'circle_invitation_accepted'],
-                properties: [
-                    new OA\Property(property: 'post_liked', type: 'boolean', example: true),
-                    new OA\Property(property: 'post_commented', type: 'boolean', example: true),
-                    new OA\Property(property: 'comment_liked', type: 'boolean', example: false),
-                    new OA\Property(property: 'comment_replied', type: 'boolean', example: true),
-                    new OA\Property(property: 'new_circle_post', type: 'boolean', example: true),
-                    new OA\Property(property: 'circle_invitation_accepted', type: 'boolean', example: true),
+                additionalProperties: new OA\AdditionalProperties(type: 'boolean'),
+                example: [
+                    'post_liked' => true,
+                    'comment_replied' => false,
                 ],
             ),
         ),
@@ -80,10 +77,21 @@ class NotificationPreferenceController extends Controller
     )]
     public function update(UpdateNotificationPreferencesRequest $request): JsonResponse
     {
-        $request->user()->update([
-            'notification_preferences' => $request->validated(),
+        $user = $request->user();
+
+        // Merge over de bestaande JSON: ontbrekende sleutels behouden hun
+        // huidige waarde (of fallen terug op defaults) en onbekende sleutels
+        // worden automatisch aangemaakt en opgeslagen.
+        $current = $user->notification_preferences ?? NotificationPreference::defaults();
+
+        $incoming = collect($request->validated())
+            ->map(fn ($value) => (bool) $value)
+            ->all();
+
+        $user->update([
+            'notification_preferences' => array_merge($current, $incoming),
         ]);
 
-        return response()->json(['data' => $request->user()->notification_preferences]);
+        return response()->json(['data' => $user->fresh()->notification_preferences]);
     }
 }
