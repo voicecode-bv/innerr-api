@@ -24,15 +24,26 @@ class MediaUrl
         }
 
         $disk = static::disk();
+        $expires = static::expiry();
 
         if (method_exists($disk, 'temporaryUrl')) {
             try {
-                return $disk->temporaryUrl($path, now()->addMinutes(60));
+                return $disk->temporaryUrl($path, $expires);
             } catch (\RuntimeException) {
                 // Local disk doesn't support temporaryUrl, fall through
             }
         }
 
-        return URL::signedRoute('api.media', ['path' => $path], now()->addMinutes(60));
+        return URL::signedRoute('api.media', ['path' => $path], $expires);
+    }
+
+    /**
+     * Stable expiry that snaps to the start of the next hour, so identical
+     * paths produce identical signed URLs within a single hour window.
+     * This lets browsers and the Spaces CDN cache by URL.
+     */
+    protected static function expiry(): \DateTimeInterface
+    {
+        return now()->startOfHour()->addHours(2);
     }
 }

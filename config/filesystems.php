@@ -69,6 +69,8 @@ return [
             'region' => env('DO_SPACES_REGION', 'ams3'),
             'bucket' => env('DO_SPACES_BUCKET'),
             'endpoint' => env('DO_SPACES_ENDPOINT'),
+            'url' => env('DO_SPACES_CDN_ENDPOINT'),
+            'temporary_url' => env('DO_SPACES_CDN_ENDPOINT'),
             'use_path_style_endpoint' => false,
             'throw' => false,
             'report' => false,
