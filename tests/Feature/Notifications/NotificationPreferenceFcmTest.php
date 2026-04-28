@@ -8,6 +8,7 @@ use App\Notifications\CommentLiked;
 use App\Notifications\NewCirclePost;
 use App\Notifications\PostCommented;
 use App\Notifications\PostLiked;
+use App\Notifications\PostTagged;
 use NotificationChannels\Fcm\FcmChannel;
 
 it('includes fcm channel when preference is enabled', function () {
@@ -63,6 +64,17 @@ it('excludes fcm for new_circle_post when disabled', function () {
     expect($notification->via($user))->not->toContain(FcmChannel::class);
 });
 
+it('excludes fcm for post_tagged when disabled', function () {
+    $preferences = NotificationPreference::defaults();
+    $preferences['post_tagged'] = false;
+
+    $user = new User(['fcm_token' => 'token', 'notification_preferences' => $preferences]);
+
+    $notification = new PostTagged(new User, new Post);
+
+    expect($notification->via($user))->not->toContain(FcmChannel::class);
+});
+
 it('respects default preferences for each notification type', function () {
     $user = new User(['fcm_token' => 'token']);
 
@@ -70,6 +82,7 @@ it('respects default preferences for each notification type', function () {
         new PostCommented(new User, new Post, new Comment),
         new CommentLiked(new User, new Comment),
         new NewCirclePost(new User, new Post),
+        new PostTagged(new User, new Post),
     ];
 
     foreach ($enabledByDefault as $notification) {

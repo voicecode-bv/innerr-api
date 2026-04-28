@@ -743,6 +743,42 @@ it('decrements usage_count for all tags when a post is deleted', function () {
     expect($tag->fresh()->usage_count)->toBe(0);
 });
 
+it('lets a tagged user untag themselves from a post', function () {
+    $owner = User::factory()->create();
+    $taggedUser = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $circle->members()->attach($taggedUser);
+
+    $person = Person::factory()->for($owner, 'creator')->linkedToUser($taggedUser)->create();
+    $person->circles()->attach($circle);
+    $otherPerson = Person::factory()->for($owner, 'creator')->create();
+    $otherPerson->circles()->attach($circle);
+
+    $post = Post::factory()->for($owner)->create();
+    $post->circles()->attach($circle);
+    $post->syncPersons([$person->id, $otherPerson->id]);
+
+    $this->actingAs($taggedUser)
+        ->deleteJson("/api/posts/{$post->id}/tagged-self")
+        ->assertOk()
+        ->assertJsonPath('data.id', $post->id)
+        ->assertJsonCount(1, 'data.persons');
+
+    expect($post->persons()->pluck('people.id')->all())->toEqual([$otherPerson->id]);
+    expect($person->fresh()->usage_count)->toBe(0);
+    expect($otherPerson->fresh()->usage_count)->toBe(1);
+});
+
+it('forbids untagging when the user is not tagged on the post', function () {
+    $owner = User::factory()->create();
+    $stranger = User::factory()->create();
+    $post = Post::factory()->for($owner)->create();
+
+    $this->actingAs($stranger)
+        ->deleteJson("/api/posts/{$post->id}/tagged-self")
+        ->assertForbidden();
+});
+
 it('includes tags only for the post owner on show', function () {
     $owner = User::factory()->create();
     $post = Post::factory()->for($owner)->create();

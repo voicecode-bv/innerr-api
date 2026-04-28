@@ -328,4 +328,56 @@ class PostController extends Controller
 
         return response()->json(null, 204);
     }
+
+    #[OA\Delete(
+        path: '/api/posts/{post}/tagged-self',
+        summary: 'Untag yourself from a post',
+        description: 'Detach the authenticated user (via their linked Person) from a post they have been tagged in. Requires the user to actually be tagged. Returns the updated person list.',
+        tags: ['Posts'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Tag removed',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', ref: '#/components/schemas/Post'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Not tagged on this post'),
+            new OA\Response(response: 404, description: 'Post not found'),
+        ],
+    )]
+    public function untagSelf(Request $request, Post $post): PostResource
+    {
+        $userId = $request->user()->id;
+
+        $taggedPersonIds = $post->persons()
+            ->where('people.user_id', $userId)
+            ->pluck('people.id')
+            ->all();
+
+        abort_if($taggedPersonIds === [], 403, 'Not tagged on this post.');
+
+        $remaining = array_values(array_diff(
+            $post->persons()->pluck('people.id')->all(),
+            $taggedPersonIds,
+        ));
+
+        $post->syncPersons($remaining);
+
+        $post->load([
+            'user:id,name,username,avatar',
+            'circles:id,name,photo',
+            'tags:id,name',
+            'persons:id,name,birthdate,avatar_thumbnail,user_id', 'persons.user:id,username',
+        ]);
+
+        return new PostResource($post);
+    }
 }

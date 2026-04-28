@@ -29,6 +29,7 @@ class NotificationPreferenceController extends Controller
                             new OA\Property(property: 'comment_liked', type: 'boolean'),
                             new OA\Property(property: 'comment_replied', type: 'boolean'),
                             new OA\Property(property: 'new_circle_post', type: 'boolean'),
+                            new OA\Property(property: 'post_tagged', type: 'boolean'),
                             new OA\Property(property: 'circle_invitation_accepted', type: 'boolean'),
                         ]),
                     ],

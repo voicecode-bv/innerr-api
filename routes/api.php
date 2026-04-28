@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:10,1')->name('api.posts.store');
     Route::put('/posts/{post}', [PostController::class, 'update'])->name('api.posts.update');
     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('api.posts.destroy');
+    Route::delete('/posts/{post}/tagged-self', [PostController::class, 'untagSelf'])->name('api.posts.untag-self');
 
     Route::get('/posts/{post}/comments', [CommentController::class, 'index'])->name('api.comments.index');
     Route::post('/posts/{post}/comments', [CommentController::class, 'store'])->middleware('throttle:30,1')->name('api.comments.store');
