@@ -98,8 +98,8 @@ Posts store the GPS coordinates extracted from photo EXIF in a `geography(Point,
 2. Enable the extension on the site database (one-time):
 
    ```bash
-   sudo -u postgres psql -d <db-name> -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-   sudo -u postgres psql -d <db-name> -c "SELECT PostGIS_Version();"
+   sudo -u postgres psql -d production -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+   sudo -u postgres psql -d production -c "SELECT PostGIS_Version();"
    ```
 
 3. Run pending migrations from the site directory:
