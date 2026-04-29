@@ -24,16 +24,20 @@ class ResetSequences extends Command
         $sequences = DB::select(<<<'SQL'
             SELECT
                 n.nspname AS schema_name,
-                s.relname AS seq_name,
-                t.relname AS table_name,
-                a.attname AS column_name
-            FROM pg_class s
-            JOIN pg_depend d ON d.objid = s.oid AND d.deptype IN ('a', 'i')
-            JOIN pg_class t ON d.refobjid = t.oid
-            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
-            JOIN pg_namespace n ON n.oid = s.relnamespace
-            WHERE s.relkind = 'S' AND n.nspname = ?
-            ORDER BY t.relname
+                c.relname AS table_name,
+                a.attname AS column_name,
+                (regexp_match(
+                    pg_get_expr(d.adbin, d.adrelid),
+                    'nextval\(''(?:[^''.]+\.)?([^'']+)''::regclass\)'
+                ))[1] AS seq_name
+            FROM pg_attrdef d
+            JOIN pg_class c ON c.oid = d.adrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+            WHERE n.nspname = ?
+              AND c.relkind = 'r'
+              AND pg_get_expr(d.adbin, d.adrelid) LIKE 'nextval(%'
+            ORDER BY c.relname, a.attname
         SQL, [$schema]);
 
         if (empty($sequences)) {
@@ -45,9 +49,15 @@ class ResetSequences extends Command
         $resetCount = 0;
 
         foreach ($sequences as $seq) {
-            $qualifiedTable = "\"{$seq->schema_name}\".\"{$seq->table_name}\"";
-            $qualifiedColumn = "\"{$seq->column_name}\"";
-            $qualifiedSeq = "{$seq->schema_name}.{$seq->seq_name}";
+            if ($seq->seq_name === null) {
+                $this->line("  <fg=red>✗</> {$seq->table_name}.{$seq->column_name} (could not parse sequence name)");
+
+                continue;
+            }
+
+            $qualifiedTable = '"'.$seq->schema_name.'"."'.$seq->table_name.'"';
+            $qualifiedColumn = '"'.$seq->column_name.'"';
+            $qualifiedSeq = $seq->schema_name.'.'.$seq->seq_name;
 
             $maxValue = DB::scalar("SELECT COALESCE(MAX({$qualifiedColumn}), 0) FROM {$qualifiedTable}");
 
