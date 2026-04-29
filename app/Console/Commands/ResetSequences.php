@@ -28,7 +28,7 @@ class ResetSequences extends Command
                 t.relname AS table_name,
                 a.attname AS column_name
             FROM pg_class s
-            JOIN pg_depend d ON d.objid = s.oid AND d.deptype = 'a'
+            JOIN pg_depend d ON d.objid = s.oid AND d.deptype IN ('a', 'i')
             JOIN pg_class t ON d.refobjid = t.oid
             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = d.refobjsubid
             JOIN pg_namespace n ON n.oid = s.relnamespace
