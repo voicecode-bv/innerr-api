@@ -13,6 +13,8 @@ use App\Notifications\CircleMemberInvitedByMemberNotification;
 use App\Services\MemberPersonSyncer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
@@ -144,6 +146,56 @@ class CircleMemberController extends Controller
 
         $circle->members()->detach($user->id);
         $memberPersons->detach($circle, $user);
+
+        return response()->json(null, 204);
+    }
+
+    #[OA\Post(
+        path: '/api/circles/{circle}/leave',
+        summary: 'Leave circle',
+        description: 'Leave a circle as the authenticated user. The circle owner cannot leave their own circle and must transfer ownership or delete the circle instead. Posts the leaving user shared in this circle are detached from it (they remain on the user\'s profile and in any other circles they were shared to).',
+        tags: ['Circle Members'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Left circle'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Circle not found'),
+        ],
+    )]
+    public function leave(Request $request, Circle $circle, MemberPersonSyncer $memberPersons): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->id === $circle->user_id) {
+            abort(403, 'The owner cannot leave their own circle.');
+        }
+
+        if (! $circle->members()->whereKey($user->id)->exists()) {
+            abort(403);
+        }
+
+        $circle->members()->detach($user->id);
+        $memberPersons->detach($circle, $user);
+
+        DB::table('circle_post')
+            ->where('circle_id', $circle->id)
+            ->whereIn('post_id', $user->posts()->select('id'))
+            ->delete();
+
+        $defaultCircleIds = $user->default_circle_ids ?? [];
+
+        if (in_array($circle->id, $defaultCircleIds, true)) {
+            $user->update([
+                'default_circle_ids' => array_values(array_filter(
+                    $defaultCircleIds,
+                    fn (int $id): bool => $id !== $circle->id,
+                )),
+            ]);
+        }
 
         return response()->json(null, 204);
     }

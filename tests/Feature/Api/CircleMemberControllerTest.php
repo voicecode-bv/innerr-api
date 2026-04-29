@@ -3,6 +3,8 @@
 use App\Enums\InvitationStatus;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
+use App\Models\Person;
+use App\Models\Post;
 use App\Models\User;
 use App\Notifications\CircleInvitationNotification;
 use App\Notifications\CircleMemberInvitedByMemberNotification;
@@ -327,4 +329,124 @@ it('can remove a member from a circle', function () {
         'circle_id' => $circle->id,
         'user_id' => $member->id,
     ]);
+});
+
+it('lets a member leave a circle', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $member = User::factory()->create();
+    $circle->members()->attach($member);
+
+    $this->actingAs($member)
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('circle_user', [
+        'circle_id' => $circle->id,
+        'user_id' => $member->id,
+    ]);
+});
+
+it('detaches the member-person when leaving a circle', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $member = User::factory()->create();
+    $circle->members()->attach($member);
+
+    $person = Person::create([
+        'created_by_user_id' => $member->id,
+        'user_id' => $member->id,
+        'name' => $member->name,
+    ]);
+    $person->circles()->attach($circle->id);
+
+    $this->actingAs($member)
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('circle_person', [
+        'circle_id' => $circle->id,
+        'person_id' => $person->id,
+    ]);
+});
+
+it('removes the circle from the leaving user\'s default circle ids', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $otherCircle = Circle::factory()->create();
+    $member = User::factory()->create([
+        'default_circle_ids' => [$circle->id, $otherCircle->id],
+    ]);
+    $circle->members()->attach($member);
+
+    $this->actingAs($member)
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertNoContent();
+
+    expect($member->fresh()->default_circle_ids)->toBe([$otherCircle->id]);
+});
+
+it('detaches the leaving user\'s posts from the circle but keeps them on other circles', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $otherCircle = Circle::factory()->create();
+    $member = User::factory()->create();
+    $circle->members()->attach($member);
+    $otherCircle->members()->attach($member);
+
+    $post = Post::factory()->for($member)->create();
+    $post->circles()->attach([$circle->id, $otherCircle->id]);
+
+    $ownerPost = Post::factory()->for($owner)->create();
+    $ownerPost->circles()->attach($circle->id);
+
+    $this->actingAs($member)
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertNoContent();
+
+    $this->assertDatabaseMissing('circle_post', [
+        'circle_id' => $circle->id,
+        'post_id' => $post->id,
+    ]);
+
+    $this->assertDatabaseHas('circle_post', [
+        'circle_id' => $otherCircle->id,
+        'post_id' => $post->id,
+    ]);
+
+    $this->assertDatabaseHas('circle_post', [
+        'circle_id' => $circle->id,
+        'post_id' => $ownerPost->id,
+    ]);
+
+    $this->assertDatabaseHas('posts', ['id' => $post->id]);
+});
+
+it('forbids the owner from leaving their own circle', function () {
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+
+    $this->actingAs($owner)
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('circles', [
+        'id' => $circle->id,
+        'user_id' => $owner->id,
+    ]);
+});
+
+it('forbids non-members from leaving a circle', function () {
+    $circle = Circle::factory()->create();
+
+    $this->actingAs(User::factory()->create())
+        ->postJson("/api/circles/{$circle->id}/leave")
+        ->assertForbidden();
+});
+
+it('requires authentication to leave a circle', function () {
+    $circle = Circle::factory()->create();
+
+    $this->postJson("/api/circles/{$circle->id}/leave")
+        ->assertUnauthorized();
 });
