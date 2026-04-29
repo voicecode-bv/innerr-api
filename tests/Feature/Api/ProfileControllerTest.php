@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Circle;
+use App\Models\Person;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -160,6 +161,76 @@ it('requires authentication to view profile posts', function () {
 
     $this->getJson("/api/profiles/{$user->username}/posts")
         ->assertUnauthorized();
+});
+
+it('returns the editable profile including birthdate from the linked person', function () {
+    $user = User::factory()->create(['name' => 'Jane', 'bio' => 'Hi']);
+    Person::factory()->create([
+        'user_id' => $user->id,
+        'created_by_user_id' => $user->id,
+        'name' => $user->name,
+        'birthdate' => '1990-01-15',
+    ]);
+
+    $this->actingAs($user)
+        ->getJson('/api/profile')
+        ->assertSuccessful()
+        ->assertJsonPath('data.bio', 'Hi')
+        ->assertJsonPath('data.birthdate', '1990-01-15');
+});
+
+it('returns null birthdate when no person record exists', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson('/api/profile')
+        ->assertSuccessful()
+        ->assertJsonPath('data.birthdate', null);
+});
+
+it('saves birthdate on profile update by creating a person record when missing', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->putJson('/api/profile', ['birthdate' => '1985-06-12'])
+        ->assertSuccessful();
+
+    $person = Person::where('user_id', $user->id)->first();
+    expect($person)->not->toBeNull()
+        ->and($person->birthdate->toDateString())->toBe('1985-06-12');
+});
+
+it('updates birthdate on the existing person record', function () {
+    $user = User::factory()->create();
+    $person = Person::factory()->create([
+        'user_id' => $user->id,
+        'created_by_user_id' => $user->id,
+        'name' => $user->name,
+        'birthdate' => '1980-01-01',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson('/api/profile', ['birthdate' => '1992-08-20'])
+        ->assertSuccessful();
+
+    expect($person->fresh()->birthdate->toDateString())->toBe('1992-08-20');
+    expect(Person::where('user_id', $user->id)->count())->toBe(1);
+});
+
+it('can clear the birthdate by passing null', function () {
+    $user = User::factory()->create();
+    $person = Person::factory()->create([
+        'user_id' => $user->id,
+        'created_by_user_id' => $user->id,
+        'name' => $user->name,
+        'birthdate' => '1980-01-01',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson('/api/profile', ['birthdate' => null])
+        ->assertSuccessful();
+
+    expect($person->fresh()->birthdate)->toBeNull();
 });
 
 it('can update own profile', function () {
