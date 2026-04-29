@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\ProfilePostResource;
 use App\Http\Resources\ProfileResource;
 use App\Http\Resources\UserResource;
+use App\Models\Person;
 use App\Models\User;
 use App\Services\MediaUploadService;
 use Illuminate\Http\JsonResponse;
@@ -135,9 +136,66 @@ class ProfileController extends Controller
     )]
     public function update(UpdateProfileRequest $request): UserResource
     {
-        $request->user()->update($request->validated());
+        $user = $request->user();
+        $data = $request->validated();
 
-        return new UserResource($request->user());
+        $hasBirthdate = array_key_exists('birthdate', $data);
+        $birthdate = $data['birthdate'] ?? null;
+        unset($data['birthdate']);
+
+        $user->update($data);
+
+        if ($hasBirthdate) {
+            $person = Person::firstOrCreate(
+                ['user_id' => $user->id],
+                ['created_by_user_id' => $user->id, 'name' => $user->name],
+            );
+            $person->update(['birthdate' => $birthdate]);
+        }
+
+        return new UserResource($user->fresh());
+    }
+
+    #[OA\Get(
+        path: '/api/profile',
+        summary: 'Show editable profile',
+        description: 'Return the authenticated user\'s editable profile fields, including the birthdate stored on the linked person record.',
+        tags: ['Profiles'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Editable profile',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', properties: [
+                            new OA\Property(property: 'id', type: 'integer'),
+                            new OA\Property(property: 'name', type: 'string'),
+                            new OA\Property(property: 'username', type: 'string'),
+                            new OA\Property(property: 'avatar', type: 'string', nullable: true),
+                            new OA\Property(property: 'bio', type: 'string', nullable: true),
+                            new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
+                        ]),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ],
+    )]
+    public function showSelf(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $user = $request->user()->load('person:id,user_id,birthdate');
+
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'avatar' => \App\Support\MediaUrl::sign($user->avatar),
+                'bio' => $user->bio,
+                'birthdate' => $user->person?->birthdate?->toDateString(),
+            ],
+        ]);
     }
 
     #[OA\Post(

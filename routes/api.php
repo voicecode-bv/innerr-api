@@ -133,6 +133,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:3,60')
         ->name('api.account.export');
 
+    Route::get('/profile', [ProfileController::class, 'showSelf'])->name('api.profile.show');
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('api.profile.avatar.update');
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('api.profile.avatar.delete');
