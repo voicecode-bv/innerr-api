@@ -239,6 +239,24 @@ it('sends an email notification when inviting by email', function () {
     );
 });
 
+it('sends the invitation email in the inviter locale', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create(['locale' => 'nl']);
+    $circle = Circle::factory()->for($owner)->create();
+
+    $this->actingAs($owner)
+        ->postJson("/api/circles/{$circle->id}/members", [
+            'email' => 'newperson@example.com',
+        ])
+        ->assertCreated();
+
+    Notification::assertSentOnDemand(
+        CircleInvitationNotification::class,
+        fn (CircleInvitationNotification $notification) => $notification->locale === 'nl',
+    );
+});
+
 it('sets user_id when inviting by email for an existing user', function () {
     Notification::fake();
 

@@ -114,7 +114,8 @@ class CircleMemberController extends Controller
         );
 
         Notification::route('mail', $email)
-            ->notify(new CircleInvitationNotification($invitation));
+            ->notify((new CircleInvitationNotification($invitation))
+                ->locale($request->user()->preferredLocale() ?? app()->getLocale()));
 
         return response()->json(['message' => 'Invitation sent.'], 201);
     }
