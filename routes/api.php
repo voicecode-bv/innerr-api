@@ -46,6 +46,7 @@ Route::match(['get', 'post'], '/oauth/{provider}/callback', [OAuthController::cl
     ->name('api.oauth.callback');
 
 Route::post('/waiting-list', [WaitingListEntryController::class, 'store'])->middleware('throttle:5,1')->name('api.waiting-list.store');
+Route::get('/waiting-list', [WaitingListEntryController::class, 'count'])->name('api.waiting-list.count');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');

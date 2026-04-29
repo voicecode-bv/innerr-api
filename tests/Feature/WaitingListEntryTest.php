@@ -24,3 +24,19 @@ it('rejects duplicate emails', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors('email');
 });
+
+it('returns the waiting list signup count', function () {
+    WaitingListEntry::create(['email' => 'a@example.com']);
+    WaitingListEntry::create(['email' => 'b@example.com']);
+    WaitingListEntry::create(['email' => 'c@example.com']);
+
+    $this->getJson(route('api.waiting-list.count'))
+        ->assertOk()
+        ->assertExactJson(['count' => 3]);
+});
+
+it('exposes the waiting list count without authentication', function () {
+    $this->getJson(route('api.waiting-list.count'))
+        ->assertOk()
+        ->assertExactJson(['count' => 0]);
+});
