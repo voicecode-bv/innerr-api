@@ -60,9 +60,10 @@ a img {
 
 h1 {
     color: #162020;
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
     font-size: 26px;
     font-weight: 600;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'wght' 900;
     letter-spacing: -0.01em;
     margin-top: 0;
     margin-bottom: 16px;
@@ -71,9 +72,10 @@ h1 {
 
 h2 {
     color: #162020;
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
     font-size: 20px;
     font-weight: 600;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'wght' 900;
     margin-top: 0;
     margin-bottom: 12px;
     text-align: start;
@@ -136,9 +138,10 @@ img {
 
 .header a {
     color: #1D5F5C;
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
     font-size: 28px;
     font-weight: 600;
+    font-variation-settings: 'opsz' 144, 'SOFT' 100, 'wght' 900;
     letter-spacing: -0.02em;
     text-decoration: none;
     border-bottom: none;
@@ -147,11 +150,11 @@ img {
 /* Logo */
 
 .logo {
-    height: 64px;
-    margin-top: 0;
-    margin-bottom: 8px;
-    max-height: 64px;
-    width: 64px;
+    display: block;
+    height: auto;
+    margin: 0 auto 8px;
+    max-width: 180px;
+    width: 180px;
 }
 
 /* Body */
