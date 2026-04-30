@@ -11,6 +11,8 @@ use App\Http\Resources\CircleResource;
 use App\Models\Circle;
 use App\Services\MediaUploadService;
 use App\Services\MemberPersonSyncer;
+use App\Support\MediaUrl;
+use App\Support\UserStorage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -254,7 +256,9 @@ class CircleController extends Controller
         $this->authorize('delete', $circle);
 
         if ($circle->photo) {
-            MediaUrl::disk()->delete($circle->photo);
+            $disk = MediaUrl::disk();
+            UserStorage::trackDelete($circle->photo, $disk);
+            $disk->delete($circle->photo);
         }
 
         $circle->delete();

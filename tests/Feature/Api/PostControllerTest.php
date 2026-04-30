@@ -583,6 +583,10 @@ it('requires authentication to delete a post', function () {
 });
 
 it('converts heic uploads to jpeg', function () {
+    if (! shell_exec('command -v heif-convert')) {
+        $this->markTestSkipped('heif-convert binary not installed.');
+    }
+
     Storage::fake('public');
     $user = User::factory()->create();
     $circle = Circle::factory()->create(['user_id' => $user->id]);

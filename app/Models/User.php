@@ -43,6 +43,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             'notification_preferences' => 'array',
             'default_circle_ids' => 'array',
             'device_info' => 'array',
+            'storage_used_bytes' => 'integer',
         ];
     }
 

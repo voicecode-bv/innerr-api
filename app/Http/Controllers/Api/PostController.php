@@ -15,6 +15,7 @@ use App\Notifications\NewCirclePost;
 use App\Notifications\PostTagged;
 use App\Services\MediaUploadService;
 use App\Support\ExifExtractor;
+use App\Support\UserStorage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,7 @@ class PostController extends Controller
             // Store the original video directly (no transcoding yet).
             // The TranscodeVideo job will replace it with the transcoded version.
             $path = $file->store("users/{$request->user()->id}/posts");
+            UserStorage::trackPut($path);
             $mediaStatus = MediaStatus::Processing;
         } else {
             // Read EXIF before MediaUploadService runs — convertHeicToJpeg may

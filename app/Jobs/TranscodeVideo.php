@@ -6,6 +6,7 @@ use App\Enums\MediaStatus;
 use App\Models\Post;
 use App\Services\MediaUploadService;
 use App\Support\MediaUrl;
+use App\Support\UserStorage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -86,6 +87,7 @@ class TranscodeVideo implements ShouldQueue
             $transcodedPath = "{$userFolder}/posts/{$transcodedFilename}";
 
             $disk->put($transcodedPath, file_get_contents($tempOutput));
+            UserStorage::trackPut($transcodedPath, $disk);
 
             // Move the original to the originals folder (if it isn't there already).
             if (! str_contains($originalPath, '/originals/')) {

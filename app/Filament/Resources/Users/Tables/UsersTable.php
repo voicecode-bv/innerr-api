@@ -7,6 +7,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Number;
 
 class UsersTable
 {
@@ -18,8 +19,8 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('username')
                     ->searchable(),
-                TextColumn::make('avatar')
-                    ->searchable(),
+                // TextColumn::make('avatar')
+                //     ->searchable(),
                 TextColumn::make('locale')
                     ->searchable(),
                 TextColumn::make('email')
@@ -46,8 +47,12 @@ class UsersTable
                 TextColumn::make('onboarded_at')
                     ->dateTime()
                     ->sortable(),
-                TextColumn::make('avatar_thumbnail')
-                    ->searchable(),
+                TextColumn::make('storage_used_bytes')
+                    ->label('Storage used')
+                    ->sortable()
+                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state, precision: 2)),
+                // TextColumn::make('avatar_thumbnail')
+                //     ->searchable(),
             ])
             ->filters([
                 //

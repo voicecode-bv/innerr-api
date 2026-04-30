@@ -6,6 +6,7 @@ use App\Models\CircleInvitation;
 use App\Models\User;
 use App\Services\MemberPersonSyncer;
 use App\Support\MediaUrl;
+use App\Support\UserStorage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -71,5 +72,7 @@ class AnonymizeUser
         });
 
         MediaUrl::disk()->deleteDirectory("users/{$userId}");
+
+        UserStorage::reset($userId);
     }
 }

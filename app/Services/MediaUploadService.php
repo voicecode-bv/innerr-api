@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\MediaUrl;
+use App\Support\UserStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
@@ -68,6 +69,7 @@ class MediaUploadService
         // Keep the untouched original.
         $originalPath = "{$userFolder}/originals/{$folder}/{$filename}";
         $disk->putFileAs("{$userFolder}/originals/{$folder}", $file, $filename);
+        UserStorage::trackPut($originalPath, $disk);
 
         // Generate a resized variant for in-app display.
         $displayPath = "{$userFolder}/{$folder}/{$filename}";
@@ -87,6 +89,7 @@ class MediaUploadService
         $image->save($resizedPath, quality: self::DISPLAY_QUALITY);
 
         $disk->put($displayPath, file_get_contents($resizedPath));
+        UserStorage::trackPut($displayPath, $disk);
 
         @unlink($resizedPath);
 
@@ -114,6 +117,7 @@ class MediaUploadService
         $originalExtension = $file->getClientOriginalExtension() ?: 'mp4';
         $originalFilename = Str::random(40).'.'.$originalExtension;
         $disk->putFileAs("{$userFolder}/originals/{$folder}", $file, $originalFilename);
+        UserStorage::trackPut("{$userFolder}/originals/{$folder}/{$originalFilename}", $disk);
 
         // Transcode to H.264/AAC at max 1080p.
         $transcodedPath = tempnam(sys_get_temp_dir(), 'transcode_').'.mp4';
@@ -142,11 +146,15 @@ class MediaUploadService
         if ($result->failed() || ! file_exists($transcodedPath) || filesize($transcodedPath) === 0) {
             @unlink($transcodedPath);
 
-            return $file->store("{$userFolder}/{$folder}");
+            $fallbackPath = $file->store("{$userFolder}/{$folder}");
+            UserStorage::trackPut($fallbackPath, $disk);
+
+            return $fallbackPath;
         }
 
         $displayPath = "{$userFolder}/{$folder}/{$filename}";
         $disk->put($displayPath, file_get_contents($transcodedPath));
+        UserStorage::trackPut($displayPath, $disk);
 
         @unlink($transcodedPath);
 
@@ -163,6 +171,8 @@ class MediaUploadService
         }
 
         $disk = MediaUrl::disk();
+
+        UserStorage::trackDelete($displayPath, $disk);
         $disk->delete($displayPath);
 
         $originalPath = preg_replace(
@@ -172,6 +182,7 @@ class MediaUploadService
         );
 
         if ($originalPath !== null && $originalPath !== $displayPath) {
+            UserStorage::trackDelete($originalPath, $disk);
             $disk->delete($originalPath);
         }
     }
@@ -205,6 +216,7 @@ class MediaUploadService
             $thumbnailPath = "users/{$userId}/{$folder}/thumbnails/{$filename}";
 
             $disk->put($thumbnailPath, file_get_contents($tempThumb));
+            UserStorage::trackPut($thumbnailPath, $disk);
 
             return $thumbnailPath;
         } catch (\Throwable) {
@@ -245,6 +257,7 @@ class MediaUploadService
             $thumbnailPath = "users/{$userId}/{$folder}/thumbnails/{$filename}";
 
             $disk->put($thumbnailPath, file_get_contents($tempThumb));
+            UserStorage::trackPut($thumbnailPath, $disk);
 
             return $thumbnailPath;
         } catch (\Throwable) {
@@ -312,6 +325,7 @@ class MediaUploadService
             $thumbnailPath = "users/{$userId}/{$folder}/thumbnails/{$filename}";
 
             $disk->put($thumbnailPath, file_get_contents($tempThumb));
+            UserStorage::trackPut($thumbnailPath, $disk);
 
             return $thumbnailPath;
         } catch (\Throwable) {
