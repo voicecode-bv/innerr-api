@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\NotificationPreference;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -19,7 +21,7 @@ use Soved\Laravel\Gdpr\Portable;
 
 #[Fillable(['name', 'username', 'email', 'password', 'avatar', 'avatar_thumbnail', 'bio', 'locale', 'fcm_token', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id', 'onboarded_at'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements HasLocalePreference, PortableContract
+class User extends Authenticatable implements FilamentUser, HasLocalePreference, PortableContract
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, Portable;
@@ -121,6 +123,11 @@ class User extends Authenticatable implements HasLocalePreference, PortableContr
     public function preferredLocale(): ?string
     {
         return $this->locale;
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->id === 1;
     }
 
     /**
