@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
-    Storage::fake(config('filesystems.media'));
+    Storage::fake();
 });
 
 it('requires authentication', function () {
@@ -183,16 +183,15 @@ it('deletes comments by the user but keeps other users comments', function () {
 
 it('deletes the user storage directory', function () {
     $user = User::factory()->create();
-    Storage::disk(config('filesystems.media'))->put("users/{$user->id}/avatars/a.jpg", 'x');
-    Storage::disk(config('filesystems.media'))->put("users/{$user->id}/posts/b.jpg", 'y');
-    Storage::disk(config('filesystems.media'))->put("users/{$user->id}/originals/posts/b.jpg", 'z');
+    Storage::put("users/{$user->id}/avatars/a.jpg", 'x');
+    Storage::put("users/{$user->id}/posts/b.jpg", 'y');
+    Storage::put("users/{$user->id}/originals/posts/b.jpg", 'z');
 
     $this->actingAs($user)->deleteJson('/api/account')->assertNoContent();
 
-    $disk = Storage::disk(config('filesystems.media'));
-    expect($disk->exists("users/{$user->id}/avatars/a.jpg"))->toBeFalse()
-        ->and($disk->exists("users/{$user->id}/posts/b.jpg"))->toBeFalse()
-        ->and($disk->exists("users/{$user->id}/originals/posts/b.jpg"))->toBeFalse();
+    expect(Storage::exists("users/{$user->id}/avatars/a.jpg"))->toBeFalse()
+        ->and(Storage::exists("users/{$user->id}/posts/b.jpg"))->toBeFalse()
+        ->and(Storage::exists("users/{$user->id}/originals/posts/b.jpg"))->toBeFalse();
 });
 
 it('is rate limited to three requests per hour', function () {

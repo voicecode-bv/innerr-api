@@ -45,8 +45,7 @@ class ExportUserData implements ShouldQueue
             );
 
             $stream = fopen($zipPath, 'r');
-            Storage::disk(config('gdpr.export.disk'))
-                ->writeStream($remotePath, $stream, ['visibility' => 'private']);
+            Storage::writeStream($remotePath, $stream, ['visibility' => 'private']);
             if (is_resource($stream)) {
                 fclose($stream);
             }

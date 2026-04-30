@@ -28,8 +28,7 @@ class GdprExportReady extends Notification implements ShouldQueue
     {
         $hours = (int) config('gdpr.export.expiry_hours');
 
-        $url = Storage::disk(config('gdpr.export.disk'))
-            ->temporaryUrl($this->path, now()->addHours($hours));
+        $url = Storage::temporaryUrl($this->path, now()->addHours($hours));
 
         return (new MailMessage)
             ->subject(__('Your data export is ready'))

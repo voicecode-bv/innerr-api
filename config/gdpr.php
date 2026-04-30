@@ -77,7 +77,6 @@ return [
     */
 
     'export' => [
-        'disk' => env('GDPR_EXPORT_DISK', 's3'),
         'directory' => 'gdpr-exports',
         'expiry_hours' => 24,
     ],

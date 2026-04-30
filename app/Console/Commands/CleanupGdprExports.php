@@ -13,15 +13,14 @@ class CleanupGdprExports extends Command
 {
     public function handle(): int
     {
-        $disk = Storage::disk(config('gdpr.export.disk'));
         $directory = config('gdpr.export.directory');
         $threshold = now()->subHours((int) config('gdpr.export.expiry_hours'))->getTimestamp();
 
         $deleted = 0;
 
-        foreach ($disk->allFiles($directory) as $file) {
-            if ($disk->lastModified($file) < $threshold) {
-                $disk->delete($file);
+        foreach (Storage::allFiles($directory) as $file) {
+            if (Storage::lastModified($file) < $threshold) {
+                Storage::delete($file);
                 $deleted++;
             }
         }

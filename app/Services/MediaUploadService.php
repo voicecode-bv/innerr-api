@@ -142,7 +142,7 @@ class MediaUploadService
         if ($result->failed() || ! file_exists($transcodedPath) || filesize($transcodedPath) === 0) {
             @unlink($transcodedPath);
 
-            return $file->store("{$userFolder}/{$folder}", config('filesystems.media'));
+            return $file->store("{$userFolder}/{$folder}");
         }
 
         $displayPath = "{$userFolder}/{$folder}/{$filename}";

@@ -134,10 +134,7 @@ class PostController extends Controller
 
             // Store the original video directly (no transcoding yet).
             // The TranscodeVideo job will replace it with the transcoded version.
-            $path = $file->store(
-                "users/{$request->user()->id}/posts",
-                config('filesystems.media'),
-            );
+            $path = $file->store("users/{$request->user()->id}/posts");
             $mediaStatus = MediaStatus::Processing;
         } else {
             // Read EXIF before MediaUploadService runs — convertHeicToJpeg may

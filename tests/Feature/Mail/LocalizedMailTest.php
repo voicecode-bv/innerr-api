@@ -17,10 +17,9 @@ beforeEach(function () {
 it('renders mail notifications in the recipient preferred locale', function () {
     $user = User::factory()->create(['locale' => 'nl']);
 
-    config()->set('gdpr.export.disk', 'exports');
     config()->set('gdpr.export.directory', 'gdpr-exports');
-    Storage::fake('exports');
-    Storage::disk('exports')->put('gdpr-exports/1/fake.zip', 'x');
+    Storage::fake();
+    Storage::put('gdpr-exports/1/fake.zip', 'x');
 
     $user->notify(new GdprExportReady('gdpr-exports/1/fake.zip'));
 

@@ -193,7 +193,7 @@ describe('manual operations on member persons', function () {
 
 describe('post tagging notification', function () {
     beforeEach(function () {
-        Storage::fake(config('filesystems.media'));
+        Storage::fake();
         Notification::fake();
     });
 

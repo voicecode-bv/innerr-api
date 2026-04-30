@@ -5,11 +5,10 @@ use App\Notifications\GdprExportReady;
 use Illuminate\Support\Facades\Storage;
 
 it('renders mail notifications with the Innerr theme palette', function () {
-    config()->set('gdpr.export.disk', 'exports');
     config()->set('gdpr.export.directory', 'gdpr-exports');
     config()->set('gdpr.export.expiry_hours', 24);
-    Storage::fake('exports');
-    Storage::disk('exports')->put('gdpr-exports/1/fake.zip', 'x');
+    Storage::fake();
+    Storage::put('gdpr-exports/1/fake.zip', 'x');
 
     $user = User::factory()->create();
     $mailMessage = (new GdprExportReady('gdpr-exports/1/fake.zip'))->toMail($user);

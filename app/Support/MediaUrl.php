@@ -10,7 +10,7 @@ class MediaUrl
 {
     public static function disk(): Filesystem
     {
-        return Storage::disk(config('filesystems.media'));
+        return Storage::disk();
     }
 
     public static function sign(?string $path): ?string

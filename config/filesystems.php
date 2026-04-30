@@ -13,9 +13,7 @@ return [
     |
     */
 
-    'default' => env('FILESYSTEM_DISK', 'local'),
-
-    'media' => env('MEDIA_DISK', env('FILESYSTEM_DISK', 'local')),
+    'default' => env('FILESYSTEM_DISK', 'hetzner'),
 
     /*
     |--------------------------------------------------------------------------
@@ -62,18 +60,16 @@ return [
             'report' => false,
         ],
 
-        'spaces' => [
+        'hetzner' => [
             'driver' => 's3',
-            'key' => env('DO_SPACES_KEY'),
-            'secret' => env('DO_SPACES_SECRET'),
-            'region' => env('DO_SPACES_REGION', 'ams3'),
-            'bucket' => env('DO_SPACES_BUCKET'),
-            'endpoint' => env('DO_SPACES_ENDPOINT'),
-            'url' => env('DO_SPACES_CDN_ENDPOINT'),
-            'temporary_url' => env('DO_SPACES_CDN_ENDPOINT'),
-            'use_path_style_endpoint' => false,
+            'key' => env('HETZNER_S3_ACCESS_KEY_ID'),
+            'secret' => env('HETZNER_S3_SECRET_ACCESS_KEY'),
+            'region' => 'us-east-1',
+            'bucket' => env('HETZNER_S3_BUCKET'),
+            'endpoint' => env('HETZNER_S3_ENDPOINT'),
+            'use_path_style_endpoint' => true,
             'throw' => false,
-            'report' => false,
+            'visibility' => 'private',
         ],
 
     ],
