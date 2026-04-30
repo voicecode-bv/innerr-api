@@ -14,6 +14,7 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\ServiceProvider;
 use MatanYadaev\EloquentSpatial\EloquentSpatial;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
+use Mollie\Api\MollieApiClient;
 use SocialiteProviders\Apple\AppleExtendSocialite;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -21,11 +22,25 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(MollieApiClient::class, function (): MollieApiClient {
+            $client = new MollieApiClient;
+            $apiKey = (string) config('services.mollie.api_key');
+
+            if ($apiKey !== '') {
+                $client->setApiKey($apiKey);
+            }
+
+            return $client;
+        });
+
         $this->app->singleton(ChannelRegistry::class, function ($app): ChannelRegistry {
             $registry = new ChannelRegistry;
             $registry->register(new AppleChannel);
             $registry->register(new GoogleChannel);
-            $registry->register(new MollieChannel(config('services.mollie', [])));
+            $registry->register(new MollieChannel(
+                $app->make(MollieApiClient::class),
+                config('services.mollie', []),
+            ));
 
             return $registry;
         });

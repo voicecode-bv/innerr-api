@@ -5,12 +5,11 @@ use App\Models\Subscription;
 use App\Models\SubscriptionEvent;
 use Illuminate\Database\QueryException;
 
-it('returns 501 stubs for the three subscription webhooks', function (string $route) {
+it('returns 501 stubs for the not-yet-implemented IAP webhooks', function (string $route) {
     $this->postJson($route)->assertStatus(501);
 })->with([
     '/api/webhooks/subscriptions/apple',
     '/api/webhooks/subscriptions/google',
-    '/api/webhooks/subscriptions/mollie',
 ]);
 
 it('enforces unique external_event_id at the database level', function () {

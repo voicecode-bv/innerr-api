@@ -41,7 +41,7 @@ class PriceSeeder extends Seeder
                             'interval' => $interval,
                             'currency' => 'EUR',
                             'amount_minor' => $this->defaultAmounts[$slug][$interval->value],
-                            'is_active' => false,
+                            'is_active' => $channel === SubscriptionChannel::Mollie,
                         ],
                     );
                 }
