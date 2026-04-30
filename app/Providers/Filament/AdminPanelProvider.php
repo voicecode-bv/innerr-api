@@ -2,6 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\RevenueByChannel;
+use App\Filament\Widgets\RevenueByMonth;
+use App\Filament\Widgets\RevenueOverview;
 use App\Filament\Widgets\StorageDistribution;
 use App\Filament\Widgets\StorageOverview;
 use App\Filament\Widgets\TopStorageUsers;
@@ -42,6 +45,9 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
+                RevenueOverview::class,
+                RevenueByMonth::class,
+                RevenueByChannel::class,
                 StorageOverview::class,
                 StorageDistribution::class,
                 TopStorageUsers::class,
