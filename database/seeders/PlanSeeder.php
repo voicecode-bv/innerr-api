@@ -26,7 +26,7 @@ class PlanSeeder extends Seeder
         Plan::query()->updateOrCreate(
             ['slug' => 'plus'],
             [
-                'name' => 'Plus',
+                'name' => 'Gezin',
                 'description' => '100 GB opslag.',
                 'tier' => 1,
                 'is_default' => false,
@@ -40,7 +40,7 @@ class PlanSeeder extends Seeder
         Plan::query()->updateOrCreate(
             ['slug' => 'pro'],
             [
-                'name' => 'Pro',
+                'name' => 'Familie+',
                 'description' => '1 TB opslag.',
                 'tier' => 2,
                 'is_default' => false,
