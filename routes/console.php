@@ -9,3 +9,8 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('gdpr:cleanup-exports')->daily();
+
+Schedule::command('storage:reconcile-user-usage')
+    ->dailyAt('03:30')
+    ->onOneServer()
+    ->withoutOverlapping();
