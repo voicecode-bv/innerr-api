@@ -134,7 +134,7 @@ class ReconcileUserStorageUsage extends Command
         $caseSql = implode(' ', $cases);
 
         DB::update(
-            "UPDATE users SET storage_used_bytes = CASE id {$caseSql} END WHERE id IN ({$ids})",
+            "UPDATE users SET storage_used_bytes = (CASE id {$caseSql} END)::bigint WHERE id IN ({$ids})",
             $bindings,
         );
     }
