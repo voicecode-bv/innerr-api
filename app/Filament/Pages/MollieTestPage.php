@@ -21,11 +21,12 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\URL;
 
 class MollieTestPage extends Page implements HasForms
 {
     use InteractsWithForms;
+
+    protected static ?string $slug = 'mollie-test';
 
     protected string $view = 'filament.pages.mollie-test-page';
 
@@ -54,7 +55,7 @@ class MollieTestPage extends Page implements HasForms
     public function mount(): void
     {
         $this->checkoutForm->fill([
-            'redirect_url' => URL::to('/admin/mollie-test'),
+            'redirect_url' => static::getUrl(),
         ]);
     }
 
