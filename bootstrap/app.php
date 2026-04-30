@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Middleware\RequireEntitlement;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Spatie\LaravelFlare\Facades\Flare;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,8 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'entitlement' => RequireEntitlement::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        \Spatie\LaravelFlare\Facades\Flare::handles($exceptions);
+        Flare::handles($exceptions);
     })->create();

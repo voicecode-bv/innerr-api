@@ -58,4 +58,24 @@ return [
         'public_key' => env('FLARE_PUBLIC_KEY'),
     ],
 
+    'apple_iap' => [
+        'bundle_id' => env('APPLE_IAP_BUNDLE_ID'),
+        'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
+        'key_id' => env('APPLE_IAP_KEY_ID'),
+        'private_key_path' => env('APPLE_IAP_PRIVATE_KEY_PATH'),
+        'environment' => env('APPLE_IAP_ENV', 'sandbox'),
+    ],
+
+    'google_play' => [
+        'package_name' => env('GOOGLE_PLAY_PACKAGE_NAME'),
+        'service_account_path' => env('GOOGLE_PLAY_SERVICE_ACCOUNT_PATH'),
+        'pubsub_subscription' => env('GOOGLE_PLAY_PUBSUB_SUBSCRIPTION'),
+        'pubsub_audience' => env('GOOGLE_PLAY_PUBSUB_AUDIENCE'),
+    ],
+
+    'mollie' => [
+        'api_key' => env('MOLLIE_API_KEY'),
+        'webhook_secret' => env('MOLLIE_WEBHOOK_SECRET'),
+    ],
+
 ];

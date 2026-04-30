@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\Entitlement;
 use App\Enums\NotificationPreference;
+use App\Enums\SubscriptionStatus;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -15,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\HasApiTokens;
 use Soved\Laravel\Gdpr\Contracts\Portable as PortableContract;
 use Soved\Laravel\Gdpr\Portable;
@@ -111,6 +114,71 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         return $this->hasOne(Person::class);
     }
 
+    /**
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * @return HasOne<Subscription, $this>
+     */
+    public function activeSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)
+            ->ofMany(
+                ['current_period_end' => 'max', 'id' => 'max'],
+                fn ($query) => $query->whereIn('status', SubscriptionStatus::entitledValues()),
+            );
+    }
+
+    private ?Plan $cachedCurrentPlan = null;
+
+    public function currentPlan(): Plan
+    {
+        if ($this->cachedCurrentPlan instanceof Plan) {
+            return $this->cachedCurrentPlan;
+        }
+
+        $planId = Cache::remember(
+            self::planCacheKey($this->id),
+            now()->addDay(),
+            function (): int {
+                $sub = $this->subscriptions()
+                    ->whereIn('status', SubscriptionStatus::entitledValues())
+                    ->orderByDesc('current_period_end')
+                    ->orderByDesc('id')
+                    ->first();
+
+                return $sub?->plan_id ?? Plan::default()->id;
+            },
+        );
+
+        return $this->cachedCurrentPlan = Plan::query()->findOrFail($planId);
+    }
+
+    public function hasEntitlement(Entitlement|string $entitlement): bool
+    {
+        return $this->currentPlan()->grants($entitlement);
+    }
+
+    public function isOnPaidPlan(): bool
+    {
+        return $this->currentPlan()->tier > 0;
+    }
+
+    public static function planCacheKey(int $userId): string
+    {
+        return "subscriptions:user:{$userId}:plan";
+    }
+
+    public static function flushPlanCache(int $userId): void
+    {
+        Cache::forget(self::planCacheKey($userId));
+    }
+
     public function wantsPushNotification(NotificationPreference $type): bool
     {
         return ($this->notification_preferences ?? NotificationPreference::defaults())[$type->value] ?? true;
@@ -136,7 +204,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
      *
      * @var array
      */
-    protected $gdprWith = ['posts', 'likes', 'comments', 'circles'];
+    protected $gdprWith = ['posts', 'likes', 'comments', 'circles', 'subscriptions'];
 
     /**
      * The attributes that should be hidden for the downloadable data.

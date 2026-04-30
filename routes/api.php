@@ -23,8 +23,17 @@ use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceKeyController;
+use App\Http\Controllers\Api\Subscriptions\AppleVerifyController;
+use App\Http\Controllers\Api\Subscriptions\GoogleVerifyController;
+use App\Http\Controllers\Api\Subscriptions\MollieCancelController;
+use App\Http\Controllers\Api\Subscriptions\MollieCheckoutController;
+use App\Http\Controllers\Api\Subscriptions\PlansController;
+use App\Http\Controllers\Api\Subscriptions\SubscriptionController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\WaitingListEntryController;
+use App\Http\Controllers\Api\Webhooks\AppleWebhookController;
+use App\Http\Controllers\Api\Webhooks\GoogleWebhookController;
+use App\Http\Controllers\Api\Webhooks\MollieWebhookController;
 use App\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +56,14 @@ Route::match(['get', 'post'], '/oauth/{provider}/callback', [OAuthController::cl
 
 Route::post('/waiting-list', [WaitingListEntryController::class, 'store'])->middleware('throttle:5,1')->name('api.waiting-list.store');
 Route::get('/waiting-list', [WaitingListEntryController::class, 'count'])->name('api.waiting-list.count');
+
+Route::get('/subscription/plans', [PlansController::class, 'index'])->name('api.subscription.plans.index');
+
+Route::prefix('webhooks/subscriptions')->middleware('throttle:120,1')->group(function () {
+    Route::post('apple', AppleWebhookController::class)->name('api.webhooks.subscriptions.apple');
+    Route::post('google', GoogleWebhookController::class)->name('api.webhooks.subscriptions.google');
+    Route::post('mollie', MollieWebhookController::class)->name('api.webhooks.subscriptions.mollie');
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
@@ -142,4 +159,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profiles/{user:username}/photos/map', [PhotoMapController::class, 'profile'])->name('api.profiles.photos.map');
 
     Route::get('/service-keys', ServiceKeyController::class)->name('api.service-keys.index');
+
+    Route::get('/subscription/me', [SubscriptionController::class, 'show'])->name('api.subscription.me');
+    Route::post('/subscription/iap/apple/verify', AppleVerifyController::class)
+        ->middleware('throttle:10,1')
+        ->name('api.subscription.iap.apple.verify');
+    Route::post('/subscription/iap/google/verify', GoogleVerifyController::class)
+        ->middleware('throttle:10,1')
+        ->name('api.subscription.iap.google.verify');
+    Route::post('/subscription/web/checkout', MollieCheckoutController::class)
+        ->middleware('throttle:10,1')
+        ->name('api.subscription.web.checkout');
+    Route::post('/subscription/web/cancel', MollieCancelController::class)
+        ->middleware('throttle:10,1')
+        ->name('api.subscription.web.cancel');
 });
