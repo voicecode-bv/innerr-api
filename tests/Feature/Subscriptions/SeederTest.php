@@ -13,10 +13,9 @@ it('seeds three plans with the expected entitlements', function () {
         ->and(Plan::query()->where('slug', 'pro')->value('entitlements'))->toContain('storage_1tb');
 });
 
-it('seeds prices for every paid plan and channel and only activates Mollie', function () {
+it('seeds active prices for every paid plan, channel and interval', function () {
     $this->seed(PlanSeeder::class);
 
     expect(Price::query()->count())->toBe(2 * 3 * 2)
-        ->and(Price::query()->where('channel', 'mollie')->where('is_active', true)->count())->toBe(4)
-        ->and(Price::query()->whereIn('channel', ['apple', 'google'])->where('is_active', true)->count())->toBe(0);
+        ->and(Price::query()->where('is_active', true)->count())->toBe(12);
 });

@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "filament/filament": "^5.6",
+        "firebase/php-jwt": "^7.0",
         "intervention/image-laravel": "^4.0",
         "laravel-notification-channels/fcm": "^6.1",
         "laravel/framework": "^13.0",
