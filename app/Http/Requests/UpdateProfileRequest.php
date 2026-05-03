@@ -32,6 +32,7 @@ class UpdateProfileRequest extends FormRequest
             'bio' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'locale' => ['sometimes', 'string', 'max:5'],
             'birthdate' => ['sometimes', 'nullable', 'date'],
+            'donation_percentage' => ['sometimes', 'integer', 'min:0', 'max:100'],
         ];
     }
 

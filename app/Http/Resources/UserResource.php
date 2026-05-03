@@ -21,6 +21,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'locale', type: 'string', nullable: true),
         new OA\Property(property: 'email_verified_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'onboarded_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'donation_percentage', type: 'integer', minimum: 0, maximum: 100),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
@@ -42,6 +43,7 @@ class UserResource extends JsonResource
             'locale' => $this->locale,
             'email_verified_at' => $this->email_verified_at,
             'onboarded_at' => $this->onboarded_at,
+            'donation_percentage' => $this->donation_percentage,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

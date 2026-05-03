@@ -151,7 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('api.account.export');
 
     Route::get('/profile', [ProfileController::class, 'showSelf'])->name('api.profile.show');
-    Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
+    Route::match(['put', 'patch'], '/profile', [ProfileController::class, 'update'])->name('api.profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('api.profile.avatar.update');
     Route::delete('/profile/avatar', [ProfileController::class, 'deleteAvatar'])->name('api.profile.avatar.delete');
     Route::get('/profiles/{user:username}', [ProfileController::class, 'show'])->name('api.profiles.show');

@@ -38,6 +38,14 @@ class UserForm
                 TextInput::make('apple_id'),
                 DateTimePicker::make('onboarded_at'),
                 TextInput::make('avatar_thumbnail'),
+                TextInput::make('donation_percentage')
+                    ->label('Donation percentage')
+                    ->helperText('Percentage of revenue this user wants donated to charity (0-100).')
+                    ->numeric()
+                    ->minValue(0)
+                    ->maxValue(100)
+                    ->default(0)
+                    ->required(),
             ]);
     }
 }

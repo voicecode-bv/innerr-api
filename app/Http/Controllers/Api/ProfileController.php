@@ -11,6 +11,7 @@ use App\Http\Resources\UserResource;
 use App\Models\Person;
 use App\Models\User;
 use App\Services\MediaUploadService;
+use App\Support\MediaUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -117,6 +118,40 @@ class ProfileController extends Controller
                     new OA\Property(property: 'username', type: 'string', example: 'johndoe'),
                     new OA\Property(property: 'bio', type: 'string', nullable: true, example: 'Hello world'),
                     new OA\Property(property: 'locale', type: 'string', example: 'en'),
+                    new OA\Property(property: 'donation_percentage', type: 'integer', minimum: 0, maximum: 100, example: 5),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Profile updated',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'user', ref: '#/components/schemas/User'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    #[OA\Patch(
+        path: '/api/profile',
+        summary: 'Partially update profile',
+        description: 'Partially update the authenticated user\'s profile details. Only the provided fields are updated.',
+        tags: ['Profiles'],
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'John Doe'),
+                    new OA\Property(property: 'username', type: 'string', example: 'johndoe'),
+                    new OA\Property(property: 'bio', type: 'string', nullable: true, example: 'Hello world'),
+                    new OA\Property(property: 'locale', type: 'string', example: 'en'),
+                    new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true, example: '1990-01-01'),
+                    new OA\Property(property: 'donation_percentage', type: 'integer', minimum: 0, maximum: 100, example: 5),
                 ],
             ),
         ),
@@ -175,6 +210,7 @@ class ProfileController extends Controller
                             new OA\Property(property: 'avatar', type: 'string', nullable: true),
                             new OA\Property(property: 'bio', type: 'string', nullable: true),
                             new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
+                            new OA\Property(property: 'donation_percentage', type: 'integer', minimum: 0, maximum: 100),
                         ]),
                     ],
                 ),
@@ -182,7 +218,7 @@ class ProfileController extends Controller
             new OA\Response(response: 401, description: 'Unauthenticated'),
         ],
     )]
-    public function showSelf(\Illuminate\Http\Request $request): JsonResponse
+    public function showSelf(Request $request): JsonResponse
     {
         $user = $request->user()->load('person:id,user_id,birthdate');
 
@@ -191,9 +227,10 @@ class ProfileController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'username' => $user->username,
-                'avatar' => \App\Support\MediaUrl::sign($user->avatar),
+                'avatar' => MediaUrl::sign($user->avatar),
                 'bio' => $user->bio,
                 'birthdate' => $user->person?->birthdate?->toDateString(),
+                'donation_percentage' => $user->donation_percentage,
             ],
         ]);
     }
