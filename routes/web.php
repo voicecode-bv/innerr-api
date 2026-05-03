@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DocumentationController;
+use App\Models\User;
 use Illuminate\Mail\Markdown;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Route;
@@ -11,7 +12,11 @@ Route::get('/api/docs', [DocumentationController::class, 'ui'])->name('api.docs'
 Route::get('/api/docs/openapi.json', [DocumentationController::class, 'spec'])->name('api.docs.spec');
 
 Route::get('test', function () {
-    auth()->loginUsingId(1);
+    $userId = User::query()->value('id');
+
+    if ($userId !== null) {
+        auth()->loginUsingId($userId);
+    }
 });
 
 Route::get('/mail/preview', function (): string {

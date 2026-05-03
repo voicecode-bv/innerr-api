@@ -204,7 +204,7 @@ class ProfileController extends Controller
                 content: new OA\JsonContent(
                     properties: [
                         new OA\Property(property: 'data', properties: [
-                            new OA\Property(property: 'id', type: 'integer'),
+                            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                             new OA\Property(property: 'name', type: 'string'),
                             new OA\Property(property: 'username', type: 'string'),
                             new OA\Property(property: 'avatar', type: 'string', nullable: true),

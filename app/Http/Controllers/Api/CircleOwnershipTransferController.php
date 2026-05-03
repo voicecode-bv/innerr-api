@@ -64,13 +64,13 @@ class CircleOwnershipTransferController extends Controller
         tags: ['Circle Ownership Transfers'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
                 properties: [
-                    new OA\Property(property: 'user_id', type: 'integer', example: 42),
+                    new OA\Property(property: 'user_id', type: 'string', format: 'uuid', example: '019deefe-f707-715c-a486-9a73e8f533a7'),
                 ],
             ),
         ),
@@ -94,7 +94,7 @@ class CircleOwnershipTransferController extends Controller
     {
         $this->authorize('transferOwnership', $circle);
 
-        $targetUserId = (int) $request->validated('user_id');
+        $targetUserId = (string) $request->validated('user_id');
 
         if ($targetUserId === $circle->user_id) {
             abort(422, 'The target user is already the owner.');
@@ -127,8 +127,8 @@ class CircleOwnershipTransferController extends Controller
         tags: ['Circle Ownership Transfers'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Transfer cancelled'),
@@ -161,7 +161,7 @@ class CircleOwnershipTransferController extends Controller
         tags: ['Circle Ownership Transfers'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -221,7 +221,7 @@ class CircleOwnershipTransferController extends Controller
         tags: ['Circle Ownership Transfers'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circleOwnershipTransfer', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(

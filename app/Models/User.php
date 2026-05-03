@@ -11,6 +11,7 @@ use Filament\Panel;
 use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,7 +28,7 @@ use Soved\Laravel\Gdpr\Portable;
 class User extends Authenticatable implements FilamentUser, HasLocalePreference, PortableContract
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, Portable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable, Portable;
 
     /** @var array<string, mixed> */
     protected $attributes = [
@@ -147,7 +148,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         $planId = Cache::remember(
             self::planCacheKey($this->id),
             now()->addDay(),
-            function (): int {
+            function (): string {
                 $sub = $this->subscriptions()
                     ->whereIn('status', SubscriptionStatus::entitledValues())
                     ->orderByDesc('current_period_end')
@@ -171,12 +172,12 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         return $this->currentPlan()->tier > 0;
     }
 
-    public static function planCacheKey(int $userId): string
+    public static function planCacheKey(string $userId): string
     {
         return "subscriptions:user:{$userId}:plan";
     }
 
-    public static function flushPlanCache(int $userId): void
+    public static function flushPlanCache(string $userId): void
     {
         Cache::forget(self::planCacheKey($userId));
     }

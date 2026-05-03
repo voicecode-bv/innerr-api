@@ -109,7 +109,7 @@ class CircleController extends Controller
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -154,7 +154,7 @@ class CircleController extends Controller
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -198,7 +198,7 @@ class CircleController extends Controller
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -242,7 +242,7 @@ class CircleController extends Controller
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Circle deleted'),

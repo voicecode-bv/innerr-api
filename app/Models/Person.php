@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\MediaUploadService;
 use Database\Factories\PersonFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Person extends Model
 {
     /** @use HasFactory<PersonFactory> */
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     /** @var array<string, mixed> */
     protected $attributes = [

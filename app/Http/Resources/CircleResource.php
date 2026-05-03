@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'Circle',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'is_owner', type: 'boolean', description: 'Whether the authenticated user is the owner of this circle.'),
         new OA\Property(property: 'members_can_invite', type: 'boolean', description: 'Whether non-owner members are allowed to invite others to this circle.'),
@@ -22,7 +22,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'members_count', type: 'integer', description: 'Total number of members including the owner.'),
         new OA\Property(property: 'members', type: 'array', description: 'Members of the circle, including the owner.', items: new OA\Items(
             properties: [
-                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                 new OA\Property(property: 'name', type: 'string'),
                 new OA\Property(property: 'username', type: 'string'),
                 new OA\Property(property: 'avatar', type: 'string', nullable: true),
@@ -35,7 +35,7 @@ use OpenApi\Attributes as OA;
             description: 'Pending invitations for this circle. Only returned to the owner, or to members when members_can_invite is true.',
             items: new OA\Items(
                 properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'email', type: 'string', nullable: true),
                     new OA\Property(property: 'username', type: 'string', nullable: true),
                     new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
@@ -48,16 +48,16 @@ use OpenApi\Attributes as OA;
             nullable: true,
             description: 'Pending ownership transfer for this circle, if any. Only returned to the current owner and the target user.',
             properties: [
-                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                 new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
                 new OA\Property(property: 'from_user', properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'username', type: 'string'),
                     new OA\Property(property: 'avatar', type: 'string', nullable: true),
                 ], type: 'object'),
                 new OA\Property(property: 'to_user', properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'username', type: 'string'),
                     new OA\Property(property: 'avatar', type: 'string', nullable: true),

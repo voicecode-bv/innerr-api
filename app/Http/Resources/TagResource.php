@@ -11,7 +11,7 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'Tag',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'usage_count', type: 'integer', description: 'Denormalized count of how many of the user\'s posts this tag is attached to.'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),

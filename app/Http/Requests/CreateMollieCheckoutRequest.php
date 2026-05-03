@@ -20,7 +20,7 @@ class CreateMollieCheckoutRequest extends FormRequest
     {
         return [
             'price_id' => [
-                'required', 'integer',
+                'required', 'uuid',
                 Rule::exists('prices', 'id')
                     ->where('channel', SubscriptionChannel::Mollie->value)
                     ->where('is_active', true),

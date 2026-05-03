@@ -92,7 +92,7 @@ class TagController extends Controller
         tags: ['Tags'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'tag', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tag', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -135,7 +135,7 @@ class TagController extends Controller
         tags: ['Tags'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'tag', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'tag', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Tag deleted'),

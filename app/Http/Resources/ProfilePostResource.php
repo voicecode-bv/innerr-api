@@ -13,7 +13,7 @@ use OpenApi\Attributes as OA;
     schema: 'ProfilePost',
     description: 'Compact post representation for profile grids. `media_url` points to a 150×150 grid thumbnail when available, falling back to the 400×400 thumbnail and finally the full-size media URL.',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'media_url', type: 'string'),
         new OA\Property(property: 'media_type', type: 'string', enum: ['image', 'video']),
         new OA\Property(property: 'media_status', type: 'string', enum: ['processing', 'ready', 'failed']),

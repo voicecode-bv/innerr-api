@@ -28,7 +28,7 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle_id', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -47,7 +47,7 @@ class PersonController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $request->validate([
-            'circle_id' => ['sometimes', 'integer'],
+            'circle_id' => ['sometimes', 'uuid'],
         ]);
 
         $user = $request->user();
@@ -58,7 +58,7 @@ class PersonController extends Controller
             ->limit(1000);
 
         if ($request->filled('circle_id')) {
-            $circle = Circle::findOrFail($request->integer('circle_id'));
+            $circle = Circle::findOrFail($request->string('circle_id')->toString());
             $this->authorize('view', $circle);
 
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
@@ -85,8 +85,8 @@ class PersonController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
-                    new OA\Property(property: 'user_id', type: 'integer', nullable: true, description: 'Optional. Link this person to an existing user account.'),
-                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer')),
+                    new OA\Property(property: 'user_id', type: 'string', format: 'uuid', nullable: true, description: 'Optional. Link this person to an existing user account.'),
+                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid')),
                 ],
             ),
         ),
@@ -122,7 +122,7 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -130,7 +130,7 @@ class PersonController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
-                    new OA\Property(property: 'user_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'user_id', type: 'string', format: 'uuid', nullable: true),
                 ],
             ),
         ),
@@ -159,7 +159,7 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -213,7 +213,7 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Avatar removed', content: new OA\JsonContent(properties: [new OA\Property(property: 'data', ref: '#/components/schemas/Person')])),
@@ -244,8 +244,8 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Attached', content: new OA\JsonContent(properties: [new OA\Property(property: 'data', ref: '#/components/schemas/Person')])),
@@ -278,8 +278,8 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 200, description: 'Detached', content: new OA\JsonContent(properties: [new OA\Property(property: 'data', ref: '#/components/schemas/Person')])),
@@ -311,7 +311,7 @@ class PersonController extends Controller
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'person', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Person deleted'),

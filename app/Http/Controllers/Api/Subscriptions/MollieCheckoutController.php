@@ -21,7 +21,7 @@ class MollieCheckoutController extends Controller
         SubscriptionGuard $guard,
     ): JsonResponse {
         $user = $request->user();
-        $price = Price::query()->with('plan')->findOrFail($request->integer('price_id'));
+        $price = Price::query()->with('plan')->findOrFail($request->string('price_id')->toString());
 
         if ($blocking = $guard->blockingChannel($user, SubscriptionChannel::Mollie)) {
             return new JsonResponse([

@@ -20,7 +20,7 @@ class UserStorage
     /**
      * Adjust a user's tracked usage by the given (signed) byte delta.
      */
-    public static function adjust(int $userId, int $delta): void
+    public static function adjust(string $userId, int $delta): void
     {
         if ($delta === 0) {
             return;
@@ -78,7 +78,7 @@ class UserStorage
      * Reset a user's tracked usage to zero. Used when wiping the entire
      * users/{id} folder (anonymisation, account deletion).
      */
-    public static function reset(int $userId): void
+    public static function reset(string $userId): void
     {
         User::whereKey($userId)->update(['storage_used_bytes' => 0]);
     }
@@ -86,10 +86,10 @@ class UserStorage
     /**
      * Extract the user id from a `users/{id}/...` storage path.
      */
-    public static function userIdFromPath(string $path): ?int
+    public static function userIdFromPath(string $path): ?string
     {
-        if (preg_match('#^users/(\d+)/#', $path, $matches) === 1) {
-            return (int) $matches[1];
+        if (preg_match('#^users/([0-9a-f-]{36})/#', $path, $matches) === 1) {
+            return $matches[1];
         }
 
         return null;

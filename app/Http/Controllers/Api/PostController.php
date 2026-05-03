@@ -35,7 +35,7 @@ class PostController extends Controller
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -93,9 +93,9 @@ class PostController extends Controller
                         new OA\Property(property: 'media', type: 'string', format: 'binary', description: 'Image or video file (jpg, png, gif, mp4, mov). Max 50MB.'),
                         new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                         new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true),
-                        new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
-                        new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of personal tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
-                        new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Optional. IDs of persons to tag on this post. Each person must belong to at least one of the selected `circle_ids`.'),
+                        new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Circle IDs to share the post with (user must be owner or member).'),
+                        new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Optional. IDs of personal tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
+                        new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Optional. IDs of persons to tag on this post. Each person must belong to at least one of the selected `circle_ids`.'),
                     ],
                 ),
             ),
@@ -221,16 +221,16 @@ class PostController extends Controller
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
                 properties: [
                     new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
-                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Circle IDs to share the post with (user must be owner or member).'),
-                    new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of personal tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
-                    new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'integer'), description: 'Full desired set of person IDs. Each person must belong to at least one of the post\'s circles. Send an empty array to detach all persons.'),
+                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Circle IDs to share the post with (user must be owner or member).'),
+                    new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Full desired set of personal tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
+                    new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Full desired set of person IDs. Each person must belong to at least one of the post\'s circles. Send an empty array to detach all persons.'),
                 ],
             ),
         ),
@@ -306,7 +306,7 @@ class PostController extends Controller
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Post deleted'),
@@ -335,7 +335,7 @@ class PostController extends Controller
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(

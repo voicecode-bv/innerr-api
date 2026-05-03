@@ -26,7 +26,7 @@ class CommentController extends Controller
         tags: ['Comments'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
         ],
         responses: [
@@ -75,7 +75,7 @@ class CommentController extends Controller
         tags: ['Comments'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
             new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 10, maximum: 50)),
         ],
@@ -118,7 +118,7 @@ class CommentController extends Controller
         tags: ['Comments'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -126,7 +126,7 @@ class CommentController extends Controller
                 required: ['body'],
                 properties: [
                     new OA\Property(property: 'body', type: 'string', maxLength: 1000, example: 'Great post!'),
-                    new OA\Property(property: 'parent_comment_id', type: 'integer', nullable: true, description: 'ID of the comment being replied to'),
+                    new OA\Property(property: 'parent_comment_id', type: 'string', format: 'uuid', nullable: true, description: 'ID of the comment being replied to'),
                 ],
             ),
         ),
@@ -180,7 +180,7 @@ class CommentController extends Controller
         tags: ['Comments'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Comment deleted'),

@@ -23,11 +23,11 @@ class UpdatePostRequest extends FormRequest
         return [
             'caption' => ['sometimes', 'nullable', 'string', 'max:2200'],
             'circle_ids' => ['sometimes', 'array', 'min:1'],
-            'circle_ids.*' => ['integer', new AccessibleCircle($this->user())],
+            'circle_ids.*' => ['uuid', new AccessibleCircle($this->user())],
             'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => ['integer', new OwnedTag($this->user())],
+            'tag_ids.*' => ['uuid', new OwnedTag($this->user())],
             'person_ids' => ['sometimes', 'array'],
-            'person_ids.*' => ['integer', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
+            'person_ids.*' => ['uuid', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
         ];
     }
 
@@ -35,13 +35,13 @@ class UpdatePostRequest extends FormRequest
      * The set of circle IDs the post will be in after this update — either
      * from the request when supplied, or the post's current circles.
      *
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function effectiveCircleIds(): array
     {
         if ($this->has('circle_ids')) {
             return array_values(array_filter(array_map(
-                fn ($id) => is_numeric($id) ? (int) $id : null,
+                fn ($id) => is_string($id) ? $id : null,
                 (array) $this->input('circle_ids', [])
             )));
         }

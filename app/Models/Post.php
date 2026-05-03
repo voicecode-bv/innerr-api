@@ -6,6 +6,7 @@ use App\Enums\MediaStatus;
 use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,7 +21,7 @@ use MatanYadaev\EloquentSpatial\Traits\HasSpatial;
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */
-    use HasFactory, HasSpatial;
+    use HasFactory, HasSpatial, HasUuids;
 
     protected static function booted(): void
     {
@@ -47,7 +48,7 @@ class Post extends Model
      * Sync the tags attached to this post and keep each tag's denormalized
      * `usage_count` in step with the changes.
      *
-     * @param  array<int, int>  $tagIds
+     * @param  array<int, string>  $tagIds
      */
     public function syncTags(array $tagIds): void
     {
@@ -72,7 +73,7 @@ class Post extends Model
      * Sync the persons attached to this post and keep each person's
      * denormalized `usage_count` in step with the changes.
      *
-     * @param  array<int, int>  $personIds
+     * @param  array<int, string>  $personIds
      */
     public function syncPersons(array $personIds): void
     {

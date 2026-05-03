@@ -36,7 +36,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
 
     public int $timeout = 60;
 
-    public function __construct(public int $eventId)
+    public function __construct(public string $eventId)
     {
         $this->onQueue('subscriptions');
     }
@@ -115,9 +115,9 @@ class ProcessSubscriptionEvent implements ShouldQueue
         }
 
         $metadata = (array) ($payment->metadata ?? []);
-        $userId = (int) ($metadata['user_id'] ?? 0);
+        $userId = (string) ($metadata['user_id'] ?? '');
 
-        if ($userId === 0) {
+        if ($userId === '') {
             $event->update(['error' => 'Mollie payment has no user_id metadata; cannot process.']);
 
             return;
@@ -144,7 +144,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
 
     private function resolveSubscription(
         Payment $payment,
-        int $userId,
+        string $userId,
         ChannelRegistry $registry,
     ): Subscription {
         if ($payment->subscriptionId !== null) {
@@ -159,7 +159,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
         }
 
         $metadata = (array) ($payment->metadata ?? []);
-        $price = Price::query()->with('plan')->find((int) ($metadata['price_id'] ?? 0));
+        $price = Price::query()->with('plan')->find((string) ($metadata['price_id'] ?? ''));
         $plan = $price?->plan ?? Plan::default();
 
         /** @var MollieChannel $channel */
@@ -352,7 +352,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
         $event->fill(['to_status' => $subscription->fresh()->status])->save();
     }
 
-    private function resolveAppleUserId(string $appAccountToken): ?int
+    private function resolveAppleUserId(string $appAccountToken): ?string
     {
         if ($appAccountToken === '') {
             return null;
@@ -448,7 +448,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
     /**
      * @param  array<string, mixed>  $notification
      */
-    private function resolveGoogleUserId(array $notification): ?int
+    private function resolveGoogleUserId(array $notification): ?string
     {
         $obfuscated = (string) ($notification['developerPayload']['obfuscatedExternalAccountId']
             ?? $notification['obfuscatedExternalAccountId']

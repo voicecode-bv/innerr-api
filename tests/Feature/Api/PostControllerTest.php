@@ -557,8 +557,8 @@ it('removes comments and notifications when deleting a post', function () {
         ->deleteJson("/api/posts/{$post->id}")
         ->assertNoContent();
 
-    $countNotificationsForPost = fn (int $postId): int => $user->notifications()
-        ->whereRaw("data::jsonb->>'post_id' = ?", [(string) $postId])
+    $countNotificationsForPost = fn (string $postId): int => $user->notifications()
+        ->whereRaw("data::jsonb->>'post_id' = ?", [$postId])
         ->count();
 
     expect(Comment::where('post_id', $post->id)->count())->toBe(0)

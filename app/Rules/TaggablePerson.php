@@ -10,7 +10,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 class TaggablePerson implements ValidationRule
 {
     /**
-     * @param  array<int, int>  $circleIds  Circle IDs the post is being shared with.
+     * @param  array<int, string>  $circleIds  Circle IDs the post is being shared with.
      */
     public function __construct(protected User $user, protected array $circleIds) {}
 

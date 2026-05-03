@@ -29,21 +29,21 @@ class StorePostRequest extends FormRequest
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'circle_ids' => ['required', 'array', 'min:1'],
-            'circle_ids.*' => ['integer', new AccessibleCircle($this->user())],
+            'circle_ids.*' => ['uuid', new AccessibleCircle($this->user())],
             'tag_ids' => ['sometimes', 'array'],
-            'tag_ids.*' => ['integer', new OwnedTag($this->user())],
+            'tag_ids.*' => ['uuid', new OwnedTag($this->user())],
             'person_ids' => ['sometimes', 'array'],
-            'person_ids.*' => ['integer', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
+            'person_ids.*' => ['uuid', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
         ];
     }
 
     /**
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function effectiveCircleIds(): array
     {
         return array_values(array_filter(array_map(
-            fn ($id) => is_numeric($id) ? (int) $id : null,
+            fn ($id) => is_string($id) ? $id : null,
             (array) $this->input('circle_ids', [])
         )));
     }

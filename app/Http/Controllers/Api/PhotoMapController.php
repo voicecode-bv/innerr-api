@@ -57,7 +57,7 @@ class PhotoMapController extends Controller
                             items: new OA\Items(
                                 properties: [
                                     new OA\Property(property: 'type', type: 'string', example: 'Feature'),
-                                    new OA\Property(property: 'id', type: 'integer'),
+                                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                                     new OA\Property(
                                         property: 'geometry',
                                         properties: [
@@ -68,7 +68,7 @@ class PhotoMapController extends Controller
                                     new OA\Property(
                                         property: 'properties',
                                         properties: [
-                                            new OA\Property(property: 'post_id', type: 'integer'),
+                                            new OA\Property(property: 'post_id', type: 'string', format: 'uuid'),
                                             new OA\Property(property: 'media_type', type: 'string', enum: ['image', 'video']),
                                             new OA\Property(property: 'thumbnail_url', type: 'string', nullable: true),
                                             new OA\Property(property: 'taken_at', type: 'string', format: 'date-time', nullable: true),
@@ -152,7 +152,7 @@ class PhotoMapController extends Controller
         tags: ['Photos'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(
                 name: 'bbox',
                 in: 'query',

@@ -20,7 +20,7 @@ class LikeController extends Controller
         tags: ['Likes'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
         ],
         responses: [
@@ -31,7 +31,7 @@ class LikeController extends Controller
                     properties: [
                         new OA\Property(property: 'data', type: 'array', items: new OA\Items(
                             properties: [
-                                new OA\Property(property: 'id', type: 'integer'),
+                                new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                                 new OA\Property(property: 'name', type: 'string'),
                                 new OA\Property(property: 'username', type: 'string'),
                                 new OA\Property(property: 'avatar', type: 'string', nullable: true),
@@ -76,7 +76,7 @@ class LikeController extends Controller
         tags: ['Likes'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -121,7 +121,7 @@ class LikeController extends Controller
         tags: ['Likes'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'post', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(

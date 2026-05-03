@@ -7,6 +7,7 @@ use App\Enums\SubscriptionEventType;
 use App\Enums\SubscriptionStatus;
 use Database\Factories\SubscriptionEventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SubscriptionEvent extends Model
 {
     /** @use HasFactory<SubscriptionEventFactory> */
-    use HasFactory;
+    use HasFactory, HasUuids;
 
     /**
      * @return array<string, mixed>

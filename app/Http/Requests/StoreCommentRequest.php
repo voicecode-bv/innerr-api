@@ -22,7 +22,7 @@ class StoreCommentRequest extends FormRequest
             'body' => ['required', 'string', 'max:1000'],
             'parent_comment_id' => [
                 'nullable',
-                'integer',
+                'uuid',
                 function (string $attribute, mixed $value, Closure $fail): void {
                     $postId = $this->route('post')?->id;
 

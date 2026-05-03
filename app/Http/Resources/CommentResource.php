@@ -12,13 +12,13 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'Comment',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
-        new OA\Property(property: 'parent_comment_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
+        new OA\Property(property: 'parent_comment_id', type: 'string', format: 'uuid', nullable: true),
         new OA\Property(property: 'body', type: 'string'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'user', type: 'object', properties: [
-            new OA\Property(property: 'id', type: 'integer'),
+            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
             new OA\Property(property: 'name', type: 'string'),
             new OA\Property(property: 'username', type: 'string'),
             new OA\Property(property: 'avatar', type: 'string', nullable: true),

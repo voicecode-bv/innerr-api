@@ -57,8 +57,8 @@ class CircleInvitationController extends Controller
         tags: ['Circle Invitations'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Invitation cancelled'),
@@ -89,7 +89,7 @@ class CircleInvitationController extends Controller
         tags: ['Circle Invitations'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -142,7 +142,7 @@ class CircleInvitationController extends Controller
         tags: ['Circle Invitations'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circleInvitation', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(

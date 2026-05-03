@@ -5,10 +5,14 @@ use App\Support\UserStorage;
 use Illuminate\Support\Facades\Storage;
 
 it('extracts the user id from a users/{id}/... path', function () {
-    expect(UserStorage::userIdFromPath('users/42/posts/foo.jpg'))->toBe(42)
-        ->and(UserStorage::userIdFromPath('users/7/originals/posts/bar.mp4'))->toBe(7)
+    $uuid1 = '019deefc-1234-7000-8000-abcdef012345';
+    $uuid2 = '019deefc-9999-7000-8000-abcdef012345';
+
+    expect(UserStorage::userIdFromPath("users/{$uuid1}/posts/foo.jpg"))->toBe($uuid1)
+        ->and(UserStorage::userIdFromPath("users/{$uuid2}/originals/posts/bar.mp4"))->toBe($uuid2)
         ->and(UserStorage::userIdFromPath('shared/avatar.jpg'))->toBeNull()
-        ->and(UserStorage::userIdFromPath('users/abc/foo.jpg'))->toBeNull();
+        ->and(UserStorage::userIdFromPath('users/abc/foo.jpg'))->toBeNull()
+        ->and(UserStorage::userIdFromPath('users/42/foo.jpg'))->toBeNull();
 });
 
 it('atomically increments and decrements user storage', function () {

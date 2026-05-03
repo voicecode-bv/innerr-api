@@ -22,7 +22,7 @@ class UpdatePersonRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:50'],
             'birthdate' => ['sometimes', 'nullable', 'date', 'before_or_equal:today', 'after:1900-01-01'],
-            'user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'user_id' => ['sometimes', 'nullable', 'uuid', 'exists:users,id'],
         ];
     }
 
@@ -32,7 +32,7 @@ class UpdatePersonRequest extends FormRequest
             /** @var Person $person */
             $person = $this->route('person');
 
-            if ($person->user_id !== null && $this->has('user_id') && (int) $this->input('user_id') !== $person->user_id) {
+            if ($person->user_id !== null && $this->has('user_id') && (string) $this->input('user_id') !== $person->user_id) {
                 $v->errors()->add('user_id', __('Member persons are managed by circle membership and their linked user cannot be changed.'));
 
                 return;

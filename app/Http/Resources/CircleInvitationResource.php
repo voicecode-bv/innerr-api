@@ -12,15 +12,15 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'CircleInvitation',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'status', type: 'string', enum: ['pending', 'accepted', 'declined']),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'circle', properties: [
-            new OA\Property(property: 'id', type: 'integer'),
+            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
             new OA\Property(property: 'name', type: 'string'),
         ], type: 'object'),
         new OA\Property(property: 'inviter', properties: [
-            new OA\Property(property: 'id', type: 'integer'),
+            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
             new OA\Property(property: 'name', type: 'string'),
             new OA\Property(property: 'username', type: 'string'),
             new OA\Property(property: 'avatar', type: 'string', nullable: true),

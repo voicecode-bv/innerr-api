@@ -30,7 +30,7 @@ class CircleMemberController extends Controller
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         requestBody: new OA\RequestBody(
             required: true,
@@ -127,8 +127,8 @@ class CircleMemberController extends Controller
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Member removed'),
@@ -158,7 +158,7 @@ class CircleMemberController extends Controller
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(response: 204, description: 'Left circle'),
@@ -193,7 +193,7 @@ class CircleMemberController extends Controller
             $user->update([
                 'default_circle_ids' => array_values(array_filter(
                     $defaultCircleIds,
-                    fn (int $id): bool => $id !== $circle->id,
+                    fn (string $id): bool => $id !== $circle->id,
                 )),
             ]);
         }

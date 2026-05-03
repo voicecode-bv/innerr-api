@@ -22,7 +22,7 @@ class DefaultCircleController extends Controller
                 description: 'Default circle IDs',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(type: 'integer')),
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(type: 'string', format: 'uuid')),
                     ],
                 ),
             ),
@@ -47,7 +47,7 @@ class DefaultCircleController extends Controller
             content: new OA\JsonContent(
                 required: ['circle_ids'],
                 properties: [
-                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer'), example: [1, 2, 3]),
+                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), example: ['019deefe-f707-715c-a486-9a73e8f533a7']),
                 ],
             ),
         ),
@@ -57,7 +57,7 @@ class DefaultCircleController extends Controller
                 description: 'Default circles updated',
                 content: new OA\JsonContent(
                     properties: [
-                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(type: 'integer')),
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(type: 'string', format: 'uuid')),
                     ],
                 ),
             ),
@@ -69,7 +69,7 @@ class DefaultCircleController extends Controller
     {
         $validated = $request->validate([
             'circle_ids' => ['present', 'array'],
-            'circle_ids.*' => ['integer', 'exists:circles,id'],
+            'circle_ids.*' => ['uuid', 'exists:circles,id'],
         ]);
 
         $userId = $request->user()->id;

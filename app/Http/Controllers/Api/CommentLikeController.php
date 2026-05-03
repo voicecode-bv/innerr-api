@@ -19,7 +19,7 @@ class CommentLikeController extends Controller
         tags: ['Likes'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(
@@ -64,7 +64,7 @@ class CommentLikeController extends Controller
         tags: ['Likes'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'comment', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
         ],
         responses: [
             new OA\Response(

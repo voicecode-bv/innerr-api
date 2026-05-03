@@ -49,7 +49,7 @@ class MediaUploadService
      */
     public function store(
         UploadedFile $file,
-        int $userId,
+        string $userId,
         string $folder,
         ?int $width = null,
         ?int $height = null,
@@ -107,7 +107,7 @@ class MediaUploadService
      *
      * @return string The storage path of the transcoded display file.
      */
-    private function storeVideo(UploadedFile $file, int $userId, string $folder): string
+    private function storeVideo(UploadedFile $file, string $userId, string $folder): string
     {
         $disk = MediaUrl::disk();
         $userFolder = "users/{$userId}";
@@ -176,7 +176,7 @@ class MediaUploadService
         $disk->delete($displayPath);
 
         $originalPath = preg_replace(
-            '#^(users/\d+)/(?!originals/)(.+)$#',
+            '#^(users/[0-9a-f-]{36})/(?!originals/)(.+)$#',
             '$1/originals/$2',
             $displayPath,
         );
@@ -196,7 +196,7 @@ class MediaUploadService
      *
      * @return string|null The storage path of the thumbnail, or null on failure.
      */
-    public function generateImageThumbnail(UploadedFile $file, int $userId, string $folder, int $size = 400): ?string
+    public function generateImageThumbnail(UploadedFile $file, string $userId, string $folder, int $size = 400): ?string
     {
         $file = $this->convertHeicToJpeg($file);
 
@@ -235,7 +235,7 @@ class MediaUploadService
      *
      * @return string|null The storage path of the thumbnail, or null on failure.
      */
-    public function generateImageThumbnailFromPath(string $sourcePath, int $userId, string $folder, int $size = 400): ?string
+    public function generateImageThumbnailFromPath(string $sourcePath, string $userId, string $folder, int $size = 400): ?string
     {
         $disk = MediaUrl::disk();
 
@@ -280,12 +280,12 @@ class MediaUploadService
      * JPEG in the user's thumbnails folder.
      *
      * @param  string  $videoPath  Local file path or storage path to the video.
-     * @param  int  $userId  Owner of the video.
+     * @param  string  $userId  Owner of the video.
      * @param  string  $folder  Storage sub-folder (e.g. "posts").
      * @param  bool  $isLocalPath  Whether $videoPath is already a local filesystem path.
      * @return string|null The storage path of the thumbnail, or null on failure.
      */
-    public function generateVideoThumbnail(string $videoPath, int $userId, string $folder, bool $isLocalPath = false): ?string
+    public function generateVideoThumbnail(string $videoPath, string $userId, string $folder, bool $isLocalPath = false): ?string
     {
         $disk = MediaUrl::disk();
 

@@ -12,7 +12,7 @@ use OpenApi\Attributes as OA;
 #[OA\Schema(
     schema: 'Post',
     properties: [
-        new OA\Property(property: 'id', type: 'integer'),
+        new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'media_url', type: 'string'),
         new OA\Property(property: 'media_type', type: 'string', enum: ['image', 'video']),
         new OA\Property(property: 'thumbnail_url', type: 'string', nullable: true, description: 'Signed URL for the video thumbnail. Only present for video posts.'),
@@ -26,7 +26,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'user', type: 'object', properties: [
-            new OA\Property(property: 'id', type: 'integer'),
+            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
             new OA\Property(property: 'name', type: 'string'),
             new OA\Property(property: 'username', type: 'string'),
             new OA\Property(property: 'avatar', type: 'string', nullable: true),
@@ -41,11 +41,11 @@ use OpenApi\Attributes as OA;
             description: 'Persons tagged on the post. Visible to anyone who can see the post (persons are shared within a circle).',
             items: new OA\Items(
                 properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
                     new OA\Property(property: 'avatar_thumbnail', type: 'string', nullable: true),
-                    new OA\Property(property: 'user_id', type: 'integer', nullable: true),
+                    new OA\Property(property: 'user_id', type: 'string', format: 'uuid', nullable: true),
                     new OA\Property(property: 'user_username', type: 'string', nullable: true, description: 'Username of the linked user account, if `user_id` is set. Use this to link to the user\'s profile.'),
                 ],
             ),
@@ -56,7 +56,7 @@ use OpenApi\Attributes as OA;
             description: 'Circles the post is shared with. Only included when the authenticated user is the post owner.',
             items: new OA\Items(
                 properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
                     new OA\Property(property: 'photo', type: 'string', nullable: true),
                 ],
@@ -68,7 +68,7 @@ use OpenApi\Attributes as OA;
             description: 'Personal tags the post is labeled with. Only included when the authenticated user is the post owner — tags are private per user.',
             items: new OA\Items(
                 properties: [
-                    new OA\Property(property: 'id', type: 'integer'),
+                    new OA\Property(property: 'id', type: 'string', format: 'uuid'),
                     new OA\Property(property: 'name', type: 'string'),
                 ],
             ),

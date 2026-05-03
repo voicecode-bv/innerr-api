@@ -20,7 +20,7 @@ class ReconcileUserStorageUsage extends Command
     public function handle(): int
     {
         $disk = MediaUrl::disk();
-        $singleUserId = $this->option('user') !== null ? (int) $this->option('user') : null;
+        $singleUserId = $this->option('user') !== null ? (string) $this->option('user') : null;
 
         if ($singleUserId !== null) {
             return $this->reconcileSingle($disk, $singleUserId);
@@ -33,7 +33,7 @@ class ReconcileUserStorageUsage extends Command
      * Reconcile one user by listing files under their prefix only. Cheap when
      * called individually (e.g. after a known drift).
      */
-    private function reconcileSingle(Filesystem $disk, int $userId): int
+    private function reconcileSingle(Filesystem $disk, string $userId): int
     {
         if (User::whereKey($userId)->doesntExist()) {
             $this->error("User {$userId} not found.");
@@ -113,7 +113,7 @@ class ReconcileUserStorageUsage extends Command
     }
 
     /**
-     * @param  array<int, int>  $usage  user id => bytes
+     * @param  array<string, int>  $usage  user id => bytes
      */
     private function bulkUpdate(array $usage): void
     {
@@ -125,17 +125,17 @@ class ReconcileUserStorageUsage extends Command
         $bindings = [];
 
         foreach ($usage as $userId => $bytes) {
-            $cases[] = 'WHEN ? THEN ?';
+            $cases[] = 'WHEN ?::uuid THEN ?';
             $bindings[] = $userId;
             $bindings[] = $bytes;
         }
 
-        $ids = implode(',', array_map('intval', array_keys($usage)));
+        $placeholders = implode(',', array_fill(0, count($usage), '?::uuid'));
         $caseSql = implode(' ', $cases);
 
         DB::update(
-            "UPDATE users SET storage_used_bytes = (CASE id {$caseSql} END)::bigint WHERE id IN ({$ids})",
-            $bindings,
+            "UPDATE users SET storage_used_bytes = (CASE id {$caseSql} END)::bigint WHERE id IN ({$placeholders})",
+            [...$bindings, ...array_keys($usage)],
         );
     }
 }

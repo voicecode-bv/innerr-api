@@ -27,8 +27,8 @@ class FeedController extends Controller
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
-            new OA\Parameter(name: 'person_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer'))),
-            new OA\Parameter(name: 'tag_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer'))),
+            new OA\Parameter(name: 'person_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
+            new OA\Parameter(name: 'tag_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
         ],
         responses: [
             new OA\Response(
@@ -82,10 +82,10 @@ class FeedController extends Controller
         tags: ['Feed'],
         security: [['sanctum' => []]],
         parameters: [
-            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
-            new OA\Parameter(name: 'person_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer'))),
-            new OA\Parameter(name: 'tag_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer'))),
+            new OA\Parameter(name: 'person_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
+            new OA\Parameter(name: 'tag_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
         ],
         responses: [
             new OA\Response(
@@ -177,13 +177,13 @@ class FeedController extends Controller
 
     /**
      * @param  mixed  $value
-     * @return array<int, int>
+     * @return array<int, string>
      */
     private function normalizeIds($value): array
     {
         return collect((array) $value)
-            ->filter(fn ($id) => is_numeric($id))
-            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => is_string($id) && $id !== '')
+            ->map(fn ($id) => (string) $id)
             ->unique()
             ->values()
             ->all();

@@ -159,7 +159,7 @@ class MollieChannel implements PaymentChannel
         }
 
         $metadata = (array) ($firstPayment->metadata ?? []);
-        $priceId = (int) ($metadata['price_id'] ?? 0);
+        $priceId = (string) ($metadata['price_id'] ?? '');
         $price = Price::query()->findOrFail($priceId);
 
         $customer = $this->client->customers->get($user->mollie_customer_id);
@@ -170,7 +170,7 @@ class MollieChannel implements PaymentChannel
                 'value' => $this->formatAmount($price->amount_minor, $price->currency),
             ],
             'interval' => $this->mollieIntervalString($price->interval),
-            'description' => sprintf('innerr %s (%s) — user %d', $price->plan?->name ?? 'subscription', $price->interval?->value, $user->id),
+            'description' => sprintf('innerr %s (%s) — user %s', $price->plan?->name ?? 'subscription', $price->interval?->value, $user->id),
             'webhookUrl' => URL::route('api.webhooks.subscriptions.mollie'),
             'metadata' => [
                 'user_id' => $user->id,
