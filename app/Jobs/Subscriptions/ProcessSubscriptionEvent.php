@@ -352,13 +352,24 @@ class ProcessSubscriptionEvent implements ShouldQueue
         $event->fill(['to_status' => $subscription->fresh()->status])->save();
     }
 
+    /**
+     * The iOS client passes the user's UUID id as Apple's appAccountToken when
+     * launching a StoreKit purchase, so we look the user up by id first. We
+     * fall back to apple_id (the Apple Sign-in subject) for older purchases
+     * that may have used a different value.
+     */
     private function resolveAppleUserId(string $appAccountToken): ?string
     {
         if ($appAccountToken === '') {
             return null;
         }
 
-        return User::query()->where('apple_id', $appAccountToken)->value('id');
+        $user = User::query()
+            ->where('id', $appAccountToken)
+            ->orWhere('apple_id', $appAccountToken)
+            ->value('id');
+
+        return $user !== null ? (string) $user : null;
     }
 
     private function processGoogleEvent(
