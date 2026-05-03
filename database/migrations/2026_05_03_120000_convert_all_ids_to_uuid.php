@@ -329,6 +329,11 @@ return new class extends Migration
                 [$morphType]
             );
         }
+
+        $orphanCount = DB::table($table)->whereNull($newCol)->count();
+        if ($orphanCount > 0) {
+            DB::table($table)->whereNull($newCol)->delete();
+        }
     }
 
     private function backfillNotificationsJsonbData(): void
