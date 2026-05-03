@@ -74,7 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/photos/map', PhotoMapController::class)->name('api.photos.map');
 
     Route::get('/posts/{post}', [PostController::class, 'show'])->name('api.posts.show');
-    Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:10,1')->name('api.posts.store');
+    Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:30,1')->name('api.posts.store');
     Route::put('/posts/{post}', [PostController::class, 'update'])->name('api.posts.update');
     Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('api.posts.destroy');
     Route::delete('/posts/{post}/tagged-self', [PostController::class, 'untagSelf'])->name('api.posts.untag-self');
@@ -112,7 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/circles/{circle}/photo', [CircleController::class, 'updatePhoto'])->name('api.circles.photo.update');
     Route::delete('/circles/{circle}/photo', [CircleController::class, 'deletePhoto'])->name('api.circles.photo.delete');
     Route::post('/circles/{circle}/members', [CircleMemberController::class, 'store'])
-        ->middleware('throttle:20,60')
+        ->middleware('throttle:30,1')
         ->name('api.circle-members.store');
     Route::delete('/circles/{circle}/members/{user}', [CircleMemberController::class, 'destroy'])->name('api.circle-members.destroy');
     Route::post('/circles/{circle}/leave', [CircleMemberController::class, 'leave'])->name('api.circles.leave');

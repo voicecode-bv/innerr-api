@@ -389,7 +389,7 @@ it('throttles post creation', function () {
 
     $this->actingAs($user);
 
-    foreach (range(1, 10) as $i) {
+    foreach (range(1, 30) as $i) {
         $this->postJson('/api/posts', [
             'media' => UploadedFile::fake()->image("photo-{$i}.jpg"),
             'circle_ids' => [$circle->id],
