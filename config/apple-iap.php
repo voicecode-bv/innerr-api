@@ -7,7 +7,7 @@ return [
     'private_key_path' => env('APPLE_IAP_PRIVATE_KEY_PATH'),
     'environment' => env('APPLE_IAP_ENV', 'sandbox'),
 
-    'root_ca_path' => storage_path('certs/apple-root-ca-g3.pem'),
+    'root_ca_path' => resource_path('certs/apple-root-ca-g3.pem'),
 
     'base_urls' => [
         'production' => 'https://api.storekit.itunes.apple.com',
