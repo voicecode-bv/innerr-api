@@ -97,7 +97,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('api.tags.destroy');
 
     Route::get('/persons', [PersonController::class, 'index'])->name('api.persons.index');
-    Route::get('/persons/taggable', [PersonController::class, 'taggable'])->name('api.persons.taggable');
     Route::post('/persons', [PersonController::class, 'store'])->name('api.persons.store');
     Route::put('/persons/{person}', [PersonController::class, 'update'])->name('api.persons.update');
     Route::delete('/persons/{person}', [PersonController::class, 'destroy'])->name('api.persons.destroy');

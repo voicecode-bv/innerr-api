@@ -24,7 +24,7 @@ class PersonController extends Controller
     #[OA\Get(
         path: '/api/persons',
         summary: 'List persons',
-        description: 'Return persons created by the authenticated user, ordered by `usage_count` descending. Persons created by other users are never returned, even when they are in shared circles. Pass `?circle_id=` to scope the list to a single circle the user owns or belongs to (still limited to persons the user created).',
+        description: 'Return persons visible to the authenticated user. By default, returns persons across every circle the user owns or is a member of, ordered by `usage_count` descending. Pass `?circle_id=` to scope the list to a single circle (the user must own or belong to that circle).',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -53,7 +53,6 @@ class PersonController extends Controller
         $user = $request->user();
 
         $query = Person::with('circles:id')
-            ->where('created_by_user_id', $user->id)
             ->orderByDesc('usage_count')
             ->orderBy('name')
             ->limit(1000);
@@ -63,87 +62,31 @@ class PersonController extends Controller
             $this->authorize('view', $circle);
 
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
+        } else {
+            $query->whereHas('circles', function ($q) use ($user) {
+                $q->where('circles.user_id', $user->id)
+                    ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+            });
         }
 
         return PersonResource::collection($query->get());
     }
 
-    #[OA\Get(
-        path: '/api/persons/taggable',
-        summary: 'List persons taggable in a set of circles',
-        description: 'Return every person belonging to at least one of the given circles, regardless of who created them. Used to populate the person picker when composing or editing a post. The authenticated user must own or be a member of every requested circle.',
-        tags: ['Persons'],
-        security: [['sanctum' => []]],
-        parameters: [
-            new OA\Parameter(
-                name: 'circle_ids[]',
-                in: 'query',
-                required: true,
-                description: 'One or more circle IDs the post will be shared with.',
-                schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer')),
-            ),
-        ],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'List of persons',
-                content: new OA\JsonContent(
-                    properties: [
-                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(ref: '#/components/schemas/Person')),
-                    ],
-                ),
-            ),
-            new OA\Response(response: 401, description: 'Unauthenticated'),
-            new OA\Response(response: 403, description: 'Forbidden'),
-            new OA\Response(response: 422, description: 'Validation error'),
-        ],
-    )]
-    public function taggable(Request $request): AnonymousResourceCollection
-    {
-        $request->validate([
-            'circle_ids' => ['required', 'array', 'min:1'],
-            'circle_ids.*' => ['integer', 'distinct'],
-        ]);
-
-        $user = $request->user();
-        $circleIds = array_values(array_unique(array_map('intval', (array) $request->input('circle_ids', []))));
-
-        $accessibleCount = Circle::whereIn('id', $circleIds)
-            ->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
-            })
-            ->count();
-
-        if ($accessibleCount < count($circleIds)) {
-            abort(403);
-        }
-
-        $persons = Person::with('circles:id')
-            ->whereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds))
-            ->orderByDesc('usage_count')
-            ->orderBy('name')
-            ->limit(1000)
-            ->get();
-
-        return PersonResource::collection($persons);
-    }
-
     #[OA\Post(
         path: '/api/persons',
         summary: 'Create person',
-        description: 'Create a new person and optionally attach it to one or more circles. When `circle_ids` is provided, the authenticated user must own each circle or be a member with `members_can_invite=true` on it. Persons created without circles are only visible to their creator until they are attached to a circle. Optionally link the person to an existing user account via `user_id` — when circles are provided, that user must be a member or owner of every selected circle.',
+        description: 'Create a new person and attach it to one or more circles. The authenticated user must own each circle, or be a member with `members_can_invite=true` on that circle. Optionally link the person to an existing user account via `user_id` — that user must be a member or owner of every selected circle.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name'],
+                required: ['name', 'circle_ids'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
                     new OA\Property(property: 'user_id', type: 'integer', nullable: true, description: 'Optional. Link this person to an existing user account.'),
-                    new OA\Property(property: 'circle_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
+                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer')),
                 ],
             ),
         ),
@@ -156,7 +99,7 @@ class PersonController extends Controller
     public function store(StorePersonRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $circleIds = $data['circle_ids'] ?? [];
+        $circleIds = $data['circle_ids'];
         unset($data['circle_ids']);
 
         $person = Person::create([
@@ -164,10 +107,7 @@ class PersonController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
-        if ($circleIds !== []) {
-            $person->circles()->sync($circleIds);
-        }
-
+        $person->circles()->sync($circleIds);
         $person->load('circles:id');
 
         return (new PersonResource($person))
@@ -178,7 +118,7 @@ class PersonController extends Controller
     #[OA\Put(
         path: '/api/persons/{person}',
         summary: 'Update person',
-        description: 'Update a person\'s name, birthdate, or linked user account. Only the creator of the person can update it.',
+        description: 'Update a person\'s name, birthdate, or linked user account. The authenticated user must be the creator, the owner of one of the linked circles, or a member with `members_can_invite=true` on one of those circles.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -300,7 +240,7 @@ class PersonController extends Controller
     #[OA\Post(
         path: '/api/persons/{person}/circles/{circle}',
         summary: 'Attach person to a circle',
-        description: 'Add an existing person to another circle. The authenticated user must be the creator of the person and must own the target circle or be a member with `members_can_invite=true`.',
+        description: 'Add an existing person to another circle. The authenticated user must own the target circle or be a member with `members_can_invite=true`.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -334,7 +274,7 @@ class PersonController extends Controller
     #[OA\Delete(
         path: '/api/persons/{person}/circles/{circle}',
         summary: 'Detach person from a circle',
-        description: 'Remove a person from a single circle. Only the creator of the person can detach. Posts that already tag this person are unaffected.',
+        description: 'Remove a person from a single circle. Posts that already tag this person are unaffected.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -367,7 +307,7 @@ class PersonController extends Controller
     #[OA\Delete(
         path: '/api/persons/{person}',
         summary: 'Delete person',
-        description: 'Delete a person completely. Detaches them from all circles and posts. Only the creator of the person can delete.',
+        description: 'Delete a person completely. Detaches them from all circles and posts. Allowed for the creator, or any owner of a circle the person is in.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [

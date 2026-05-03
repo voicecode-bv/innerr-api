@@ -116,7 +116,7 @@ describe('member removal', function () {
 });
 
 describe('person index', function () {
-    it('returns the user\'s own auto-synced member-Person and their manual ones', function () {
+    it('returns auto-synced member persons alongside manual ones', function () {
         $owner = User::factory()->create();
         $member = User::factory()->create();
         $circle = Circle::factory()->for($owner)->create();
@@ -133,11 +133,11 @@ describe('person index', function () {
             ->getJson("/api/persons?circle_id={$circle->id}")
             ->assertOk();
 
+        $ids = collect($response->json('data'))->pluck('id')->all();
         $userIds = collect($response->json('data'))->pluck('user_id')->all();
 
-        expect($response->json('data'))->toHaveCount(2);
-        expect($userIds)->toContain($owner->id, null);
-        expect($userIds)->not->toContain($member->id);
+        expect($ids)->toHaveCount(3);
+        expect($userIds)->toContain($owner->id, $member->id, null);
     });
 });
 

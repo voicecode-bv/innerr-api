@@ -10,31 +10,54 @@ class PersonPolicy
 {
     public function view(User $user, Person $person): bool
     {
-        return $user->id === $person->created_by_user_id;
+        return $person->circles()
+            ->where(function ($query) use ($user) {
+                $query->where('circles.user_id', $user->id)
+                    ->orWhereHas('members', fn ($q) => $q->where('users.id', $user->id));
+            })
+            ->exists();
     }
 
     public function update(User $user, Person $person): bool
     {
-        return $user->id === $person->created_by_user_id;
+        if ($user->id === $person->created_by_user_id) {
+            return true;
+        }
+
+        return $person->circles()
+            ->where(function ($query) use ($user) {
+                $query->where('circles.user_id', $user->id)
+                    ->orWhere(function ($q) use ($user) {
+                        $q->where('members_can_invite', true)
+                            ->whereHas('members', fn ($m) => $m->where('users.id', $user->id));
+                    });
+            })
+            ->exists();
     }
 
     public function delete(User $user, Person $person): bool
     {
-        return $user->id === $person->created_by_user_id;
+        if ($user->id === $person->created_by_user_id) {
+            return true;
+        }
+
+        return $person->circles()
+            ->where('circles.user_id', $user->id)
+            ->exists();
     }
 
     public function attachToCircle(User $user, Person $person, Circle $circle): bool
     {
-        if ($user->id !== $person->created_by_user_id) {
-            return false;
-        }
-
         return $this->canManagePeopleIn($user, $circle);
     }
 
     public function detachFromCircle(User $user, Person $person, Circle $circle): bool
     {
-        return $user->id === $person->created_by_user_id;
+        if ($user->id === $person->created_by_user_id) {
+            return true;
+        }
+
+        return $this->canManagePeopleIn($user, $circle);
     }
 
     /**
