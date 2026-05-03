@@ -25,7 +25,7 @@ class SubscriptionsTable
         return $table
             ->columns([
                 TextColumn::make('id')->sortable(),
-                TextColumn::make('user.username')
+                TextColumn::make('user.email')
                     ->label('User')
                     ->searchable(),
                 TextColumn::make('plan.name')
@@ -33,6 +33,12 @@ class SubscriptionsTable
                     ->sortable(),
                 TextColumn::make('channel')
                     ->badge(),
+                TextColumn::make('channel_subscription_id')
+                    ->label('Channel sub id')
+                    ->limit(20)
+                    ->tooltip(fn (Subscription $record): ?string => $record->channel_subscription_id)
+                    ->searchable()
+                    ->copyable(),
                 TextColumn::make('status')
                     ->badge(),
                 TextColumn::make('current_period_end')
