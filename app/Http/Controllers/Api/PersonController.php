@@ -24,7 +24,7 @@ class PersonController extends Controller
     #[OA\Get(
         path: '/api/persons',
         summary: 'List persons',
-        description: 'Return persons visible to the authenticated user. By default, returns persons across every circle the user owns or is a member of, ordered by `usage_count` descending. Pass `?circle_id=` to scope the list to a single circle (the user must own or belong to that circle).',
+        description: 'Return persons created by the authenticated user, ordered by `usage_count` descending. Persons created by other users are never returned, even when they are in shared circles. Pass `?circle_id=` to scope the list to a single circle the user owns or belongs to (still limited to persons the user created).',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -53,6 +53,7 @@ class PersonController extends Controller
         $user = $request->user();
 
         $query = Person::with('circles:id')
+            ->where('created_by_user_id', $user->id)
             ->orderByDesc('usage_count')
             ->orderBy('name')
             ->limit(1000);
@@ -62,16 +63,6 @@ class PersonController extends Controller
             $this->authorize('view', $circle);
 
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
-        } else {
-            $query->where(function ($q) use ($user) {
-                $q->whereHas('circles', function ($cq) use ($user) {
-                    $cq->where('circles.user_id', $user->id)
-                        ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
-                })->orWhere(function ($cq) use ($user) {
-                    $cq->where('created_by_user_id', $user->id)
-                        ->doesntHave('circles');
-                });
-            });
         }
 
         return PersonResource::collection($query->get());
@@ -126,7 +117,7 @@ class PersonController extends Controller
     #[OA\Put(
         path: '/api/persons/{person}',
         summary: 'Update person',
-        description: 'Update a person\'s name, birthdate, or linked user account. The authenticated user must be the creator, the owner of one of the linked circles, or a member with `members_can_invite=true` on one of those circles.',
+        description: 'Update a person\'s name, birthdate, or linked user account. Only the creator of the person can update it.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -248,7 +239,7 @@ class PersonController extends Controller
     #[OA\Post(
         path: '/api/persons/{person}/circles/{circle}',
         summary: 'Attach person to a circle',
-        description: 'Add an existing person to another circle. The authenticated user must own the target circle or be a member with `members_can_invite=true`.',
+        description: 'Add an existing person to another circle. The authenticated user must be the creator of the person and must own the target circle or be a member with `members_can_invite=true`.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -282,7 +273,7 @@ class PersonController extends Controller
     #[OA\Delete(
         path: '/api/persons/{person}/circles/{circle}',
         summary: 'Detach person from a circle',
-        description: 'Remove a person from a single circle. Posts that already tag this person are unaffected.',
+        description: 'Remove a person from a single circle. Only the creator of the person can detach. Posts that already tag this person are unaffected.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -315,7 +306,7 @@ class PersonController extends Controller
     #[OA\Delete(
         path: '/api/persons/{person}',
         summary: 'Delete person',
-        description: 'Delete a person completely. Detaches them from all circles and posts. Allowed for the creator, or any owner of a circle the person is in.',
+        description: 'Delete a person completely. Detaches them from all circles and posts. Only the creator of the person can delete.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [

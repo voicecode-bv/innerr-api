@@ -8,13 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 describe('index', function () {
-    it('returns persons from circles the user owns', function () {
+    it('returns persons the user created', function () {
         $owner = User::factory()->create();
         $circle = Circle::factory()->for($owner)->create();
         $person = Person::factory()->for($owner, 'creator')->create();
         $person->circles()->attach($circle);
 
-        Person::factory()->create(); // unrelated, in nobody's circle
+        Person::factory()->create(); // unrelated, by another creator
 
         $this->actingAs($owner)
             ->getJson('/api/persons')
@@ -23,7 +23,7 @@ describe('index', function () {
             ->assertJsonPath('data.0.id', $person->id);
     });
 
-    it('returns persons from circles the user is a member of', function () {
+    it('does not return persons created by others, even in shared circles', function () {
         $owner = User::factory()->create();
         $member = User::factory()->create();
         $circle = Circle::factory()->for($owner)->create();
@@ -35,8 +35,7 @@ describe('index', function () {
         $this->actingAs($member)
             ->getJson('/api/persons')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $person->id);
+            ->assertJsonCount(0, 'data');
     });
 
     it('does not leak persons from circles the user has no access to', function () {
@@ -67,6 +66,21 @@ describe('index', function () {
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $personA->id);
+    });
+
+    it('filtering by circle_id still hides persons created by others', function () {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+        $circle->members()->attach($member);
+
+        $ownersPerson = Person::factory()->for($owner, 'creator')->create();
+        $ownersPerson->circles()->attach($circle);
+
+        $this->actingAs($member)
+            ->getJson('/api/persons?circle_id='.$circle->id)
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
     });
 
     it('returns 403 when filtering by an inaccessible circle', function () {
@@ -288,7 +302,7 @@ describe('update', function () {
             ->assertJsonPath('data.birthdate', '1985-01-01');
     });
 
-    it('lets a circle owner update a person someone else created', function () {
+    it('forbids a circle owner from updating a person someone else created', function () {
         $circleOwner = User::factory()->create();
         $member = User::factory()->create();
         $circle = Circle::factory()->for($circleOwner)->create(['members_can_invite' => true]);
@@ -299,14 +313,13 @@ describe('update', function () {
 
         $this->actingAs($circleOwner)
             ->putJson('/api/persons/'.$person->id, ['name' => 'Renamed'])
-            ->assertOk()
-            ->assertJsonPath('data.name', 'Renamed');
+            ->assertForbidden();
     });
 
-    it('forbids a member without members_can_invite from updating someone else\'s person', function () {
+    it('forbids a circle member from updating someone else\'s person', function () {
         $owner = User::factory()->create();
         $other = User::factory()->create();
-        $circle = Circle::factory()->for($owner)->create(['members_can_invite' => false]);
+        $circle = Circle::factory()->for($owner)->create(['members_can_invite' => true]);
         $circle->members()->attach($other);
 
         $person = Person::factory()->for($owner, 'creator')->create();
@@ -341,7 +354,7 @@ describe('destroy', function () {
         expect(Person::find($person->id))->toBeNull();
     });
 
-    it('lets a circle owner delete a person someone else created', function () {
+    it('forbids a circle owner from deleting a person someone else created', function () {
         $circleOwner = User::factory()->create();
         $creator = User::factory()->create();
         $circle = Circle::factory()->for($circleOwner)->create(['members_can_invite' => true]);
@@ -352,10 +365,12 @@ describe('destroy', function () {
 
         $this->actingAs($circleOwner)
             ->deleteJson('/api/persons/'.$person->id)
-            ->assertNoContent();
+            ->assertForbidden();
+
+        expect(Person::find($person->id))->not->toBeNull();
     });
 
-    it('forbids a member with invite rights but not creator/owner from deleting', function () {
+    it('forbids any non-creator from deleting', function () {
         $owner = User::factory()->create();
         $creator = User::factory()->create();
         $member = User::factory()->create();
@@ -448,21 +463,34 @@ describe('avatar', function () {
 });
 
 describe('attach/detach circle', function () {
-    it('lets the owner of the target circle attach a person', function () {
+    it('lets the creator attach their person to a circle they manage', function () {
         $owner = User::factory()->create();
-        $secondOwner = User::factory()->create();
         $circleA = Circle::factory()->for($owner)->create();
-        $circleB = Circle::factory()->for($secondOwner)->create();
+        $circleB = Circle::factory()->for($owner)->create();
 
         $person = Person::factory()->for($owner, 'creator')->create();
         $person->circles()->attach($circleA);
 
-        $this->actingAs($secondOwner)
+        $this->actingAs($owner)
             ->postJson('/api/persons/'.$person->id.'/circles/'.$circleB->id)
             ->assertOk();
 
         expect($person->fresh()->circles()->pluck('circles.id')->all())
             ->toEqualCanonicalizing([$circleA->id, $circleB->id]);
+    });
+
+    it('forbids a non-creator from attaching the person to their own circle', function () {
+        $creator = User::factory()->create();
+        $otherOwner = User::factory()->create();
+        $circleA = Circle::factory()->for($creator)->create();
+        $circleB = Circle::factory()->for($otherOwner)->create();
+
+        $person = Person::factory()->for($creator, 'creator')->create();
+        $person->circles()->attach($circleA);
+
+        $this->actingAs($otherOwner)
+            ->postJson('/api/persons/'.$person->id.'/circles/'.$circleB->id)
+            ->assertForbidden();
     });
 
     it('rejects attaching when the linked user is not a member of the target circle', function () {
