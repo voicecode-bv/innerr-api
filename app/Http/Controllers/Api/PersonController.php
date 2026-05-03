@@ -63,9 +63,14 @@ class PersonController extends Controller
 
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
         } else {
-            $query->whereHas('circles', function ($q) use ($user) {
-                $q->where('circles.user_id', $user->id)
-                    ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('circles', function ($cq) use ($user) {
+                    $cq->where('circles.user_id', $user->id)
+                        ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+                })->orWhere(function ($cq) use ($user) {
+                    $cq->where('created_by_user_id', $user->id)
+                        ->doesntHave('circles');
+                });
             });
         }
 
@@ -75,18 +80,18 @@ class PersonController extends Controller
     #[OA\Post(
         path: '/api/persons',
         summary: 'Create person',
-        description: 'Create a new person and attach it to one or more circles. The authenticated user must own each circle, or be a member with `members_can_invite=true` on that circle. Optionally link the person to an existing user account via `user_id` — that user must be a member or owner of every selected circle.',
+        description: 'Create a new person and optionally attach it to one or more circles. When `circle_ids` is provided, the authenticated user must own each circle or be a member with `members_can_invite=true` on it. Persons created without circles are only visible to their creator until they are attached to a circle. Optionally link the person to an existing user account via `user_id` — when circles are provided, that user must be a member or owner of every selected circle.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(
-                required: ['name', 'circle_ids'],
+                required: ['name'],
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
                     new OA\Property(property: 'user_id', type: 'integer', nullable: true, description: 'Optional. Link this person to an existing user account.'),
-                    new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'integer')),
+                    new OA\Property(property: 'circle_ids', type: 'array', nullable: true, items: new OA\Items(type: 'integer')),
                 ],
             ),
         ),
@@ -99,7 +104,7 @@ class PersonController extends Controller
     public function store(StorePersonRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $circleIds = $data['circle_ids'];
+        $circleIds = $data['circle_ids'] ?? [];
         unset($data['circle_ids']);
 
         $person = Person::create([
@@ -107,7 +112,10 @@ class PersonController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
-        $person->circles()->sync($circleIds);
+        if ($circleIds !== []) {
+            $person->circles()->sync($circleIds);
+        }
+
         $person->load('circles:id');
 
         return (new PersonResource($person))

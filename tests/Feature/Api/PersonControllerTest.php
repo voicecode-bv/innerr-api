@@ -78,6 +78,27 @@ describe('index', function () {
             ->assertForbidden();
     });
 
+    it('returns persons the user created that are not yet in any circle', function () {
+        $owner = User::factory()->create();
+        $person = Person::factory()->for($owner, 'creator')->create();
+
+        $this->actingAs($owner)
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $person->id);
+    });
+
+    it('does not leak circle-less persons created by other users', function () {
+        $creator = User::factory()->create();
+        Person::factory()->for($creator, 'creator')->create();
+
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    });
+
     it('requires authentication to list persons', function () {
         $this->getJson('/api/persons')->assertUnauthorized();
     });
@@ -223,13 +244,30 @@ describe('store', function () {
             ->assertJsonValidationErrors('user_id');
     });
 
-    it('requires at least one circle', function () {
+    it('lets a user without any circles still create a person', function () {
         $owner = User::factory()->create();
 
         $this->actingAs($owner)
             ->postJson('/api/persons', ['name' => 'Lonely'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('circle_ids');
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Lonely')
+            ->assertJsonPath('data.created_by_user_id', $owner->id)
+            ->assertJsonPath('data.circle_ids', []);
+
+        $person = Person::firstWhere('name', 'Lonely');
+        expect($person->circles()->count())->toBe(0);
+    });
+
+    it('treats an empty circle_ids array the same as omitting it', function () {
+        $owner = User::factory()->create();
+
+        $this->actingAs($owner)
+            ->postJson('/api/persons', [
+                'name' => 'StillLonely',
+                'circle_ids' => [],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.circle_ids', []);
     });
 });
 
