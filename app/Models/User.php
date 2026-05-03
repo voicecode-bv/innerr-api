@@ -48,6 +48,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             'device_info' => 'array',
             'storage_used_bytes' => 'integer',
             'donation_percentage' => 'integer',
+            'admin' => 'boolean',
         ];
     }
 
@@ -197,7 +198,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->id === 1;
+        return $this->admin === true;
     }
 
     /**
