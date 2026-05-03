@@ -68,6 +68,67 @@ class PersonController extends Controller
         return PersonResource::collection($query->get());
     }
 
+    #[OA\Get(
+        path: '/api/persons/taggable',
+        summary: 'List persons taggable in a set of circles',
+        description: 'Return every person belonging to at least one of the given circles, regardless of who created them. Used to populate the person picker when composing or editing a post. The authenticated user must own or be a member of every requested circle.',
+        tags: ['Persons'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'circle_ids[]',
+                in: 'query',
+                required: true,
+                description: 'One or more circle IDs the post will be shared with.',
+                schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'integer')),
+            ),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'List of persons',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'data', type: 'array', items: new OA\Items(ref: '#/components/schemas/Person')),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    public function taggable(Request $request): AnonymousResourceCollection
+    {
+        $request->validate([
+            'circle_ids' => ['required', 'array', 'min:1'],
+            'circle_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $user = $request->user();
+        $circleIds = array_values(array_unique(array_map('intval', (array) $request->input('circle_ids', []))));
+
+        $accessibleCount = Circle::whereIn('id', $circleIds)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+            })
+            ->count();
+
+        if ($accessibleCount < count($circleIds)) {
+            abort(403);
+        }
+
+        $persons = Person::with('circles:id')
+            ->whereHas('circles', fn ($q) => $q->whereIn('circles.id', $circleIds))
+            ->orderByDesc('usage_count')
+            ->orderBy('name')
+            ->limit(1000)
+            ->get();
+
+        return PersonResource::collection($persons);
+    }
+
     #[OA\Post(
         path: '/api/persons',
         summary: 'Create person',

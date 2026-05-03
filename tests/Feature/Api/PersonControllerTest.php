@@ -118,6 +118,65 @@ describe('index', function () {
     });
 });
 
+describe('taggable', function () {
+    it('returns every person across the given circles, regardless of creator', function () {
+        $author = User::factory()->create();
+        $member = User::factory()->create();
+        $circleA = Circle::factory()->for($author)->create();
+        $circleA->members()->attach($member);
+        $circleB = Circle::factory()->for($author)->create();
+
+        $authorsPerson = Person::factory()->for($author, 'creator')->create();
+        $authorsPerson->circles()->attach($circleA);
+
+        $membersPerson = Person::factory()->for($member, 'creator')->create();
+        $membersPerson->circles()->attach($circleA);
+
+        $otherCirclePerson = Person::factory()->for($author, 'creator')->create();
+        $otherCirclePerson->circles()->attach($circleB);
+
+        $unattachedPerson = Person::factory()->for($author, 'creator')->create();
+
+        $response = $this->actingAs($author)
+            ->getJson('/api/persons/taggable?circle_ids[]='.$circleA->id)
+            ->assertOk();
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        expect($ids)->toEqualCanonicalizing([$authorsPerson->id, $membersPerson->id]);
+    });
+
+    it('forbids requesting persons from a circle the user is not part of', function () {
+        $owner = User::factory()->create();
+        $stranger = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+
+        $this->actingAs($stranger)
+            ->getJson('/api/persons/taggable?circle_ids[]='.$circle->id)
+            ->assertForbidden();
+    });
+
+    it('forbids requesting when only some circles are accessible', function () {
+        $author = User::factory()->create();
+        $accessible = Circle::factory()->for($author)->create();
+        $foreign = Circle::factory()->create();
+
+        $this->actingAs($author)
+            ->getJson('/api/persons/taggable?circle_ids[]='.$accessible->id.'&circle_ids[]='.$foreign->id)
+            ->assertForbidden();
+    });
+
+    it('requires at least one circle_id', function () {
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/persons/taggable')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('circle_ids');
+    });
+
+    it('requires authentication', function () {
+        $this->getJson('/api/persons/taggable?circle_ids[]=1')->assertUnauthorized();
+    });
+});
+
 describe('store', function () {
     it('lets the circle owner create a person in their own circle', function () {
         $owner = User::factory()->create();
