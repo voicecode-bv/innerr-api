@@ -10,6 +10,7 @@ use App\Services\Subscriptions\ChannelRegistry;
 use App\Services\Subscriptions\Channels\AppleChannel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AppleWebhookController extends Controller
 {
@@ -27,6 +28,12 @@ class AppleWebhookController extends Controller
         try {
             $outcome = $channel->handleWebhook($request);
         } catch (\Throwable $e) {
+            Log::warning('Apple webhook: handleWebhook failed', [
+                'error' => $e->getMessage(),
+                'exception_class' => $e::class,
+                'signed_payload_prefix' => substr($signedPayload, 0, 80),
+            ]);
+
             return new JsonResponse(['message' => 'Invalid signedPayload.', 'error' => $e->getMessage()], 400);
         }
 
