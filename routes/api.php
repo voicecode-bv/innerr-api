@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountExportController;
+use App\Http\Controllers\Api\AccountStorageController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleInvitationController;
@@ -149,6 +150,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/account/export', AccountExportController::class)
         ->middleware('throttle:3,60')
         ->name('api.account.export');
+
+    Route::get('/account/storage', AccountStorageController::class)->name('api.account.storage');
 
     Route::get('/profile', [ProfileController::class, 'showSelf'])->name('api.profile.show');
     Route::match(['put', 'patch'], '/profile', [ProfileController::class, 'update'])->name('api.profile.update');
