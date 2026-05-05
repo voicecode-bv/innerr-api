@@ -56,6 +56,36 @@ class SubscriptionEventInfolist
                     ])
                     ->collapsible(),
 
+                Section::make('Google notification details')
+                    ->visible(fn (SubscriptionEvent $record): bool => $record->channel?->value === 'google')
+                    ->schema([
+                        TextEntry::make('google_subscription_notification')
+                            ->label('subscriptionNotification')
+                            ->state(fn (SubscriptionEvent $record): string => self::formatJson((array) ($record->payload['subscription_notification'] ?? [])))
+                            ->placeholder('— not present —')
+                            ->html()
+                            ->columnSpanFull(),
+                        TextEntry::make('google_voided_purchase')
+                            ->label('voidedPurchaseNotification')
+                            ->state(fn (SubscriptionEvent $record): string => self::formatJson((array) ($record->payload['voided_purchase_notification'] ?? [])))
+                            ->placeholder('— not present —')
+                            ->html()
+                            ->columnSpanFull(),
+                        TextEntry::make('google_test')
+                            ->label('testNotification')
+                            ->state(fn (SubscriptionEvent $record): string => self::formatJson((array) ($record->payload['test_notification'] ?? [])))
+                            ->placeholder('— not present —')
+                            ->html()
+                            ->columnSpanFull(),
+                        TextEntry::make('google_purchase_token')
+                            ->label('purchaseToken')
+                            ->state(fn (SubscriptionEvent $record): string => (string) ($record->payload['channel_subscription_id'] ?? ''))
+                            ->copyable()
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
                 Section::make('Decoded Apple payload')
                     ->visible(fn (SubscriptionEvent $record): bool => $record->channel?->value === 'apple'
                         && ! empty($record->payload['signedPayload'] ?? null))
