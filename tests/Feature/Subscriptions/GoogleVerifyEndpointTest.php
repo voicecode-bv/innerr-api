@@ -81,3 +81,37 @@ it('verifies and creates a Google subscription', function () {
         ->and($sub->user_id)->toBe($user->id)
         ->and($sub->plan_id)->toBe($this->plus->id);
 });
+
+it('handles testPurchase object in subscriptionsv2 response without crashing', function () {
+    // Regression: Play Developer API returns testPurchase as an empty object {}
+    // for license-tester / sandbox purchases. Casting that array to string used
+    // to throw "Array to string conversion" during dtoFromRemote.
+    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $api = Mockery::mock(PlayDeveloperApi::class);
+    $api->shouldReceive('getSubscriptionV2')
+        ->with('sandbox-token')
+        ->andReturn([
+            'kind' => 'androidpublisher#subscriptionPurchaseV2',
+            'subscriptionState' => 'SUBSCRIPTION_STATE_ACTIVE',
+            'startTime' => now()->toIso8601String(),
+            'testPurchase' => [], // Google v2 returns {} which json_decode renders as []
+            'lineItems' => [[
+                'productId' => 'plus_google_monthly',
+                'expiryTime' => now()->addMonth()->toIso8601String(),
+                'autoRenewingPlan' => ['autoRenewEnabled' => true],
+            ]],
+        ]);
+    $this->app->instance(PlayDeveloperApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $this->postJson('/api/subscription/iap/google/verify', [
+        'purchase_token' => 'sandbox-token',
+        'product_id' => 'plus_google_monthly',
+    ])
+        ->assertCreated();
+
+    $sub = Subscription::query()->where('channel', SubscriptionChannel::Google)->first();
+    expect($sub->environment)->toBe('sandbox');
+});

@@ -140,7 +140,7 @@ class GoogleChannel implements PaymentChannel
             currentPeriodEnd: $expiry,
             renewsAt: $autoRenew ? $expiry : null,
             autoRenew: $autoRenew,
-            environment: (string) ($remote['testPurchase'] ?? null) !== '' ? 'sandbox' : 'production',
+            environment: isset($remote['testPurchase']) ? 'sandbox' : 'production',
             metadata: [
                 'linkedPurchaseToken' => $remote['linkedPurchaseToken'] ?? null,
                 'regionCode' => $remote['regionCode'] ?? null,
