@@ -145,6 +145,9 @@ class GoogleChannel implements PaymentChannel
                 'linkedPurchaseToken' => $remote['linkedPurchaseToken'] ?? null,
                 'regionCode' => $remote['regionCode'] ?? null,
                 'acknowledgementState' => $remote['acknowledgementState'] ?? null,
+                'externalAccountIdentifiers' => is_array($remote['externalAccountIdentifiers'] ?? null)
+                    ? $remote['externalAccountIdentifiers']
+                    : null,
             ],
         );
     }

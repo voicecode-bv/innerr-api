@@ -68,13 +68,20 @@ it('persists an event row, dispatches processor, and dedupes by message id', fun
     expect(SubscriptionEvent::query()->where('external_event_id', 'msg-1')->count())->toBe(1);
 });
 
-it('processes a SUBSCRIPTION_PURCHASED event into an active subscription', function () {
-    $user = User::factory()->create(['google_id' => 'google-uid-1']);
+it('processes a SUBSCRIPTION_PURCHASED event into an active subscription using user UUID', function () {
+    // The Android client passes the user's UUID id as Google Play Billing's
+    // obfuscatedAccountId; it surfaces in the v2 API response under
+    // externalAccountIdentifiers.obfuscatedExternalAccountId.
+    $user = User::factory()->create();
 
     $api = Mockery::mock(PlayDeveloperApi::class);
     $api->shouldReceive('getSubscriptionV2')
         ->with('tok-purchase')
-        ->andReturn(playSubscriptionV2Response('SUBSCRIPTION_STATE_ACTIVE', 'plus_google_monthly'));
+        ->andReturn(playSubscriptionV2Response(
+            'SUBSCRIPTION_STATE_ACTIVE',
+            'plus_google_monthly',
+            obfuscatedAccountId: $user->id,
+        ));
     $this->app->instance(PlayDeveloperApi::class, $api);
     $this->app->forgetInstance(ChannelRegistry::class);
 
@@ -86,7 +93,6 @@ it('processes a SUBSCRIPTION_PURCHASED event into an active subscription', funct
             'notificationType' => 4,
             'purchaseToken' => 'tok-purchase',
             'subscriptionId' => 'plus_google_monthly',
-            'obfuscatedExternalAccountId' => 'google-uid-1',
         ],
     ], 'msg-purchase');
 
@@ -104,6 +110,77 @@ it('processes a SUBSCRIPTION_PURCHASED event into an active subscription', funct
         ->and($sub->status)->toBe(SubscriptionStatus::Active)
         ->and($sub->plan_id)->toBe($this->plus->id)
         ->and($sub->user_id)->toBe($user->id);
+});
+
+it('falls back to google_id lookup when obfuscatedAccountId matches a Google Sign-in subject', function () {
+    // Backward compat for older purchases that may have used the user's
+    // google_id (Socialite subject) as obfuscatedAccountId.
+    $user = User::factory()->create(['google_id' => 'google-uid-legacy']);
+
+    $api = Mockery::mock(PlayDeveloperApi::class);
+    $api->shouldReceive('getSubscriptionV2')
+        ->with('tok-legacy')
+        ->andReturn(playSubscriptionV2Response(
+            'SUBSCRIPTION_STATE_ACTIVE',
+            'plus_google_monthly',
+            obfuscatedAccountId: 'google-uid-legacy',
+        ));
+    $this->app->instance(PlayDeveloperApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $envelope = pubSubEnvelope([
+        'packageName' => 'app.innerr.android',
+        'eventTimeMillis' => (string) (now()->valueOf()),
+        'subscriptionNotification' => [
+            'version' => '1.0',
+            'notificationType' => 4,
+            'purchaseToken' => 'tok-legacy',
+            'subscriptionId' => 'plus_google_monthly',
+        ],
+    ], 'msg-legacy');
+
+    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+
+    $event = SubscriptionEvent::query()->where('external_event_id', 'msg-legacy')->firstOrFail();
+    ProcessSubscriptionEvent::dispatchSync($event->id);
+
+    $sub = Subscription::query()
+        ->where('channel', SubscriptionChannel::Google)
+        ->where('channel_subscription_id', 'tok-legacy')
+        ->first();
+
+    expect($sub)->not->toBeNull()
+        ->and($sub->user_id)->toBe($user->id);
+});
+
+it('records error when no obfuscatedAccountId is present and no Subscription exists', function () {
+    User::factory()->create();
+
+    $api = Mockery::mock(PlayDeveloperApi::class);
+    $api->shouldReceive('getSubscriptionV2')
+        ->with('tok-orphan')
+        ->andReturn(playSubscriptionV2Response('SUBSCRIPTION_STATE_ACTIVE', 'plus_google_monthly'));
+    $this->app->instance(PlayDeveloperApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $envelope = pubSubEnvelope([
+        'packageName' => 'app.innerr.android',
+        'eventTimeMillis' => (string) (now()->valueOf()),
+        'subscriptionNotification' => [
+            'version' => '1.0',
+            'notificationType' => 4,
+            'purchaseToken' => 'tok-orphan',
+            'subscriptionId' => 'plus_google_monthly',
+        ],
+    ], 'msg-orphan');
+
+    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+
+    $event = SubscriptionEvent::query()->where('external_event_id', 'msg-orphan')->firstOrFail();
+    ProcessSubscriptionEvent::dispatchSync($event->id);
+
+    expect(Subscription::query()->where('channel_subscription_id', 'tok-orphan')->exists())->toBeFalse()
+        ->and($event->fresh()->error)->toContain('Could not resolve user');
 });
 
 it('drops entitlement on voidedPurchaseNotification', function () {
@@ -162,11 +239,11 @@ function pubSubEnvelope(array $rtdn, string $messageId): array
 /**
  * @return array<string, mixed>
  */
-function playSubscriptionV2Response(string $state, string $productId): array
+function playSubscriptionV2Response(string $state, string $productId, ?string $obfuscatedAccountId = null): array
 {
     $now = now();
 
-    return [
+    $response = [
         'kind' => 'androidpublisher#subscriptionPurchaseV2',
         'subscriptionState' => $state,
         'startTime' => $now->toIso8601String(),
@@ -178,4 +255,12 @@ function playSubscriptionV2Response(string $state, string $productId): array
         ]],
         'acknowledgementState' => 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED',
     ];
+
+    if ($obfuscatedAccountId !== null) {
+        $response['externalAccountIdentifiers'] = [
+            'obfuscatedExternalAccountId' => $obfuscatedAccountId,
+        ];
+    }
+
+    return $response;
 }

@@ -410,7 +410,7 @@ class ProcessSubscriptionEvent implements ShouldQueue
                 ->first();
             $plan = $price?->plan ?? Plan::default();
 
-            $userId = $this->resolveGoogleUserId((array) ($event->payload['subscription_notification'] ?? []));
+            $userId = $this->resolveGoogleUserId($authoritative->metadata);
 
             if ($userId === null) {
                 $event->update(['error' => 'Could not resolve user for Google subscription; needs verify endpoint first.']);
@@ -457,19 +457,28 @@ class ProcessSubscriptionEvent implements ShouldQueue
     }
 
     /**
-     * @param  array<string, mixed>  $notification
+     * The Android client passes the user's UUID id as Google Play Billing's
+     * obfuscatedAccountId when launching a purchase, so we look the user up by
+     * id first. We fall back to google_id (the Google Sign-in subject) for
+     * older purchases that may have used a different value.
+     *
+     * @param  array<string, mixed>  $metadata  authoritative metadata from PlayDeveloperApi
      */
-    private function resolveGoogleUserId(array $notification): ?string
+    private function resolveGoogleUserId(array $metadata): ?string
     {
-        $obfuscated = (string) ($notification['developerPayload']['obfuscatedExternalAccountId']
-            ?? $notification['obfuscatedExternalAccountId']
-            ?? '');
+        $identifiers = (array) ($metadata['externalAccountIdentifiers'] ?? []);
+        $obfuscated = (string) ($identifiers['obfuscatedExternalAccountId'] ?? '');
 
         if ($obfuscated === '') {
             return null;
         }
 
-        return User::query()->where('google_id', $obfuscated)->value('id');
+        $user = User::query()
+            ->where('id', $obfuscated)
+            ->orWhere('google_id', $obfuscated)
+            ->value('id');
+
+        return $user !== null ? (string) $user : null;
     }
 
     private function stubSubscription(string $purchaseToken): Subscription
