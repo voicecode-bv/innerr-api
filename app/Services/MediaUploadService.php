@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Support\MediaUrl;
 use App\Support\UserStorage;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
@@ -178,28 +179,50 @@ class MediaUploadService
 
     /**
      * Delete a stored display file together with its original counterpart, if any.
+     *
+     * HLS bundles (paths ending in `.m3u8`) are deleted as a whole directory
+     * so master playlist, variant playlists and segments all go in one sweep.
+     * The original source MP4 lives outside that directory and cannot be
+     * derived from the master path, so HLS callers must pass it explicitly
+     * via `$originalPath`. For single-file mp4/image uploads the original is
+     * inferred from the display path when `$originalPath` is null.
      */
-    public function delete(?string $displayPath): void
+    public function delete(?string $displayPath, ?string $originalPath = null): void
     {
-        if ($displayPath === null) {
+        if ($displayPath === null && $originalPath === null) {
             return;
         }
 
         $disk = MediaUrl::disk();
 
-        UserStorage::trackDelete($displayPath, $disk);
-        $disk->delete($displayPath);
+        if ($displayPath !== null) {
+            if (str_ends_with($displayPath, '.m3u8')) {
+                $this->deleteDirectory(dirname($displayPath), $disk);
+            } else {
+                UserStorage::trackDelete($displayPath, $disk);
+                $disk->delete($displayPath);
+            }
+        }
 
-        $originalPath = preg_replace(
-            '#^(users/[0-9a-f-]{36})/(?!originals/)(.+)$#',
-            '$1/originals/$2',
-            $displayPath,
-        );
+        $originalPath ??= $displayPath !== null ? MediaUrl::originalPath($displayPath) : null;
 
         if ($originalPath !== null && $originalPath !== $displayPath) {
             UserStorage::trackDelete($originalPath, $disk);
             $disk->delete($originalPath);
         }
+    }
+
+    /**
+     * Remove every file under a storage directory and track each one for the
+     * owning user's quota before issuing the bulk delete.
+     */
+    private function deleteDirectory(string $directory, Filesystem $disk): void
+    {
+        foreach ($disk->allFiles($directory) as $file) {
+            UserStorage::trackDelete($file, $disk);
+        }
+
+        $disk->deleteDirectory($directory);
     }
 
     /**

@@ -432,7 +432,7 @@ class PostController extends Controller
             $media->delete($post->thumbnail_small_url);
         } else {
             foreach ($items as $item) {
-                $media->delete($item->path);
+                $media->delete($item->path, $item->original_path);
                 $media->delete($item->thumbnail_path);
                 $media->delete($item->thumbnail_small_path);
             }
