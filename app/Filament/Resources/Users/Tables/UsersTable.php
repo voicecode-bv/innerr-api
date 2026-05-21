@@ -47,10 +47,16 @@ class UsersTable
                 TextColumn::make('onboarded_at')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('posts_count')
+                    ->label('Posts')
+                    ->counts('posts')
+                    ->sortable()
+                    ->numeric(),
                 TextColumn::make('storage_used_bytes')
                     ->label('Storage used')
                     ->sortable()
-                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state, precision: 2)),
+                    ->formatStateUsing(fn (int $state): string => Number::fileSize($state, precision: 2))
+                    ->tooltip(fn (int $state): string => Number::format($state).' bytes'),
                 // TextColumn::make('avatar_thumbnail')
                 //     ->searchable(),
             ])
