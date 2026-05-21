@@ -282,7 +282,7 @@ class CircleController extends Controller
     #[OA\Delete(
         path: '/api/circles/{circle}',
         summary: 'Delete circle',
-        description: 'Delete a circle. Available to the circle owner and to administrators.',
+        description: 'Delete a circle. Only available to the circle owner.',
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [

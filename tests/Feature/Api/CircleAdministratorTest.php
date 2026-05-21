@@ -135,7 +135,7 @@ it('lets an administrator update the circle and its settings', function () {
         ->assertJsonPath('data.members_can_invite', true);
 });
 
-it('lets an administrator delete the circle', function () {
+it('forbids an administrator from deleting the circle', function () {
     $owner = User::factory()->create();
     $circle = Circle::factory()->for($owner)->create();
     $admin = User::factory()->create();
@@ -143,9 +143,9 @@ it('lets an administrator delete the circle', function () {
 
     $this->actingAs($admin)
         ->deleteJson("/api/circles/{$circle->id}")
-        ->assertNoContent();
+        ->assertForbidden();
 
-    $this->assertDatabaseMissing('circles', ['id' => $circle->id]);
+    $this->assertDatabaseHas('circles', ['id' => $circle->id]);
 });
 
 it('lets an administrator invite and remove members', function () {

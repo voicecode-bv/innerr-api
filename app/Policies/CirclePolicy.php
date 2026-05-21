@@ -23,7 +23,7 @@ class CirclePolicy
 
     public function delete(User $user, Circle $circle): bool
     {
-        return $circle->isOwnerOrAdministrator($user);
+        return $user->id === $circle->user_id;
     }
 
     public function transferOwnership(User $user, Circle $circle): bool
