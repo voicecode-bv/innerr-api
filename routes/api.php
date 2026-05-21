@@ -159,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('throttle:30,1')
         ->name('api.circle-members.store');
     Route::delete('/circles/{circle}/members/{user}', [CircleMemberController::class, 'destroy'])->name('api.circle-members.destroy');
+    Route::put('/circles/{circle}/members/{user}/role', [CircleMemberController::class, 'updateRole'])->name('api.circle-members.role.update');
     Route::post('/circles/{circle}/leave', [CircleMemberController::class, 'leave'])->name('api.circles.leave');
 
     Route::delete('/circles/{circle}/invitations/{circleInvitation}', [CircleInvitationController::class, 'destroy'])->name('api.circle-invitations.destroy');

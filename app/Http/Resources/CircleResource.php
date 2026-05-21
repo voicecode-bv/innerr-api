@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\CircleMemberRole;
 use App\Models\Circle;
 use App\Support\MediaUrl;
 use Illuminate\Http\Request;
@@ -15,6 +16,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'id', type: 'string', format: 'uuid'),
         new OA\Property(property: 'name', type: 'string'),
         new OA\Property(property: 'is_owner', type: 'boolean', description: 'Whether the authenticated user is the owner of this circle.'),
+        new OA\Property(property: 'is_administrator', type: 'boolean', description: 'Whether the authenticated user is an administrator of this circle. Administrators can do everything the owner can, except transfer ownership. The owner is not reported as administrator (use `is_owner` for that).'),
         new OA\Property(property: 'members_can_invite', type: 'boolean', description: 'Whether non-owner members are allowed to invite others to this circle.'),
         new OA\Property(property: 'members_can_view_members', type: 'boolean', description: 'Whether non-owner members are allowed to see the list of other members. When false, the `members` array only contains the owner and the authenticated viewer.'),
         new OA\Property(property: 'members_can_download', type: 'boolean', description: 'Whether members are allowed to download photos and videos shared in this circle. Surfaced on posts via the `is_downloadable` flag.'),
@@ -30,6 +32,7 @@ use OpenApi\Attributes as OA;
                 new OA\Property(property: 'username', type: 'string'),
                 new OA\Property(property: 'avatar', type: 'string', nullable: true),
                 new OA\Property(property: 'is_owner', type: 'boolean'),
+                new OA\Property(property: 'role', type: 'string', enum: ['owner', 'administrator', 'member'], description: 'Membership role. The owner is reported as `owner`.'),
             ],
         )),
         new OA\Property(
@@ -78,10 +81,17 @@ class CircleResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $authUserId = $request->user()?->id;
+        $isOwner = $this->user_id === $authUserId;
+        $isAdministrator = ! $isOwner
+            && $authUserId !== null
+            && $this->resource->resolveViewerRole($authUserId) === CircleMemberRole::Administrator->value;
+
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'is_owner' => $this->user_id === $request->user()?->id,
+            'is_owner' => $isOwner,
+            'is_administrator' => $isAdministrator,
             'members_can_invite' => $this->members_can_invite,
             'members_can_view_members' => $this->members_can_view_members,
             'members_can_download' => $this->members_can_download,
@@ -92,16 +102,25 @@ class CircleResource extends JsonResource
             'members_count' => ($this->members_count ?? 0) + 1,
             'members' => $this->whenLoaded('members', fn () => collect([$this->user, ...$this->members])
                 ->filter()
-                ->map(fn ($member) => [
-                    'id' => $member->id,
-                    'name' => $member->name,
-                    'username' => $member->username,
-                    'avatar' => MediaUrl::sign($member->avatar),
-                    'is_owner' => $member->id === $this->user_id,
-                ])
+                ->map(function ($member) {
+                    $isOwner = $member->id === $this->user_id;
+                    $role = $isOwner
+                        ? 'owner'
+                        : ($member->pivot?->role ?? CircleMemberRole::Member->value);
+
+                    return [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'username' => $member->username,
+                        'avatar' => MediaUrl::sign($member->avatar),
+                        'is_owner' => $isOwner,
+                        'role' => $role,
+                    ];
+                })
                 ->values()),
-            'pending_invitations' => $this->whenLoaded('invitations', function () use ($request) {
+            'pending_invitations' => $this->whenLoaded('invitations', function () use ($request, $isOwner, $isAdministrator) {
                 $authUserId = $request->user()?->id;
+                $canCancelAny = $isOwner || $isAdministrator;
 
                 return $this->invitations->map(fn ($invitation) => [
                     'id' => $invitation->id,
@@ -109,7 +128,7 @@ class CircleResource extends JsonResource
                     'username' => $invitation->user?->username,
                     'inviter_id' => $invitation->inviter_id,
                     'can_cancel' => $authUserId !== null
-                        && ($authUserId === $this->user_id || $authUserId === $invitation->inviter_id),
+                        && ($canCancelAny || $authUserId === $invitation->inviter_id),
                     'created_at' => $invitation->created_at,
                 ]);
             }),

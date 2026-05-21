@@ -18,12 +18,12 @@ class CirclePolicy
 
     public function update(User $user, Circle $circle): bool
     {
-        return $user->id === $circle->user_id;
+        return $circle->isOwnerOrAdministrator($user);
     }
 
     public function delete(User $user, Circle $circle): bool
     {
-        return $user->id === $circle->user_id;
+        return $circle->isOwnerOrAdministrator($user);
     }
 
     public function transferOwnership(User $user, Circle $circle): bool
@@ -31,9 +31,14 @@ class CirclePolicy
         return $user->id === $circle->user_id;
     }
 
+    public function manageAdministrators(User $user, Circle $circle): bool
+    {
+        return $circle->isOwnerOrAdministrator($user);
+    }
+
     public function invite(User $user, Circle $circle): bool
     {
-        if ($user->id === $circle->user_id) {
+        if ($circle->isOwnerOrAdministrator($user)) {
             return true;
         }
 

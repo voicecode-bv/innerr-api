@@ -54,7 +54,7 @@ class CircleInvitationController extends Controller
     #[OA\Delete(
         path: '/api/circles/{circle}/invitations/{circleInvitation}',
         summary: 'Cancel invitation',
-        description: 'Cancel a pending circle invitation. Available to the circle owner and to the user who sent the invitation.',
+        description: 'Cancel a pending circle invitation. Available to the circle owner, to circle administrators, and to the user who sent the invitation.',
         tags: ['Circle Invitations'],
         security: [['sanctum' => []]],
         parameters: [
@@ -74,9 +74,9 @@ class CircleInvitationController extends Controller
             abort(404);
         }
 
-        $userId = $request->user()->id;
+        $user = $request->user();
 
-        if ($circle->user_id !== $userId && $circleInvitation->inviter_id !== $userId) {
+        if (! $circle->isOwnerOrAdministrator($user) && $circleInvitation->inviter_id !== $user->id) {
             abort(403);
         }
 

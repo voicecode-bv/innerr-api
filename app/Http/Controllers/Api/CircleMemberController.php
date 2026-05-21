@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\CircleMemberRole;
 use App\Enums\InvitationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCircleMemberRequest;
+use App\Http\Requests\UpdateCircleMemberRoleRequest;
 use App\Models\Circle;
 use App\Models\CircleInvitation;
 use App\Models\User;
@@ -136,22 +138,80 @@ class CircleMemberController extends Controller
 
     private function invitationResponse(CircleInvitation $invitation, Circle $circle, Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
+        $user = $request->user();
 
         return response()->json([
             'message' => 'Invitation sent.',
             'invitation' => [
                 'id' => $invitation->id,
                 'inviter_id' => $invitation->inviter_id,
-                'can_cancel' => $userId === $circle->user_id || $userId === $invitation->inviter_id,
+                'can_cancel' => $circle->isOwnerOrAdministrator($user) || $user->id === $invitation->inviter_id,
             ],
         ], 201);
+    }
+
+    #[OA\Put(
+        path: '/api/circles/{circle}/members/{user}/role',
+        summary: 'Update member role',
+        description: 'Promote a member to administrator, or demote an administrator back to a regular member. Available to the circle owner and to existing administrators. The owner is not a pivot member and cannot be the target of this endpoint.',
+        tags: ['Circle Members'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'circle', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+            new OA\Parameter(name: 'user', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'uuid')),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['role'],
+                properties: [
+                    new OA\Property(property: 'role', type: 'string', enum: ['member', 'administrator']),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Role updated',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Member role updated.'),
+                        new OA\Property(property: 'role', type: 'string', enum: ['member', 'administrator']),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 403, description: 'Forbidden'),
+            new OA\Response(response: 404, description: 'Circle or user not found'),
+            new OA\Response(response: 422, description: 'Validation error, or target user is the owner / not a member'),
+        ],
+    )]
+    public function updateRole(UpdateCircleMemberRoleRequest $request, Circle $circle, User $user): JsonResponse
+    {
+        $this->authorize('manageAdministrators', $circle);
+
+        if ($user->id === $circle->user_id) {
+            abort(422, 'The owner role cannot be changed via this endpoint.');
+        }
+
+        if (! $circle->members()->whereKey($user->id)->exists()) {
+            abort(422, 'The target user is not a member of this circle.');
+        }
+
+        $role = CircleMemberRole::from($request->validated('role'));
+
+        $circle->members()->updateExistingPivot($user->id, ['role' => $role->value]);
+
+        return response()->json([
+            'message' => 'Member role updated.',
+            'role' => $role->value,
+        ]);
     }
 
     #[OA\Delete(
         path: '/api/circles/{circle}/members/{user}',
         summary: 'Remove member',
-        description: 'Remove a user from a circle. Requires circle ownership. The owner cannot be removed from their own circle.',
+        description: 'Remove a user from a circle. Available to the circle owner and to administrators. The owner cannot be removed from their own circle.',
         tags: ['Circle Members'],
         security: [['sanctum' => []]],
         parameters: [

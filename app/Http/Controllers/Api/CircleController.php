@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\CircleMemberRole;
 use App\Enums\InvitationStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCircleRequest;
@@ -71,6 +72,7 @@ class CircleController extends Controller
         }
 
         $circles = Circle::query()
+            ->withViewerRole($userId)
             ->where(function ($query) use ($userId) {
                 $query->where('user_id', $userId)
                     ->orWhereHas('members', fn ($q) => $q->whereKey($userId));
@@ -164,7 +166,10 @@ class CircleController extends Controller
 
         $authUserId = $request->user()->id;
         $isOwner = $authUserId === $circle->user_id;
-        $canViewMembers = $isOwner || $circle->members_can_view_members;
+        $isAdministrator = ! $isOwner
+            && $circle->resolveViewerRole($authUserId) === CircleMemberRole::Administrator->value;
+        $isOwnerOrAdmin = $isOwner || $isAdministrator;
+        $canViewMembers = $isOwnerOrAdmin || $circle->members_can_view_members;
 
         $circle->load([
             'user:id,name,username,avatar',
@@ -173,7 +178,7 @@ class CircleController extends Controller
                 ->when(! $canViewMembers, fn ($q) => $q->whereKey($authUserId)),
         ])->loadCount('members');
 
-        if ($canViewMembers && ($isOwner || $circle->members_can_invite)) {
+        if ($canViewMembers && ($isOwnerOrAdmin || $circle->members_can_invite)) {
             $circle->load(['invitations' => fn ($query) => $query->where('status', InvitationStatus::Pending)->with('user:id,username')]);
         }
 
@@ -188,7 +193,7 @@ class CircleController extends Controller
     #[OA\Put(
         path: '/api/circles/{circle}',
         summary: 'Update circle',
-        description: 'Update an existing circle. Requires ownership.',
+        description: 'Update an existing circle. Available to the circle owner and to administrators.',
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
@@ -232,7 +237,7 @@ class CircleController extends Controller
     #[OA\Put(
         path: '/api/circles/{circle}/settings',
         summary: 'Update circle settings',
-        description: 'Update circle settings such as whether members can invite others, view the member list, or download media. Requires ownership. At least one setting must be present in the request body — settings not included are left unchanged.',
+        description: 'Update circle settings such as whether members can invite others, view the member list, or download media. Available to the circle owner and to administrators. At least one setting must be present in the request body, settings not included are left unchanged.',
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
@@ -277,7 +282,7 @@ class CircleController extends Controller
     #[OA\Delete(
         path: '/api/circles/{circle}',
         summary: 'Delete circle',
-        description: 'Delete a circle. Requires ownership.',
+        description: 'Delete a circle. Available to the circle owner and to administrators.',
         tags: ['Circles'],
         security: [['sanctum' => []]],
         parameters: [
