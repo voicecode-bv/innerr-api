@@ -3,6 +3,7 @@
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
+use App\Notifications\CommentReplied;
 use App\Notifications\PostCommented;
 use Illuminate\Support\Facades\Notification;
 
@@ -491,4 +492,66 @@ it('does not notify the post owner when they comment on their own post', functio
         ->assertCreated();
 
     Notification::assertNotSentTo($postOwner, PostCommented::class);
+});
+
+it('notifies prior commenters and the post owner, but not the new commenter', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $priorCommenter = User::factory()->create();
+    $newCommenter = User::factory()->create();
+    shareCircle($post, $priorCommenter, $newCommenter);
+
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $priorCommenter->id]);
+
+    $this->actingAs($newCommenter)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Joining the conversation'])
+        ->assertCreated();
+
+    Notification::assertSentTo($postOwner, PostCommented::class);
+    Notification::assertSentTo($priorCommenter, CommentReplied::class);
+
+    // De eigenaar krijgt nooit de deelnemer-notificatie (geen dubbele notificatie).
+    Notification::assertNotSentTo($postOwner, CommentReplied::class);
+
+    // De reageerder zelf krijgt niets.
+    Notification::assertNotSentTo($newCommenter, CommentReplied::class);
+    Notification::assertNotSentTo($newCommenter, PostCommented::class);
+});
+
+it('notifies prior commenters when the post owner replies in their own thread', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $priorCommenter = User::factory()->create();
+    shareCircle($post, $priorCommenter);
+
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $priorCommenter->id]);
+
+    $this->actingAs($postOwner)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Thanks everyone!'])
+        ->assertCreated();
+
+    Notification::assertSentTo($priorCommenter, CommentReplied::class);
+    Notification::assertNotSentTo($postOwner, CommentReplied::class);
+    Notification::assertNotSentTo($postOwner, PostCommented::class);
+});
+
+it('does not notify a commenter about their own follow-up comment', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+    $commenter = User::factory()->create();
+    shareCircle($post, $commenter);
+
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $commenter->id]);
+
+    $this->actingAs($commenter)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Adding more'])
+        ->assertCreated();
+
+    Notification::assertNotSentTo($commenter, CommentReplied::class);
 });

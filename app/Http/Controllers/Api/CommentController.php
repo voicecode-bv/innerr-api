@@ -7,12 +7,15 @@ use App\Http\Requests\StoreCommentRequest;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Post;
+use App\Models\User;
+use App\Notifications\CommentReplied;
 use App\Notifications\PostCommented;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use OpenApi\Attributes as OA;
 
 class CommentController extends Controller
@@ -190,9 +193,27 @@ class CommentController extends Controller
 
         $comment->load('user:id,name,username,avatar');
 
-        if ($request->user()->id !== $post->user_id) {
+        $commenterId = $request->user()->id;
+
+        if ($commenterId !== $post->user_id) {
             $post->user->notify(new PostCommented($request->user(), $post, $comment));
         }
+
+        // Notificeer de overige gespreksdeelnemers: iedereen die eerder op deze
+        // post reageerde, behalve de reageerder zelf en de eigenaar (die hierboven
+        // al de PostCommented-notificatie kreeg). Eén geïndexeerde subquery op
+        // comments.post_id, gechunkt om bij veel deelnemers efficiënt te blijven.
+        User::whereIn('id', function ($query) use ($post): void {
+            $query->select('user_id')
+                ->distinct()
+                ->from('comments')
+                ->where('post_id', $post->id);
+        })
+            ->whereNot('id', $commenterId)
+            ->whereNot('id', $post->user_id)
+            ->chunkById(200, function ($recipients) use ($request, $post, $comment): void {
+                Notification::send($recipients, new CommentReplied($request->user(), $post, $comment));
+            });
 
         return (new CommentResource($comment))
             ->response()

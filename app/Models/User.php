@@ -35,7 +35,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
 
     /** @var array<string, mixed> */
     protected $attributes = [
-        'notification_preferences' => '{"post_liked":true,"post_commented":true,"comment_liked":true,"new_circle_post":true,"post_tagged":true,"circle_invitation_received":true,"circle_invitation_accepted":true,"circle_ownership_transfer_requested":true,"circle_ownership_transfer_accepted":true,"circle_ownership_transfer_declined":true}',
+        'notification_preferences' => '{"post_liked":true,"post_commented":true,"comment_replied":true,"comment_liked":true,"new_circle_post":true,"post_tagged":true,"circle_invitation_received":true,"circle_invitation_accepted":true,"circle_ownership_transfer_requested":true,"circle_ownership_transfer_accepted":true,"circle_ownership_transfer_declined":true}',
     ];
 
     /**

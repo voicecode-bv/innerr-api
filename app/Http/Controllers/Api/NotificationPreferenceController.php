@@ -26,6 +26,7 @@ class NotificationPreferenceController extends Controller
                         new OA\Property(property: 'data', type: 'object', properties: [
                             new OA\Property(property: 'post_liked', type: 'boolean'),
                             new OA\Property(property: 'post_commented', type: 'boolean'),
+                            new OA\Property(property: 'comment_replied', type: 'boolean'),
                             new OA\Property(property: 'comment_liked', type: 'boolean'),
                             new OA\Property(property: 'new_circle_post', type: 'boolean'),
                             new OA\Property(property: 'post_tagged', type: 'boolean'),
@@ -40,7 +41,13 @@ class NotificationPreferenceController extends Controller
     )]
     public function index(Request $request): JsonResponse
     {
-        $preferences = $request->user()->notification_preferences ?? NotificationPreference::defaults();
+        // Merge de opgeslagen voorkeuren over de defaults zodat nieuw geïntroduceerde
+        // sleutels altijd verschijnen voor bestaande gebruikers (wiens JSON die sleutel
+        // nog niet bevat), zonder data-migratie.
+        $preferences = array_merge(
+            NotificationPreference::defaults(),
+            $request->user()->notification_preferences ?? [],
+        );
 
         return response()->json(['data' => $preferences]);
     }

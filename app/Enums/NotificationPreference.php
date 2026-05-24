@@ -6,6 +6,7 @@ enum NotificationPreference: string
 {
     case PostLiked = 'post_liked';
     case PostCommented = 'post_commented';
+    case CommentReplied = 'comment_replied';
     case CommentLiked = 'comment_liked';
     case NewCirclePost = 'new_circle_post';
     case PostTagged = 'post_tagged';
@@ -23,6 +24,7 @@ enum NotificationPreference: string
         return [
             self::PostLiked->value => true,
             self::PostCommented->value => true,
+            self::CommentReplied->value => true,
             self::CommentLiked->value => true,
             self::NewCirclePost->value => true,
             self::PostTagged->value => true,
