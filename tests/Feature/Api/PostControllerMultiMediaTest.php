@@ -40,6 +40,32 @@ it('stores a post with multiple photos and creates ordered post_media rows', fun
         ->and($post->thumbnail_small_url)->toBe($items->first()->thumbnail_small_path);
 });
 
+it('uses top-level coordinates as the post position for a multi-photo post', function () {
+    Storage::fake('public');
+    $user = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $user->id]);
+
+    $this->actingAs($user)
+        ->postJson('/api/posts', [
+            'media' => [
+                UploadedFile::fake()->image('a.jpg'),
+                UploadedFile::fake()->image('b.jpg'),
+            ],
+            'latitude' => 52.370216,
+            'longitude' => 4.895168,
+            'location' => 'Amsterdam',
+            'circle_ids' => [$circle->id],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.latitude', 52.370216)
+        ->assertJsonPath('data.longitude', 4.895168)
+        ->assertJsonPath('data.location', 'Amsterdam');
+
+    $post = Post::first();
+    expect($post->latitude)->toEqualWithDelta(52.370216, 0.0001)
+        ->and($post->longitude)->toEqualWithDelta(4.895168, 0.0001);
+});
+
 it('merges client-provided metadata with extracted EXIF per item', function () {
     Storage::fake('public');
     $user = User::factory()->create();

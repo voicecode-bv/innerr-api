@@ -239,6 +239,8 @@ class StorePostRequest extends FormRequest
             'media_metadata.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'caption' => ['nullable', 'string', 'max:2200'],
             'location' => ['nullable', 'string', 'max:255'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'circle_ids' => ['required', 'array', 'min:1', 'max:50'],
             'circle_ids.*' => ['uuid', new AccessibleCircle($this->user())],
             'tag_ids' => ['sometimes', 'array', 'max:50'],
@@ -265,10 +267,10 @@ class StorePostRequest extends FormRequest
             if ($this->isMultiMedia()) {
                 $this->validateNoMixedVideoPhoto($v);
                 $this->validatePerItemCoordinates($v);
-
-                return;
             }
 
+            // A post-level location may be supplied alongside (or instead of)
+            // per-item EXIF coordinates and becomes the post's map position.
             $this->validateTopLevelCoordinates($v);
         });
     }

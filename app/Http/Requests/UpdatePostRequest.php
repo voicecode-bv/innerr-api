@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Rules\AccessibleCircle;
 use App\Rules\OwnedTag;
 use App\Rules\TaggablePerson;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePostRequest extends FormRequest
@@ -22,6 +23,9 @@ class UpdatePostRequest extends FormRequest
     {
         return [
             'caption' => ['sometimes', 'nullable', 'string', 'max:2200'],
+            'location' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'latitude' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'circle_ids' => ['sometimes', 'array', 'min:1', 'max:50'],
             'circle_ids.*' => ['uuid', new AccessibleCircle($this->user())],
             'tag_ids' => ['sometimes', 'array', 'max:50'],
@@ -29,6 +33,15 @@ class UpdatePostRequest extends FormRequest
             'person_ids' => ['sometimes', 'array', 'max:50'],
             'person_ids.*' => ['uuid', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function ($v): void {
+            if ($this->filled('latitude') !== $this->filled('longitude')) {
+                $v->errors()->add('longitude', 'Latitude and longitude must be provided together.');
+            }
+        });
     }
 
     /**

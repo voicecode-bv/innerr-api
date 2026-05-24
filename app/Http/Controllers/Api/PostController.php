@@ -97,6 +97,8 @@ class PostController extends Controller
                         new OA\Property(property: 'media', type: 'string', format: 'binary', description: 'Image or video file (jpg, png, gif, mp4, mov). Max 50MB.'),
                         new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
                         new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true),
+                        new OA\Property(property: 'latitude', type: 'number', format: 'float', minimum: -90, maximum: 90, nullable: true, description: 'Post-level latitude. When provided with longitude, sets the post\'s map position (overriding any EXIF coordinates). Must be sent together with longitude.'),
+                        new OA\Property(property: 'longitude', type: 'number', format: 'float', minimum: -180, maximum: 180, nullable: true, description: 'Post-level longitude. Must be sent together with latitude.'),
                         new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Circle IDs to share the post with (user must be owner or member).'),
                         new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Optional. IDs of personal tags to attach to this post. Each tag must be owned by the authenticated user. Each attached tag\'s `usage_count` is incremented by 1.'),
                         new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Optional. IDs of persons to tag on this post. Each person must belong to at least one of the selected `circle_ids`.'),
@@ -128,6 +130,16 @@ class PostController extends Controller
 
         foreach ($files as $index => $file) {
             $processed[] = $this->processMediaFile($file, $userId, $perItemMetadata[$index], $media);
+        }
+
+        // A post-level location chosen by the client (e.g. the map picker)
+        // overrides the primary item's EXIF. Applying it to item 0 keeps it the
+        // post's map position because the PostMediaObserver mirrors the primary
+        // item's coordinates onto the post's shadow column.
+        $explicitCoordinates = $this->explicitCoordinates($request);
+
+        if ($explicitCoordinates !== null) {
+            $processed[0]['coordinates'] = $explicitCoordinates;
         }
 
         $first = $processed[0];
@@ -263,6 +275,23 @@ class PostController extends Controller
     }
 
     /**
+     * Post-level coordinates explicitly chosen by the client (e.g. via the map
+     * picker). When present these win over the first media item's EXIF as the
+     * post's map position. Validation guarantees both are sent together.
+     */
+    private function explicitCoordinates(StorePostRequest $request): ?Point
+    {
+        $latitude = $request->validated('latitude');
+        $longitude = $request->validated('longitude');
+
+        if ($latitude === null || $longitude === null) {
+            return null;
+        }
+
+        return new Point((float) $latitude, (float) $longitude, Srid::WGS84->value);
+    }
+
+    /**
      * Process one uploaded file: store it, generate thumbnails, extract EXIF
      * for images. Client-provided metadata overrides extracted values.
      *
@@ -316,7 +345,7 @@ class PostController extends Controller
     #[OA\Put(
         path: '/api/posts/{post}',
         summary: 'Update post',
-        description: 'Update the caption, circles, tags, and/or persons of a post. Requires ownership. `tag_ids` and `person_ids` follow sync semantics: send the full desired set (empty array detaches all). The `usage_count` is adjusted both ways.',
+        description: 'Update the caption, location, circles, tags, and/or persons of a post. Requires ownership. `tag_ids` and `person_ids` follow sync semantics: send the full desired set (empty array detaches all). The `usage_count` is adjusted both ways. `latitude`/`longitude` must be sent together; send both as null to clear the location.',
         tags: ['Posts'],
         security: [['sanctum' => []]],
         parameters: [
@@ -327,6 +356,9 @@ class PostController extends Controller
             content: new OA\JsonContent(
                 properties: [
                     new OA\Property(property: 'caption', type: 'string', maxLength: 2200, nullable: true),
+                    new OA\Property(property: 'location', type: 'string', maxLength: 255, nullable: true, description: 'Free-text place name. Send null to clear.'),
+                    new OA\Property(property: 'latitude', type: 'number', format: 'float', minimum: -90, maximum: 90, nullable: true, description: 'Post latitude. Must be sent together with longitude; send both as null to clear the map position.'),
+                    new OA\Property(property: 'longitude', type: 'number', format: 'float', minimum: -180, maximum: 180, nullable: true, description: 'Post longitude. Must be sent together with latitude.'),
                     new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Circle IDs to share the post with (user must be owner or member).'),
                     new OA\Property(property: 'tag_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Full desired set of personal tag IDs. Tags must be owned by the authenticated user. Send an empty array to detach all tags.'),
                     new OA\Property(property: 'person_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'Full desired set of person IDs. Each person must belong to at least one of the post\'s circles. Send an empty array to detach all persons.'),
@@ -355,6 +387,33 @@ class PostController extends Controller
 
         if ($request->has('caption')) {
             $post->update(['caption' => $request->validated('caption')]);
+        }
+
+        if ($request->has('location')) {
+            $post->update(['location' => $request->validated('location')]);
+        }
+
+        if ($request->has('latitude') || $request->has('longitude')) {
+            $latitude = $request->validated('latitude');
+            $longitude = $request->validated('longitude');
+
+            $coordinates = ($latitude !== null && $longitude !== null)
+                ? new Point((float) $latitude, (float) $longitude, Srid::WGS84->value)
+                : null;
+
+            // The post's map position is derived from the primary media item
+            // (sort_order 0) by PostMediaObserver. Update that item so the
+            // change propagates to the post and survives a later media save
+            // (e.g. a finishing video transcode). Fall back to a direct post
+            // update for the rare post without media rows.
+            $primaryMedia = $post->media()->orderBy('sort_order')->first();
+
+            if ($primaryMedia !== null) {
+                $primaryMedia->update(['coordinates' => $coordinates]);
+                $post->refresh();
+            } else {
+                $post->update(['coordinates' => $coordinates]);
+            }
         }
 
         if ($request->has('circle_ids')) {

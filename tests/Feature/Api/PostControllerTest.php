@@ -587,6 +587,123 @@ it('can update caption and circles together', function () {
         ->assertJsonPath('data.circles.0.id', $circle->id);
 });
 
+it('can set a location on a post without one', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'location' => null,
+        'coordinates' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'location' => 'Amsterdam',
+            'latitude' => 52.370216,
+            'longitude' => 4.895168,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.location', 'Amsterdam')
+        ->assertJsonPath('data.latitude', 52.370216)
+        ->assertJsonPath('data.longitude', 4.895168);
+
+    $post->refresh();
+    expect($post->location)->toBe('Amsterdam')
+        ->and($post->latitude)->toEqualWithDelta(52.370216, 0.0001)
+        ->and($post->longitude)->toEqualWithDelta(4.895168, 0.0001);
+});
+
+it('can change an existing location on own post', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'location' => 'Amsterdam',
+        'coordinates' => new Point(52.370216, 4.895168, Srid::WGS84->value),
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'location' => 'Paris',
+            'latitude' => 48.858331,
+            'longitude' => 2.294497,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.location', 'Paris');
+
+    $post->refresh();
+    expect($post->location)->toBe('Paris')
+        ->and($post->latitude)->toEqualWithDelta(48.858331, 0.0001)
+        ->and($post->longitude)->toEqualWithDelta(2.294497, 0.0001);
+});
+
+it('can clear a location on own post', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'location' => 'Amsterdam',
+        'coordinates' => new Point(52.370216, 4.895168, Srid::WGS84->value),
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'location' => null,
+            'latitude' => null,
+            'longitude' => null,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.location', null)
+        ->assertJsonPath('data.latitude', null)
+        ->assertJsonPath('data.longitude', null);
+
+    $post->refresh();
+    expect($post->location)->toBeNull()
+        ->and($post->coordinates)->toBeNull();
+});
+
+it('syncs the location onto the primary media item so a later media save keeps it', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'location' => null,
+        'coordinates' => null,
+    ]);
+    $media = $post->media()->create([
+        'sort_order' => 0,
+        'path' => 'users/x/posts/a.jpg',
+        'type' => 'image',
+        'status' => 'ready',
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", [
+            'latitude' => 52.370216,
+            'longitude' => 4.895168,
+        ])
+        ->assertSuccessful()
+        ->assertJsonPath('data.latitude', 52.370216);
+
+    // Both the primary media item and the post (synced by PostMediaObserver)
+    // carry the new position.
+    expect($media->fresh()->latitude)->toEqualWithDelta(52.370216, 0.0001)
+        ->and($post->fresh()->latitude)->toEqualWithDelta(52.370216, 0.0001);
+});
+
+it('leaves the location untouched when not part of the update', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'location' => 'Amsterdam',
+        'coordinates' => new Point(52.370216, 4.895168, Srid::WGS84->value),
+    ]);
+
+    $this->actingAs($user)
+        ->putJson("/api/posts/{$post->id}", ['caption' => 'Only caption'])
+        ->assertSuccessful();
+
+    $post->refresh();
+    expect($post->location)->toBe('Amsterdam')
+        ->and($post->latitude)->toEqualWithDelta(52.370216, 0.0001);
+});
+
 it('can update a post as a circle member', function () {
     $user = User::factory()->create();
     $circle = Circle::factory()->create();
@@ -621,6 +738,11 @@ it('validates update post fields', function (array $data, string $errorField) {
     'caption too long' => [['caption' => str_repeat('a', 2201)], 'caption'],
     'empty circle_ids' => [['circle_ids' => []], 'circle_ids'],
     'circle_ids not array' => [['circle_ids' => 1], 'circle_ids'],
+    'location too long' => [['location' => str_repeat('a', 256)], 'location'],
+    'latitude without longitude' => [['latitude' => 52.37], 'longitude'],
+    'longitude without latitude' => [['longitude' => 4.89], 'longitude'],
+    'latitude out of range' => [['latitude' => 99, 'longitude' => 4.89], 'latitude'],
+    'longitude out of range' => [['latitude' => 52.37, 'longitude' => 200], 'longitude'],
 ]);
 
 it('cannot update another users post', function () {
