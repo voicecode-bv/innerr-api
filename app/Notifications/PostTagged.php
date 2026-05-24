@@ -42,6 +42,7 @@ class PostTagged extends Notification implements ShouldQueue
             body: __('tagged you in a post'),
         )))->data([
             'type' => 'post-tagged',
+            'link' => '/posts/'.$this->post->id,
             'post_id' => (string) $this->post->id,
             'user_id' => (string) $this->poster->id,
         ]);

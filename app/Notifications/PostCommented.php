@@ -45,6 +45,7 @@ class PostCommented extends Notification implements ShouldQueue
             body: Str::limit($this->comment->body, 120),
         )))->data([
             'type' => 'post-commented',
+            'link' => '/posts/'.$this->post->id.'?comment='.$this->comment->id,
             'post_id' => (string) $this->post->id,
             'comment_id' => (string) $this->comment->id,
         ]);

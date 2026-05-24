@@ -47,6 +47,7 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
             ]),
         )))->data([
             'type' => 'circle-invitation-accepted',
+            'link' => '/circles/'.$this->invitation->circle_id,
             'circle_id' => (string) $this->invitation->circle_id,
         ]);
     }

@@ -42,6 +42,7 @@ class CommentLiked extends Notification implements ShouldQueue
             body: __('liked your comment'),
         )))->data([
             'type' => 'comment-liked',
+            'link' => '/posts/'.$this->comment->post_id.'?comment='.$this->comment->id,
             'comment_id' => (string) $this->comment->id,
             'post_id' => (string) $this->comment->post_id,
         ]);

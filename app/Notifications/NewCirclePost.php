@@ -42,6 +42,7 @@ class NewCirclePost extends Notification implements ShouldQueue
             body: __('shared a new post'),
         )))->data([
             'type' => 'new-circle-post',
+            'link' => '/posts/'.$this->post->id,
             'post_id' => (string) $this->post->id,
             'user_id' => (string) $this->poster->id,
         ]);

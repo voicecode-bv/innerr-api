@@ -46,6 +46,7 @@ class CircleMemberInvitedByMemberNotification extends Notification implements Sh
             ]),
         )))->data([
             'type' => 'circle-member-invited-by-member',
+            'link' => '/circles/'.$this->invitation->circle_id,
             'circle_id' => (string) $this->invitation->circle_id,
         ]);
     }

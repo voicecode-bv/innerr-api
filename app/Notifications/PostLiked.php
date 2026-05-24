@@ -42,6 +42,7 @@ class PostLiked extends Notification implements ShouldQueue
             body: __('liked your post'),
         )))->data([
             'type' => 'post-liked',
+            'link' => '/posts/'.$this->post->id,
             'post_id' => (string) $this->post->id,
             'user_id' => (string) $this->liker->id,
         ]);

@@ -62,6 +62,7 @@ class CircleOwnershipTransferRequestedNotification extends Notification implemen
             ]),
         )))->data([
             'type' => 'circle-ownership-transfer-requested',
+            'link' => '/notifications',
             'circle_id' => (string) $this->transfer->circle_id,
             'transfer_id' => (string) $this->transfer->id,
         ]);

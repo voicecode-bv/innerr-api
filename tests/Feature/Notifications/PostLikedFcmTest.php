@@ -22,6 +22,7 @@ it('builds an fcm message with the liker name and post id', function () {
 
     expect($payload['notification']['title'] ?? null)->toBe('Alice')
         ->and($payload['data']['type'] ?? null)->toBe('post-liked')
+        ->and($payload['data']['link'] ?? null)->toBe('/posts/7')
         ->and($payload['data']['post_id'] ?? null)->toBe('7')
         ->and($payload['data']['user_id'] ?? null)->toBe('42');
 });
