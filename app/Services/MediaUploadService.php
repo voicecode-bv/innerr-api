@@ -113,6 +113,45 @@ class MediaUploadService
     }
 
     /**
+     * Process a post image that was stored untouched during upload into its
+     * display variant and both thumbnails, deferring the costly HEIC decode +
+     * resize out of the HTTP request (see ProcessPostImage). The HEIC
+     * conversion runs once and is reused across all three outputs.
+     *
+     * The caller persists the returned paths and removes the raw source.
+     *
+     * @return array{path: string, original_path: ?string, thumbnail_path: ?string, thumbnail_small_path: ?string}
+     */
+    public function processStoredPostImage(string $rawPath, string $userId, string $folder): array
+    {
+        $disk = MediaUrl::disk();
+        $extension = strtolower(pathinfo($rawPath, PATHINFO_EXTENSION)) ?: 'jpg';
+
+        $tempSource = tempnam(sys_get_temp_dir(), 'post_img_').'.'.$extension;
+        file_put_contents($tempSource, $disk->get($rawPath));
+
+        try {
+            $file = new UploadedFile($tempSource, 'upload.'.$extension, null, null, true);
+
+            // Convert once and reuse the JPEG for every variant.
+            $file = $this->convertHeicToJpeg($file);
+
+            $thumbnailPath = $this->generateImageThumbnail($file, $userId, $folder);
+            $thumbnailSmallPath = $this->generateImageThumbnail($file, $userId, $folder, size: self::THUMBNAIL_SIZE_SMALL);
+            $displayPath = $this->store($file, $userId, $folder);
+
+            return [
+                'path' => $displayPath,
+                'original_path' => MediaUrl::originalPath($displayPath),
+                'thumbnail_path' => $thumbnailPath,
+                'thumbnail_small_path' => $thumbnailSmallPath,
+            ];
+        } finally {
+            @unlink($tempSource);
+        }
+    }
+
+    /**
      * Transcode and store a video file for the given user.
      *
      * The original upload is kept in the "originals" folder. A display
@@ -400,7 +439,16 @@ class MediaUploadService
         return str_starts_with((string) $file->getMimeType(), 'image/');
     }
 
-    private function convertHeicToJpeg(UploadedFile $file): UploadedFile
+    /**
+     * Convert a HEIC/HEIF upload to a JPEG-backed UploadedFile, returning the
+     * file unchanged when it is already a non-HEIC format.
+     *
+     * Idempotent and safe to hoist: callers that process the same upload into
+     * several variants (display image plus thumbnails) should convert once and
+     * pass the resulting JPEG to each step so the costly HEIC decode runs a
+     * single time instead of once per variant.
+     */
+    public function convertHeicToJpeg(UploadedFile $file): UploadedFile
     {
         $extension = strtolower((string) $file->getClientOriginalExtension());
 
