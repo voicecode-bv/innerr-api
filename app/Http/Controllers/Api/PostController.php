@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostResource;
+use App\Jobs\ProcessPostImage;
 use App\Jobs\SubmitVideoToFileFlux;
 use App\Jobs\TranscodeVideo;
 use App\Models\Person;
@@ -17,6 +18,7 @@ use App\Notifications\NewCirclePost;
 use App\Notifications\PostTagged;
 use App\Services\MediaUploadService;
 use App\Support\ExifExtractor;
+use App\Support\MediaUrl;
 use App\Support\UserStorage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -177,6 +179,8 @@ class PostController extends Controller
                 config('services.fileflux.enabled')
                     ? SubmitVideoToFileFlux::dispatch($postMedia)
                     : TranscodeVideo::dispatch($postMedia);
+            } elseif ($data['status'] === MediaStatus::Processing) {
+                ProcessPostImage::dispatch($postMedia);
             }
         }
 
@@ -218,6 +222,10 @@ class PostController extends Controller
                 });
         }
 
+        // Image jobs that ran inline (sync queue) have already advanced their
+        // rows past Processing and re-mirrored the post's shadow columns via
+        // PostMediaObserver; refresh so the response reflects the true state.
+        $post->refresh();
         $post->load(['user:id,name,username,avatar', 'media']);
 
         // Verzilverde upload-sessies opruimen nu de bytes definitief in storage
@@ -317,13 +325,17 @@ class PostController extends Controller
             UserStorage::trackPut($path);
             $status = MediaStatus::Processing;
         } else {
-            // EXIF before MediaUploadService runs — convertHeicToJpeg may
-            // replace the UploadedFile and Intervention strips EXIF on save.
+            // EXIF is cheap and must be read from the upload while it is still
+            // on local disk, before it is moved into storage. The expensive
+            // HEIC decode + resize is deferred to ProcessPostImage so a
+            // multi-photo post never blocks the request past the execution-time
+            // limit; the row stays Processing until the job builds the variants.
             $extracted = ExifExtractor::fromUploadedFile($file);
 
-            $thumbnailPath = $media->generateImageThumbnail($file, $userId, 'posts');
-            $thumbnailSmallPath = $media->generateImageThumbnail($file, $userId, 'posts', size: MediaUploadService::THUMBNAIL_SIZE_SMALL);
-            $path = $media->store($file, $userId, 'posts');
+            $disk = MediaUrl::disk();
+            $path = $disk->putFile("users/{$userId}/posts", $file);
+            UserStorage::trackPut($path, $disk);
+            $status = MediaStatus::Processing;
         }
 
         $latitude = $clientMeta['latitude'] ?? $extracted['latitude'];
