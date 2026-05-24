@@ -142,6 +142,60 @@ it('uses the thumbnail url for profile posts when available', function () {
         ->and($byId[$withoutThumb->id]['media_url'])->toContain('posts/no-thumb.jpg');
 });
 
+it('exposes a media array per profile post ordered by sort_order', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($viewer)->create();
+
+    $post = Post::factory()->create([
+        'user_id' => $user->id,
+        'media_type' => 'image',
+        'media_url' => 'posts/cover.jpg',
+    ]);
+    $post->circles()->attach($circle);
+    $post->media()->createMany([
+        ['sort_order' => 1, 'path' => 'posts/b.jpg', 'type' => 'image', 'status' => 'ready', 'thumbnail_small_path' => 'posts/thumbs/b.jpg'],
+        ['sort_order' => 0, 'path' => 'posts/a.jpg', 'type' => 'image', 'status' => 'ready', 'thumbnail_small_path' => 'posts/thumbs/a.jpg'],
+        ['sort_order' => 2, 'path' => 'posts/c.jpg', 'type' => 'image', 'status' => 'ready', 'thumbnail_small_path' => 'posts/thumbs/c.jpg'],
+    ]);
+
+    $response = $this->actingAs($viewer)
+        ->getJson("/api/profiles/{$user->username}/posts")
+        ->assertSuccessful()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonCount(3, 'data.0.media')
+        ->assertJsonStructure([
+            'data' => [
+                '*' => [
+                    'media' => [
+                        '*' => ['id', 'url', 'type', 'status', 'thumbnail_url', 'thumbnail_small_url'],
+                    ],
+                ],
+            ],
+        ]);
+
+    $urls = collect($response->json('data.0.media'))->pluck('url')->all();
+
+    expect($urls)->toHaveCount(3)
+        ->and($urls[0])->toContain('posts/a.jpg')
+        ->and($urls[1])->toContain('posts/b.jpg')
+        ->and($urls[2])->toContain('posts/c.jpg');
+});
+
+it('returns an empty media array for posts without post_media rows', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($viewer)->create();
+
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $post->circles()->attach($circle);
+
+    $this->actingAs($viewer)
+        ->getJson("/api/profiles/{$user->username}/posts")
+        ->assertSuccessful()
+        ->assertJsonCount(0, 'data.0.media');
+});
+
 it('paginates profile posts', function () {
     $viewer = User::factory()->create();
     $user = User::factory()->create();

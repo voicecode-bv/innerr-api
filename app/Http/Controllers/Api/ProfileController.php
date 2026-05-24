@@ -91,6 +91,7 @@ class ProfileController extends Controller
         $authId = $request->user()->id;
 
         $query = $user->posts()
+            ->with('media')
             ->withExists(['likes as is_liked' => fn ($q) => $q->where('user_id', $authId)])
             ->latest();
 
