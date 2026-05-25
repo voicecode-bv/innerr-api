@@ -23,4 +23,11 @@ class UserObserver
                 }
             });
     }
+
+    public function updated(User $user): void
+    {
+        if ($user->wasChanged('avatar') || $user->wasChanged('avatar_thumbnail')) {
+            $this->memberPersons->syncAvatar($user);
+        }
+    }
 }

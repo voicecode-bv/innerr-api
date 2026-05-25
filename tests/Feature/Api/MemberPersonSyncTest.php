@@ -267,3 +267,124 @@ describe('post tagging notification', function () {
         Notification::assertNotSentTo($alreadyTagged, PostTagged::class);
     });
 });
+
+describe('member-person avatar sync', function () {
+    it('syncs the linked member-person avatar when the user avatar changes', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+        $person = app(MemberPersonSyncer::class)->attach($circle, $owner);
+
+        expect($person->fresh()->avatar)->toBeNull();
+
+        $owner->update([
+            'avatar' => 'avatars/new.jpg',
+            'avatar_thumbnail' => 'avatars/new_thumb.jpg',
+        ]);
+
+        expect($person->fresh()->avatar)->toBe('avatars/new.jpg')
+            ->and($person->fresh()->avatar_thumbnail)->toBe('avatars/new_thumb.jpg');
+    });
+
+    it('clears the linked member-person avatar when the user avatar is removed', function () {
+        $owner = User::factory()->create([
+            'avatar' => 'avatars/old.jpg',
+            'avatar_thumbnail' => 'avatars/old_thumb.jpg',
+        ]);
+        $circle = Circle::factory()->for($owner)->create();
+        $person = app(MemberPersonSyncer::class)->attach($circle, $owner);
+
+        expect($person->fresh()->avatar)->toBe('avatars/old.jpg');
+
+        $owner->update(['avatar' => null, 'avatar_thumbnail' => null]);
+
+        expect($person->fresh()->avatar)->toBeNull()
+            ->and($person->fresh()->avatar_thumbnail)->toBeNull();
+    });
+
+    it('only syncs persons linked to the user, never manual persons', function () {
+        $owner = User::factory()->create();
+        $manual = Person::factory()->for($owner, 'creator')->create([
+            'avatar' => 'person-avatars/manual.jpg',
+            'avatar_thumbnail' => 'person-avatars/manual_thumb.jpg',
+        ]);
+
+        $owner->update([
+            'avatar' => 'avatars/owner.jpg',
+            'avatar_thumbnail' => 'avatars/owner_thumb.jpg',
+        ]);
+
+        expect($manual->fresh()->avatar)->toBe('person-avatars/manual.jpg')
+            ->and($manual->fresh()->avatar_thumbnail)->toBe('person-avatars/manual_thumb.jpg');
+    });
+
+    it('does not error when the user has no member-person yet', function () {
+        $user = User::factory()->create();
+
+        $user->update([
+            'avatar' => 'avatars/solo.jpg',
+            'avatar_thumbnail' => 'avatars/solo_thumb.jpg',
+        ]);
+
+        expect(Person::where('user_id', $user->id)->exists())->toBeFalse();
+    });
+
+    it('syncs the linked member-person when a user uploads an avatar via the API', function () {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+        $person = app(MemberPersonSyncer::class)->attach($circle, $owner);
+
+        $this->actingAs($owner)
+            ->postJson('/api/profile/avatar', [
+                'avatar' => UploadedFile::fake()->image('avatar.jpg', 200, 200),
+            ])
+            ->assertOk();
+
+        $owner->refresh();
+
+        expect($person->fresh()->avatar)->not->toBeNull()
+            ->and($person->fresh()->avatar)->toBe($owner->avatar)
+            ->and($person->fresh()->avatar_thumbnail)->toBe($owner->avatar_thumbnail);
+    });
+});
+
+describe('backfill member-person avatars command', function () {
+    it('re-syncs stale member-person avatars from the linked user', function () {
+        $owner = User::factory()->create([
+            'avatar' => 'avatars/current.jpg',
+            'avatar_thumbnail' => 'avatars/current_thumb.jpg',
+        ]);
+        $circle = Circle::factory()->for($owner)->create();
+        $person = app(MemberPersonSyncer::class)->attach($circle, $owner);
+
+        // Simulate a stale snapshot taken before the user changed their avatar.
+        $person->updateQuietly([
+            'avatar' => 'avatars/stale.jpg',
+            'avatar_thumbnail' => 'avatars/stale_thumb.jpg',
+        ]);
+
+        $this->artisan('people:backfill-member-avatars')->assertSuccessful();
+
+        expect($person->fresh()->avatar)->toBe('avatars/current.jpg')
+            ->and($person->fresh()->avatar_thumbnail)->toBe('avatars/current_thumb.jpg');
+    });
+
+    it('does not write in dry-run mode', function () {
+        $owner = User::factory()->create([
+            'avatar' => 'avatars/current.jpg',
+            'avatar_thumbnail' => 'avatars/current_thumb.jpg',
+        ]);
+        $circle = Circle::factory()->for($owner)->create();
+        $person = app(MemberPersonSyncer::class)->attach($circle, $owner);
+
+        $person->updateQuietly([
+            'avatar' => 'avatars/stale.jpg',
+            'avatar_thumbnail' => 'avatars/stale_thumb.jpg',
+        ]);
+
+        $this->artisan('people:backfill-member-avatars --dry-run')->assertSuccessful();
+
+        expect($person->fresh()->avatar)->toBe('avatars/stale.jpg');
+    });
+});

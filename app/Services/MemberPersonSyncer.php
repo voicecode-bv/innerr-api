@@ -101,6 +101,22 @@ class MemberPersonSyncer
     }
 
     /**
+     * Copy the user's current avatar onto their linked member-Person, if one
+     * exists. The Person's avatar columns are a denormalized snapshot of the
+     * user avatar; this keeps them in step when the user changes their avatar
+     * after the Person row was first created. No-op when the user has no
+     * member-Person yet. A user has at most one member-Person, so this updates
+     * a single row.
+     */
+    public function syncAvatar(User $user): void
+    {
+        Person::where('user_id', $user->id)->update([
+            'avatar' => $user->avatar,
+            'avatar_thumbnail' => $user->avatar_thumbnail,
+        ]);
+    }
+
+    /**
      * Detach the user's member-Person from this circle. The Person record
      * itself is kept so historical post tags remain intact.
      */
