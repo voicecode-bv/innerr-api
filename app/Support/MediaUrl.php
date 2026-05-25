@@ -8,7 +8,7 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
+use Ramsey\Uuid\Uuid;
 
 class MediaUrl
 {
@@ -75,7 +75,11 @@ class MediaUrl
         $directory = dirname($path).'/';
         $filename = basename($path);
 
-        $token = (string) Str::uuid();
+        // Deterministic per (directory, expiry window): an identical HLS video
+        // yields the same proxy URL within the day window, so the client can
+        // cache the master playlist and the cache holds one entry per video per
+        // window instead of minting a fresh random token on every API response.
+        $token = Uuid::uuid5(Uuid::NAMESPACE_URL, $directory.'|'.$expires->getTimestamp())->toString();
         Cache::put(
             MediaHlsController::TOKEN_CACHE_PREFIX.$token,
             ['prefix' => $directory],
@@ -120,12 +124,14 @@ class MediaUrl
     }
 
     /**
-     * Stable expiry that snaps to the start of the next hour, so identical
-     * paths produce identical signed URLs within a single hour window.
-     * This lets browsers and the Bunny CDN edge cache by URL.
+     * Stable expiry that snaps to the start of the day, so identical paths
+     * produce identical signed URLs within a single day window while the URL
+     * stays valid for up to 48 hours. The day-stable URL lets browsers and
+     * the Bunny CDN edge cache by URL for a full day instead of rotating
+     * hourly, so devices re-download unchanged media far less often.
      */
     protected static function expiry(): \DateTimeInterface
     {
-        return now()->startOfHour()->addHours(2);
+        return now()->startOfDay()->addDays(2);
     }
 }

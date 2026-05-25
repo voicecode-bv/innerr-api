@@ -7,21 +7,21 @@ it('returns null for null path', function () {
     expect(MediaUrl::sign(null))->toBeNull();
 });
 
-it('produces identical signed urls within the same hour window', function () {
-    Carbon::setTestNow('2026-04-27 10:15:00');
+it('produces identical signed urls within the same day window', function () {
+    Carbon::setTestNow('2026-04-27 02:00:00');
     $first = MediaUrl::sign('avatars/abc.jpg');
 
-    Carbon::setTestNow('2026-04-27 10:45:30');
+    Carbon::setTestNow('2026-04-27 22:45:30');
     $second = MediaUrl::sign('avatars/abc.jpg');
 
     expect($first)->toBe($second);
 });
 
-it('produces a different signed url after the hour window rolls over', function () {
+it('produces a different signed url after the day window rolls over', function () {
     Carbon::setTestNow('2026-04-27 10:15:00');
     $first = MediaUrl::sign('avatars/abc.jpg');
 
-    Carbon::setTestNow('2026-04-27 11:05:00');
+    Carbon::setTestNow('2026-04-28 10:15:00');
     $second = MediaUrl::sign('avatars/abc.jpg');
 
     expect($first)->not->toBe($second);
@@ -122,4 +122,37 @@ it('uses the same proxy URL format whether Bunny is configured or not', function
     expect($url)
         ->toContain('/api/media/hls/')
         ->toEndWith('/master.m3u8');
+});
+
+it('signs an HLS master via a deterministic uuid token, stable within the day window', function () {
+    Carbon::setTestNow('2026-04-27 02:00:00');
+    $first = MediaUrl::sign('users/abc/posts/hls/m1/master.m3u8');
+
+    Carbon::setTestNow('2026-04-27 22:00:00');
+    $second = MediaUrl::sign('users/abc/posts/hls/m1/master.m3u8');
+
+    // Same video + same day window → identical proxy URL (client-cacheable),
+    // and the token is a valid UUID so it satisfies the route's whereUuid().
+    expect($first)
+        ->toBe($second)
+        ->toMatch('#/api/media/hls/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/master\.m3u8$#');
+});
+
+it('rotates the HLS proxy token after the day window rolls over', function () {
+    Carbon::setTestNow('2026-04-27 10:00:00');
+    $first = MediaUrl::sign('users/abc/posts/hls/m1/master.m3u8');
+
+    Carbon::setTestNow('2026-04-28 10:00:00');
+    $second = MediaUrl::sign('users/abc/posts/hls/m1/master.m3u8');
+
+    expect($first)->not->toBe($second);
+});
+
+it('issues distinct HLS proxy tokens for different videos', function () {
+    Carbon::setTestNow('2026-04-27 10:00:00');
+
+    $first = MediaUrl::sign('users/abc/posts/hls/m1/master.m3u8');
+    $second = MediaUrl::sign('users/abc/posts/hls/m2/master.m3u8');
+
+    expect($first)->not->toBe($second);
 });
