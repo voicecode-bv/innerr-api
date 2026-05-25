@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CircleMemberRole;
 use App\Models\Circle;
 use App\Models\Person;
 use App\Models\Post;
@@ -47,6 +48,84 @@ describe('index', function () {
 
         $this->actingAs($stranger)
             ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    });
+
+    it('hides persons from a member circle whose member list is hidden', function () {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create(['members_can_view_members' => false]);
+        $circle->members()->attach($member);
+
+        $person = Person::factory()->for($owner, 'creator')->create();
+        $person->circles()->attach($circle);
+
+        $this->actingAs($member)
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    });
+
+    it('still returns persons to an administrator of a hidden-member-list circle', function () {
+        $owner = User::factory()->create();
+        $admin = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create(['members_can_view_members' => false]);
+        $circle->members()->attach($admin, ['role' => CircleMemberRole::Administrator->value]);
+
+        $person = Person::factory()->for($owner, 'creator')->create();
+        $person->circles()->attach($circle);
+
+        $this->actingAs($admin)
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $person->id);
+    });
+
+    it('still returns a person who is also in a circle the member may view', function () {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $hidden = Circle::factory()->for($owner)->create(['members_can_view_members' => false]);
+        $visible = Circle::factory()->for($owner)->create(['members_can_view_members' => true]);
+        $hidden->members()->attach($member);
+        $visible->members()->attach($member);
+
+        $person = Person::factory()->for($owner, 'creator')->create();
+        $person->circles()->attach([$hidden->id, $visible->id]);
+
+        $this->actingAs($member)
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $person->id);
+    });
+
+    it('still lets the owner see persons in their own hidden-member-list circle', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create(['members_can_view_members' => false]);
+
+        $person = Person::factory()->for($owner, 'creator')->create();
+        $person->circles()->attach($circle);
+
+        $this->actingAs($owner)
+            ->getJson('/api/persons')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $person->id);
+    });
+
+    it('returns no persons when scoping to a member circle with a hidden member list', function () {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create(['members_can_view_members' => false]);
+        $circle->members()->attach($member);
+
+        $person = Person::factory()->for($owner, 'creator')->create();
+        $person->circles()->attach($circle);
+
+        $this->actingAs($member)
+            ->getJson('/api/persons?circle_id='.$circle->id)
             ->assertOk()
             ->assertJsonCount(0, 'data');
     });

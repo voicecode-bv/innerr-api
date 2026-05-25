@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\CircleMemberRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePersonRequest;
 use App\Http\Requests\UpdatePersonAvatarRequest;
@@ -24,7 +25,7 @@ class PersonController extends Controller
     #[OA\Get(
         path: '/api/persons',
         summary: 'List persons',
-        description: 'Return persons visible to the authenticated user. By default, returns persons across every circle the user owns or is a member of, ordered by `usage_count` descending. Pass `?circle_id=` to scope the list to a single circle (the user must own or belong to that circle).',
+        description: 'Return persons visible to the authenticated user, ordered by `usage_count` descending. Persons are only returned for circles the user owns or administers, or circles they are a member of where `members_can_view_members` is true. Pass `?circle_id=` to scope the list to a single circle (the user must own, administer, or be a member able to view that circle\'s members).',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -61,11 +62,25 @@ class PersonController extends Controller
             $circle = Circle::findOrFail($request->string('circle_id')->toString());
             $this->authorize('view', $circle);
 
+            // A member of a circle whose member list is hidden may not see its
+            // persons either — only the owner and administrators can.
+            if (! $circle->isOwnerOrAdministrator($user) && ! $circle->members_can_view_members) {
+                return PersonResource::collection(collect());
+            }
+
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
         } else {
             $query->whereHas('circles', function ($q) use ($user) {
                 $q->where('circles.user_id', $user->id)
-                    ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+                    ->orWhereHas('members', function ($m) use ($user) {
+                        $m->where('users.id', $user->id)
+                            ->where(function ($w) {
+                                // Members only see a circle's persons when the
+                                // member list is visible, unless they administer it.
+                                $w->where('circles.members_can_view_members', true)
+                                    ->orWhere('circle_user.role', CircleMemberRole::Administrator->value);
+                            });
+                    });
             });
         }
 
