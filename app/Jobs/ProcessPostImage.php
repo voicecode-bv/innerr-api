@@ -13,6 +13,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use MatanYadaev\EloquentSpatial\Enums\Srid;
+use MatanYadaev\EloquentSpatial\Objects\Point;
 
 /**
  * Generate the display image and thumbnails for a post photo that was stored
@@ -65,13 +67,30 @@ class ProcessPostImage implements ShouldQueue
             return;
         }
 
-        $this->postMedia->update([
+        $update = [
             'path' => $result['path'],
             'original_path' => $result['original_path'],
             'thumbnail_path' => $result['thumbnail_path'],
             'thumbnail_small_path' => $result['thumbnail_small_path'],
             'status' => MediaStatus::Ready,
-        ]);
+        ];
+
+        // Backfill metadata the synchronous upload couldn't read from a HEIC
+        // source. Client-supplied values already on the row always win — only
+        // fill columns that are still null.
+        if ($this->postMedia->taken_at === null && $result['taken_at'] !== null) {
+            $update['taken_at'] = $result['taken_at'];
+        }
+
+        if ($this->postMedia->coordinates === null && $result['latitude'] !== null && $result['longitude'] !== null) {
+            $update['coordinates'] = new Point(
+                (float) $result['latitude'],
+                (float) $result['longitude'],
+                Srid::WGS84->value,
+            );
+        }
+
+        $this->postMedia->update($update);
 
         // The pre-conversion upload is superseded by the generated display
         // image and the archived JPEG original; drop it to reclaim the quota.

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\MediaHlsController;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -88,6 +89,22 @@ it('rewrites master.m3u8 variant references to our proxy URLs', function () {
         ->and($body)->toContain('/api/media/hls/'.$token.'/v720/playlist.m3u8')
         ->and($body)->not->toContain("\nv1080/playlist.m3u8")
         ->and($response->headers->get('Content-Type'))->toContain('application/vnd.apple.mpegurl');
+});
+
+it('caches the playlist for half the embedded signed-URL lifetime', function () {
+    // Start van de dag → embedded segment-URLs verlopen over 48h (startOfDay
+    // + 2 dagen). De playlist wordt de helft daarvan gecachet: 24h.
+    Carbon::setTestNow('2026-04-27 00:00:00');
+
+    $prefix = 'users/abc/posts/hls/m1/';
+    seedHls($prefix);
+    $token = issueToken($prefix);
+
+    $response = $this->get('/api/media/hls/'.$token.'/master.m3u8')->assertOk();
+
+    expect($response->headers->get('Cache-Control'))
+        ->toContain('max-age='.(24 * 3600))
+        ->toContain('private');
 });
 
 it('rewrites variant playlist segments + init.mp4 to direct BunnyCDN signed URLs', function () {

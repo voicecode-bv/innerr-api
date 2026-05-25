@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Support\ExifExtractor;
 use App\Support\MediaUrl;
 use App\Support\UserStorage;
+use Carbon\Carbon;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Process;
@@ -120,7 +122,7 @@ class MediaUploadService
      *
      * The caller persists the returned paths and removes the raw source.
      *
-     * @return array{path: string, original_path: ?string, thumbnail_path: ?string, thumbnail_small_path: ?string}
+     * @return array{path: string, original_path: ?string, thumbnail_path: ?string, thumbnail_small_path: ?string, taken_at: ?Carbon, latitude: ?float, longitude: ?float}
      */
     public function processStoredPostImage(string $rawPath, string $userId, string $folder): array
     {
@@ -136,6 +138,12 @@ class MediaUploadService
             // Convert once and reuse the JPEG for every variant.
             $file = $this->convertHeicToJpeg($file);
 
+            // The synchronous create-post extraction skips HEIC (exif_read_data
+            // can't parse it), so HEIC uploads land with null taken_at/GPS. The
+            // converted JPEG keeps the EXIF profile, so re-read it here to
+            // recover metadata for clients that didn't send their own.
+            $exif = ExifExtractor::fromUploadedFile($file);
+
             $thumbnailPath = $this->generateImageThumbnail($file, $userId, $folder);
             $thumbnailSmallPath = $this->generateImageThumbnail($file, $userId, $folder, size: self::THUMBNAIL_SIZE_SMALL);
             $displayPath = $this->store($file, $userId, $folder);
@@ -145,6 +153,9 @@ class MediaUploadService
                 'original_path' => MediaUrl::originalPath($displayPath),
                 'thumbnail_path' => $thumbnailPath,
                 'thumbnail_small_path' => $thumbnailSmallPath,
+                'taken_at' => $exif['taken_at'],
+                'latitude' => $exif['latitude'],
+                'longitude' => $exif['longitude'],
             ];
         } finally {
             @unlink($tempSource);

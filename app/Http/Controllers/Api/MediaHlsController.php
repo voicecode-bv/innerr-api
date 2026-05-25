@@ -58,11 +58,19 @@ class MediaHlsController extends Controller
     {
         $rewritten = $this->rewritePlaylist($content, $prefix, $token, $file);
 
+        // De m3u8 op disk is een afgeronde VOD-playlist (#EXT-X-ENDLIST) en
+        // wijzigt niet meer. Wat per dag-venster roteert, zijn de embedded
+        // signed segment-URLs. We cachen de playlist daarom tot de helft van
+        // hun resterende geldigheid: de player hergebruikt 'm over sessies maar
+        // ververst altijd ruim vóór segment-expiry — anders 403 op verlopen
+        // segment-URLs. Afgeleid van expiryForHls() zodat dit klopt blijft als
+        // de signing-window verandert.
+        $remaining = MediaUrl::expiryForHls()->getTimestamp() - now()->getTimestamp();
+        $maxAge = max(60, intdiv($remaining, 2));
+
         return response($rewritten, 200, [
             'Content-Type' => 'application/vnd.apple.mpegurl',
-            // Korte client-cache; matchen we niet aan de token-expiry omdat de
-            // m3u8 zelf geen nieuwe data bevat tot de upload-ladder wijzigt.
-            'Cache-Control' => 'private, max-age=60',
+            'Cache-Control' => 'private, max-age='.$maxAge,
         ]);
     }
 
