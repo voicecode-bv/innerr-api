@@ -436,3 +436,167 @@ describe('circle feed', function () {
             ->assertJsonPath('data.0.is_liked', true);
     });
 });
+
+describe('circle filters', function () {
+    it('filters posts by a single circle_id', function () {
+        $user = User::factory()->create();
+        $circleA = Circle::factory()->for($user)->create();
+        $circleB = Circle::factory()->for($user)->create();
+
+        $inA = Post::factory()->for($user)->create();
+        $inA->circles()->attach($circleA);
+
+        $inB = Post::factory()->for($user)->create();
+        $inB->circles()->attach($circleB);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?circle_ids[]='.$circleA->id)
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($inA->id);
+    });
+
+    it('filters posts by multiple circle_ids', function () {
+        $user = User::factory()->create();
+        $circleA = Circle::factory()->for($user)->create();
+        $circleB = Circle::factory()->for($user)->create();
+        $circleC = Circle::factory()->for($user)->create();
+
+        $inA = Post::factory()->for($user)->create();
+        $inA->circles()->attach($circleA);
+        $inB = Post::factory()->for($user)->create();
+        $inB->circles()->attach($circleB);
+        $inC = Post::factory()->for($user)->create();
+        $inC->circles()->attach($circleC);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?circle_ids[]='.$circleA->id.'&circle_ids[]='.$circleB->id)
+            ->assertSuccessful();
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+
+        expect($ids)->toHaveCount(2)
+            ->and($ids)->toContain($inA->id)
+            ->and($ids)->toContain($inB->id);
+    });
+
+    it('ignores circle_ids the user cannot access', function () {
+        $user = User::factory()->create();
+        $ownCircle = Circle::factory()->for($user)->create();
+        $ownPost = Post::factory()->for($user)->create();
+        $ownPost->circles()->attach($ownCircle);
+
+        $strangerCircle = Circle::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/feed?circle_ids[]='.$strangerCircle->id)
+            ->assertSuccessful()
+            ->assertJsonCount(0, 'data');
+    });
+});
+
+describe('date filters', function () {
+    it('filters posts by taken_at within the range', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+
+        $inRange = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $inRange->circles()->attach($circle);
+        $before = Post::factory()->for($user)->create(['taken_at' => '2024-01-01 12:00:00']);
+        $before->circles()->attach($circle);
+        $after = Post::factory()->for($user)->create(['taken_at' => '2024-12-31 12:00:00']);
+        $after->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?date_from=2024-06-01&date_to=2024-06-30')
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($inRange->id);
+    });
+
+    it('filters with only date_from', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+
+        $recent = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $recent->circles()->attach($circle);
+        $old = Post::factory()->for($user)->create(['taken_at' => '2020-01-01 12:00:00']);
+        $old->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?date_from=2024-01-01')
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($recent->id);
+    });
+
+    it('filters with only date_to', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+
+        $recent = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $recent->circles()->attach($circle);
+        $old = Post::factory()->for($user)->create(['taken_at' => '2020-01-01 12:00:00']);
+        $old->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?date_to=2021-01-01')
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($old->id);
+    });
+
+    it('excludes posts without a taken_at when a date filter is active', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+
+        $dated = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $dated->circles()->attach($circle);
+        $undated = Post::factory()->for($user)->create(['taken_at' => null]);
+        $undated->circles()->attach($circle);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?date_from=2024-01-01&date_to=2024-12-31')
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($dated->id);
+    });
+
+    it('rejects date_to before date_from', function () {
+        $this->actingAs(User::factory()->create())
+            ->getJson('/api/feed?date_from=2024-12-31&date_to=2024-01-01')
+            ->assertStatus(422);
+    });
+});
+
+describe('combined filters', function () {
+    it('combines person, circle and date filters with AND', function () {
+        $user = User::factory()->create();
+        $circle = Circle::factory()->for($user)->create();
+        $person = Person::factory()->for($user, 'creator')->create();
+        $person->circles()->attach($circle);
+
+        $match = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $match->circles()->attach($circle);
+        $match->syncPersons([$person->id]);
+
+        $noPerson = Post::factory()->for($user)->create(['taken_at' => '2024-06-15 12:00:00']);
+        $noPerson->circles()->attach($circle);
+
+        $outOfRange = Post::factory()->for($user)->create(['taken_at' => '2020-06-15 12:00:00']);
+        $outOfRange->circles()->attach($circle);
+        $outOfRange->syncPersons([$person->id]);
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/feed?circle_ids[]='.$circle->id.'&person_ids[]='.$person->id.'&date_from=2024-01-01&date_to=2024-12-31')
+            ->assertSuccessful();
+
+        expect($response->json('data'))->toHaveCount(1)
+            ->and($response->json('data.0.id'))->toBe($match->id);
+    });
+});

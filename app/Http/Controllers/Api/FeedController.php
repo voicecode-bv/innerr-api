@@ -22,13 +22,16 @@ class FeedController extends Controller
     #[OA\Get(
         path: '/api/feed',
         summary: 'Feed',
-        description: 'Return a paginated feed of posts, newest first. Optionally filter by `person_ids[]` (show only posts tagged with at least one of these persons) or `tag_ids[]` (show only posts labeled with at least one of these tags). Filter values that aren\'t visible to the authenticated user are silently dropped.',
+        description: 'Return a paginated feed of posts, newest first. Optionally filter by `person_ids[]` (posts tagged with at least one of these persons), `tag_ids[]` (posts labeled with at least one of these tags), `circle_ids[]` (posts shared in at least one of these circles) and/or a capture-date range via `date_from`/`date_to` (filtered on `taken_at`; posts without a capture date are excluded when a date filter is active). Filter values that aren\'t visible to the authenticated user are silently dropped. All filter categories combine with AND.',
         tags: ['Feed'],
         security: [['sanctum' => []]],
         parameters: [
             new OA\Parameter(name: 'page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 1)),
             new OA\Parameter(name: 'person_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
             new OA\Parameter(name: 'tag_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
+            new OA\Parameter(name: 'circle_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
+            new OA\Parameter(name: 'date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
         ],
         responses: [
             new OA\Response(
@@ -47,6 +50,11 @@ class FeedController extends Controller
     )]
     public function __invoke(Request $request): AnonymousResourceCollection
     {
+        $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
         $user = $request->user();
 
         $query = Post::with([
@@ -66,6 +74,8 @@ class FeedController extends Controller
 
         $this->applyTagFilters($query, $request, $user);
         $this->applyPersonFilters($query, $request, $user);
+        $this->applyCircleFilters($query, $request, $user);
+        $this->applyDateFilters($query, $request);
 
         $posts = $query
             ->withExists([
@@ -181,6 +191,52 @@ class FeedController extends Controller
                 ->all();
 
         $query->whereHas('persons', fn ($q) => $q->whereIn('people.id', $visibleIds));
+    }
+
+    /**
+     * Restrict the feed to posts shared in at least one of the given circles.
+     * Circles the authenticated user can't access (not owner, not member) are
+     * silently dropped, mirroring the person/tag filters.
+     *
+     * @param  Builder<Post>  $query
+     */
+    private function applyCircleFilters(Builder $query, Request $request, User $user): void
+    {
+        if (! $request->has('circle_ids')) {
+            return;
+        }
+
+        $requestedIds = $this->normalizeIds($request->input('circle_ids'));
+
+        $visibleIds = $requestedIds === []
+            ? []
+            : Circle::whereIn('id', $requestedIds)
+                ->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhereHas('members', fn ($m) => $m->where('users.id', $user->id));
+                })
+                ->pluck('id')
+                ->all();
+
+        $query->whereHas('circles', fn ($q) => $q->whereIn('circles.id', $visibleIds));
+    }
+
+    /**
+     * Restrict the feed to posts whose capture date (taken_at) falls within the
+     * given range. Posts without a taken_at fall outside any bound and are
+     * therefore excluded when a date filter is active.
+     *
+     * @param  Builder<Post>  $query
+     */
+    private function applyDateFilters(Builder $query, Request $request): void
+    {
+        if ($request->filled('date_from')) {
+            $query->whereDate('taken_at', '>=', $request->date('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('taken_at', '<=', $request->date('date_to'));
+        }
     }
 
     /**
