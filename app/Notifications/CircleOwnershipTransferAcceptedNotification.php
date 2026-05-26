@@ -6,6 +6,7 @@ use App\Enums\NotificationPreference;
 use App\Mail\EmailTemplates\EmailTemplateRegistry;
 use App\Mail\EmailTemplates\EmailTemplateRenderer;
 use App\Models\CircleOwnershipTransfer;
+use App\Notifications\Concerns\SetsBadgeCount;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -16,7 +17,7 @@ use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CircleOwnershipTransferAcceptedNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SetsBadgeCount;
 
     public function __construct(
         public CircleOwnershipTransfer $transfer,
@@ -54,7 +55,7 @@ class CircleOwnershipTransferAcceptedNotification extends Notification implement
 
     public function toFcm(object $notifiable): FcmMessage
     {
-        return (new FcmMessage(notification: new FcmNotification(
+        return $this->withBadgeCount((new FcmMessage(notification: new FcmNotification(
             title: __('Ownership transfer accepted'),
             body: __(':name is now the owner of :circle', [
                 'name' => $this->transfer->toUser->name,
@@ -65,7 +66,7 @@ class CircleOwnershipTransferAcceptedNotification extends Notification implement
             'link' => '/circles/'.$this->transfer->circle_id,
             'circle_id' => (string) $this->transfer->circle_id,
             'transfer_id' => (string) $this->transfer->id,
-        ]);
+        ]), $notifiable);
     }
 
     public function databaseType(object $notifiable): string

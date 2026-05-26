@@ -6,6 +6,7 @@ use App\Enums\NotificationPreference;
 use App\Models\Comment;
 use App\Models\Post;
 use App\Models\User;
+use App\Notifications\Concerns\SetsBadgeCount;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -16,7 +17,7 @@ use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CommentReplied extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SetsBadgeCount;
 
     public function __construct(
         public User $commenter,
@@ -40,7 +41,7 @@ class CommentReplied extends Notification implements ShouldQueue
 
     public function toFcm(object $notifiable): FcmMessage
     {
-        return (new FcmMessage(notification: new FcmNotification(
+        return $this->withBadgeCount((new FcmMessage(notification: new FcmNotification(
             title: $this->commenter->name,
             body: Str::limit($this->comment->body, 120),
         )))->data([
@@ -48,7 +49,7 @@ class CommentReplied extends Notification implements ShouldQueue
             'link' => '/posts/'.$this->post->id.'?comment='.$this->comment->id,
             'post_id' => (string) $this->post->id,
             'comment_id' => (string) $this->comment->id,
-        ]);
+        ]), $notifiable);
     }
 
     public function databaseType(object $notifiable): string

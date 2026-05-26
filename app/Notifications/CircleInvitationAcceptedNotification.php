@@ -6,6 +6,7 @@ use App\Enums\NotificationPreference;
 use App\Mail\EmailTemplates\EmailTemplateRegistry;
 use App\Mail\EmailTemplates\EmailTemplateRenderer;
 use App\Models\CircleInvitation;
+use App\Notifications\Concerns\SetsBadgeCount;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -16,7 +17,7 @@ use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CircleInvitationAcceptedNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SetsBadgeCount;
 
     public function __construct(
         public CircleInvitation $invitation,
@@ -39,7 +40,7 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
 
     public function toFcm(object $notifiable): FcmMessage
     {
-        return (new FcmMessage(notification: new FcmNotification(
+        return $this->withBadgeCount((new FcmMessage(notification: new FcmNotification(
             title: __('Invitation accepted'),
             body: __(':name joined :circle', [
                 'name' => $this->acceptedByName,
@@ -49,7 +50,7 @@ class CircleInvitationAcceptedNotification extends Notification implements Shoul
             'type' => 'circle-invitation-accepted',
             'link' => '/circles/'.$this->invitation->circle_id,
             'circle_id' => (string) $this->invitation->circle_id,
-        ]);
+        ]), $notifiable);
     }
 
     public function databaseType(object $notifiable): string

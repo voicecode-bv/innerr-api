@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Enums\NotificationPreference;
 use App\Models\Post;
 use App\Models\User;
+use App\Notifications\Concerns\SetsBadgeCount;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -14,7 +15,7 @@ use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class NewCirclePost extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SetsBadgeCount;
 
     public function __construct(
         public User $poster,
@@ -37,7 +38,7 @@ class NewCirclePost extends Notification implements ShouldQueue
 
     public function toFcm(object $notifiable): FcmMessage
     {
-        return (new FcmMessage(notification: new FcmNotification(
+        return $this->withBadgeCount((new FcmMessage(notification: new FcmNotification(
             title: $this->poster->name,
             body: __('shared a new post'),
         )))->data([
@@ -45,7 +46,7 @@ class NewCirclePost extends Notification implements ShouldQueue
             'link' => '/posts/'.$this->post->id,
             'post_id' => (string) $this->post->id,
             'user_id' => (string) $this->poster->id,
-        ]);
+        ]), $notifiable);
     }
 
     public function databaseType(object $notifiable): string

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\CircleInvitation;
+use App\Notifications\Concerns\SetsBadgeCount;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -12,7 +13,7 @@ use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
 class CircleMemberInvitedByMemberNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SetsBadgeCount;
 
     public function __construct(
         public CircleInvitation $invitation,
@@ -36,7 +37,7 @@ class CircleMemberInvitedByMemberNotification extends Notification implements Sh
 
     public function toFcm(object $notifiable): FcmMessage
     {
-        return (new FcmMessage(notification: new FcmNotification(
+        return $this->withBadgeCount((new FcmMessage(notification: new FcmNotification(
             title: __('New invitation in :circle', [
                 'circle' => $this->invitation->circle->name,
             ]),
@@ -48,7 +49,7 @@ class CircleMemberInvitedByMemberNotification extends Notification implements Sh
             'type' => 'circle-member-invited-by-member',
             'link' => '/circles/'.$this->invitation->circle_id,
             'circle_id' => (string) $this->invitation->circle_id,
-        ]);
+        ]), $notifiable);
     }
 
     public function databaseType(object $notifiable): string
