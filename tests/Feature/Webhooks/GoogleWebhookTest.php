@@ -14,6 +14,7 @@ use App\Services\Subscriptions\Google\PubSubOidcVerifier;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
     Plan::factory()->free()->create();
@@ -40,7 +41,30 @@ beforeEach(function () {
 });
 
 it('rejects empty Pub/Sub payload', function () {
-    $this->postJson('/api/webhooks/subscriptions/google', [])->assertStatus(400);
+    googleWebhook([])->assertStatus(400);
+});
+
+it('rejects a Pub/Sub request without an OIDC bearer token', function () {
+    Bus::fake([ProcessSubscriptionEvent::class]);
+
+    $envelope = pubSubEnvelope([
+        'packageName' => 'app.innerr.android',
+        'eventTimeMillis' => (string) (now()->valueOf()),
+        'subscriptionNotification' => [
+            'version' => '1.0',
+            'notificationType' => 4,
+            'purchaseToken' => 'tok-forged',
+            'subscriptionId' => 'plus_google_monthly',
+        ],
+    ], 'msg-no-bearer');
+
+    // No Authorization header — verification is mandatory, so this must be
+    // rejected and no event row may be created.
+    $this->postJson('/api/webhooks/subscriptions/google', $envelope)
+        ->assertStatus(400);
+
+    expect(SubscriptionEvent::query()->where('external_event_id', 'msg-no-bearer')->exists())->toBeFalse();
+    Bus::assertNotDispatched(ProcessSubscriptionEvent::class);
 });
 
 it('persists an event row, dispatches processor, and dedupes by message id', function () {
@@ -57,13 +81,13 @@ it('persists an event row, dispatches processor, and dedupes by message id', fun
         ],
     ], 'msg-1');
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)
+    googleWebhook($envelope)
         ->assertStatus(202);
 
     expect(SubscriptionEvent::query()->where('external_event_id', 'msg-1')->count())->toBe(1);
     Bus::assertDispatched(ProcessSubscriptionEvent::class);
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)
+    googleWebhook($envelope)
         ->assertStatus(200);
     expect(SubscriptionEvent::query()->where('external_event_id', 'msg-1')->count())->toBe(1);
 });
@@ -96,7 +120,7 @@ it('processes a SUBSCRIPTION_PURCHASED event into an active subscription using u
         ],
     ], 'msg-purchase');
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+    googleWebhook($envelope)->assertStatus(202);
 
     $event = SubscriptionEvent::query()->where('external_event_id', 'msg-purchase')->firstOrFail();
     ProcessSubscriptionEvent::dispatchSync($event->id);
@@ -139,7 +163,7 @@ it('falls back to google_id lookup when obfuscatedAccountId matches a Google Sig
         ],
     ], 'msg-legacy');
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+    googleWebhook($envelope)->assertStatus(202);
 
     $event = SubscriptionEvent::query()->where('external_event_id', 'msg-legacy')->firstOrFail();
     ProcessSubscriptionEvent::dispatchSync($event->id);
@@ -174,7 +198,7 @@ it('records error when no obfuscatedAccountId is present and no Subscription exi
         ],
     ], 'msg-orphan');
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+    googleWebhook($envelope)->assertStatus(202);
 
     $event = SubscriptionEvent::query()->where('external_event_id', 'msg-orphan')->firstOrFail();
     ProcessSubscriptionEvent::dispatchSync($event->id);
@@ -212,13 +236,27 @@ it('drops entitlement on voidedPurchaseNotification', function () {
         ],
     ], 'msg-voided');
 
-    $this->postJson('/api/webhooks/subscriptions/google', $envelope)->assertStatus(202);
+    googleWebhook($envelope)->assertStatus(202);
     $event = SubscriptionEvent::query()->where('external_event_id', 'msg-voided')->firstOrFail();
     ProcessSubscriptionEvent::dispatchSync($event->id);
 
     expect($sub->fresh()->status)->toBe(SubscriptionStatus::Refunded)
         ->and($user->fresh()->currentPlan()->slug)->toBe('free');
 });
+
+/**
+ * POST a Pub/Sub envelope with a (test) OIDC bearer token. The test verifier is
+ * configured with verifySignature=false, so any 3-segment token is accepted —
+ * we only need it present because verification is now mandatory.
+ *
+ * @param  array<string, mixed>  $envelope
+ */
+function googleWebhook(array $envelope): TestResponse
+{
+    return test()
+        ->withHeader('Authorization', 'Bearer header.e30.signature')
+        ->postJson('/api/webhooks/subscriptions/google', $envelope);
+}
 
 /**
  * @param  array<string, mixed>  $rtdn

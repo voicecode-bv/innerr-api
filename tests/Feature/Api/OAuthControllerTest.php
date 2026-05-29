@@ -33,6 +33,52 @@ function mockSocialiteDriver(string $provider, ?SocialiteUser $user, ?Throwable 
     Socialite::shouldReceive('driver')->with($provider)->andReturn($driver);
 }
 
+function appleSocialiteUserWithAudience(string $id, string $email, ?string $name, string $aud): Laravel\Socialite\Two\User
+{
+    $payload = rtrim(strtr(base64_encode((string) json_encode(['aud' => $aud, 'sub' => $id])), '+/', '-_'), '=');
+
+    $user = new Laravel\Socialite\Two\User;
+    $user->map(['id' => $id, 'email' => $email, 'name' => $name]);
+    // The Apple provider stores the verified id_token as the user's token.
+    $user->token = 'header.'.$payload.'.signature';
+
+    return $user;
+}
+
+it('accepts an apple login whose id token audience matches the configured client id', function () {
+    config()->set('services.apple.client_id', 'app.innerr.client');
+
+    mockSocialiteDriver('apple', appleSocialiteUserWithAudience(
+        'a-aud-ok',
+        'ok@privaterelay.appleid.com',
+        'Tim',
+        'app.innerr.client',
+    ));
+
+    $response = $this->post('/api/oauth/apple/callback', ['code' => 'test']);
+
+    $response->assertRedirect();
+    expect($response->headers->get('Location'))->toStartWith('innerrapp://oauth/callback?token=');
+    expect(User::where('apple_id', 'a-aud-ok')->exists())->toBeTrue();
+});
+
+it('rejects an apple login whose id token audience is for a different app', function () {
+    config()->set('services.apple.client_id', 'app.innerr.client');
+
+    mockSocialiteDriver('apple', appleSocialiteUserWithAudience(
+        'a-aud-evil',
+        'evil@privaterelay.appleid.com',
+        'Mallory',
+        'com.attacker.app',
+    ));
+
+    $response = $this->post('/api/oauth/apple/callback', ['code' => 'test']);
+
+    $response->assertRedirect();
+    expect($response->headers->get('Location'))->toBe('innerrapp://oauth/callback?error=oauth_failed');
+    expect(User::where('apple_id', 'a-aud-evil')->exists())->toBeFalse();
+});
+
 it('redirects the mobile app with a token after a successful google login', function () {
     mockSocialiteDriver('google', mockSocialiteUser('g-1', 'jane@example.com', 'Jane Doe'));
 
@@ -125,7 +171,12 @@ it('redirects with missing_email when the provider does not return an email', fu
 });
 
 it('accepts a POST callback from Apple', function () {
-    mockSocialiteDriver('apple', mockSocialiteUser('a-1', 'tim@privaterelay.appleid.com', 'Tim'));
+    mockSocialiteDriver('apple', appleSocialiteUserWithAudience(
+        'a-1',
+        'tim@privaterelay.appleid.com',
+        'Tim',
+        (string) config('services.apple.client_id'),
+    ));
 
     $response = $this->post('/api/oauth/apple/callback', ['code' => 'test']);
 
@@ -141,7 +192,12 @@ it('does not overwrite an existing name when Apple returns a null name on subseq
         'apple_id' => 'a-2',
     ]);
 
-    mockSocialiteDriver('apple', mockSocialiteUser('a-2', 'tim2@privaterelay.appleid.com', null));
+    mockSocialiteDriver('apple', appleSocialiteUserWithAudience(
+        'a-2',
+        'tim2@privaterelay.appleid.com',
+        null,
+        (string) config('services.apple.client_id'),
+    ));
 
     $this->post('/api/oauth/apple/callback', ['code' => 'test'])->assertRedirect();
 

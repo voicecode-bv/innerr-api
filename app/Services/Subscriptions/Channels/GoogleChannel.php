@@ -87,11 +87,17 @@ class GoogleChannel implements PaymentChannel
 
     public function handleWebhook(Request $request): WebhookOutcomeDto
     {
+        // Pub/Sub push requests are authenticated with a Google-signed OIDC
+        // bearer token. The route is otherwise unauthenticated, so verification
+        // is mandatory — a missing or invalid token must be rejected, never
+        // silently accepted, otherwise anyone could forge RTDN events.
         $bearer = (string) $request->bearerToken();
 
-        if ($bearer !== '') {
-            $this->oidc->verify($bearer);
+        if ($bearer === '') {
+            throw new RuntimeException('Google Pub/Sub request is missing its OIDC bearer token.');
         }
+
+        $this->oidc->verify($bearer);
 
         $envelope = (array) $request->input('message', []);
         $messageId = (string) ($envelope['messageId'] ?? '');
