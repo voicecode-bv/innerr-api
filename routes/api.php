@@ -68,7 +68,7 @@ Route::get('/media/{path}', MediaController::class)
     ->name('api.media');
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('api.auth.login');
-Route::post('/auth/register', [AuthController::class, 'register'])->name('api.auth.register');
+Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('api.auth.register');
 
 Route::post('/auth/forgot-password', [PasswordResetController::class, 'sendResetLink'])
     ->middleware('throttle:5,1')
