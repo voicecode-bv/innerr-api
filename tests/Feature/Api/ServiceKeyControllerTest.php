@@ -4,7 +4,7 @@ use App\Models\User;
 
 it('returns public service keys for authenticated user', function () {
     config()->set('services.mapbox.public_token', 'pk.mapbox-test-token');
-    config()->set('flare.key', 'flare-test-key');
+    config()->set('services.flare.public_key', 'flare-test-key');
 
     $this->actingAs(User::factory()->create())
         ->getJson('/api/service-keys')
@@ -21,7 +21,7 @@ it('returns public service keys for authenticated user', function () {
 
 it('returns null values when keys are not configured', function () {
     config()->set('services.mapbox.public_token', null);
-    config()->set('flare.key', null);
+    config()->set('services.flare.public_key', null);
 
     $this->actingAs(User::factory()->create())
         ->getJson('/api/service-keys')

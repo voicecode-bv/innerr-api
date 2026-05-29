@@ -61,7 +61,10 @@ it('creates a notification when a comment is liked', function () {
     $commentOwner = User::factory()->create();
     $liker = User::factory()->create();
     $post = Post::factory()->create();
-    shareCircle($post, $liker);
+    // Both the liker and the comment author must share the post's circle, else
+    // the comment is invisible to the liker (PostViewerVisibility) and liking
+    // it 404s by design.
+    shareCircle($post, $liker, $commentOwner);
     $comment = Comment::factory()->create(['user_id' => $commentOwner->id, 'post_id' => $post->id]);
 
     $this->actingAs($liker)
@@ -165,10 +168,12 @@ it('includes signed small-thumbnail URLs for avatar and post media', function ()
         ->assertOk()
         ->json('data.0.data');
 
+    // Media URLs are signed via BunnyCDN's token scheme (token + expires), not
+    // Laravel's signed-route `signature=` param.
     expect($data['user_avatar_thumbnail'])->toContain('avatar-sm.jpg')
-        ->and($data['user_avatar_thumbnail'])->toContain('signature=')
+        ->and($data['user_avatar_thumbnail'])->toContain('token=')
         ->and($data['post_thumbnail_small_url'])->toContain('post-sm.jpg')
-        ->and($data['post_thumbnail_small_url'])->toContain('signature=');
+        ->and($data['post_thumbnail_small_url'])->toContain('token=');
 });
 
 it('requires authentication to view notifications', function () {

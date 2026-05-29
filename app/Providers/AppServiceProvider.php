@@ -10,6 +10,7 @@ use App\Mail\EmailTemplates\EmailTemplateRegistry;
 use App\Mail\EmailTemplates\EmailTemplateRenderer;
 use App\Models\PostMedia;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Observers\PostMediaObserver;
 use App\Observers\SubscriptionObserver;
 use App\Services\Subscriptions\Apple\AppleJwsVerifier;
@@ -30,6 +31,7 @@ use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Telescope\TelescopeServiceProvider;
@@ -136,6 +138,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(Dispatcher $events): void
     {
+        // Telescope only registers in local (see registerTelescope), so its own
+        // gate() isn't available elsewhere. Define the gate here so it exists in
+        // every environment — consistent with viewHorizon and testable.
+        Gate::define('viewTelescope', fn (User $user): bool => (bool) $user->admin);
+
         $events->listen(SocialiteWasCalled::class, AppleExtendSocialite::class.'@handle');
 
         EloquentSpatial::setDefaultSrid(Srid::WGS84);
