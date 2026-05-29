@@ -14,7 +14,7 @@ class NotificationController extends Controller
     #[OA\Get(
         path: '/api/notifications',
         summary: 'List notifications',
-        description: 'Get a paginated list of notifications from the last 7 days for the authenticated user, newest first.',
+        description: 'Get a paginated list of unread notifications from the last 7 days for the authenticated user, newest first.',
         tags: ['Notifications'],
         security: [['sanctum' => []]],
         parameters: [
@@ -28,7 +28,7 @@ class NotificationController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $notifications = $request->user()
-            ->notifications()
+            ->unreadNotifications()
             ->where('created_at', '>=', now()->subDays(7))
             ->latest()
             ->paginate(20);

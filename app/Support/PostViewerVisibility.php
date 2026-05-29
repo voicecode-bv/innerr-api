@@ -82,15 +82,28 @@ final class PostViewerVisibility
      */
     public function scopeLikesQuery(mixed $query): void
     {
-        $query->where(function ($q) {
-            $q->where('user_id', $this->viewerId);
+        $this->scopeVisibleUsers($query, 'user_id');
+    }
+
+    /**
+     * Beperk een query tot zichtbare gebruikers op de gegeven kolom: de viewer
+     * zelf of iedereen die een gedeelde circle deelt (als member of als owner).
+     * Wordt gebruikt voor like/comment-listings én notificatie-ontvangers.
+     *
+     * Untyped query-parameter omdat de caller een Relation, een Eloquent- óf
+     * een Query-Builder passt; allemaal delen ze de `where`/`orWhereIn` API.
+     */
+    public function scopeVisibleUsers(mixed $query, string $column = 'user_id'): void
+    {
+        $query->where(function ($q) use ($column) {
+            $q->where($column, $this->viewerId);
 
             if ($this->sharedCircleIds->isNotEmpty()) {
-                $q->orWhereIn('user_id', function ($sub) {
+                $q->orWhereIn($column, function ($sub) {
                     $sub->select('user_id')
                         ->from('circle_user')
                         ->whereIn('circle_id', $this->sharedCircleIds);
-                })->orWhereIn('user_id', function ($sub) {
+                })->orWhereIn($column, function ($sub) {
                     $sub->select('user_id')
                         ->from('circles')
                         ->whereIn('id', $this->sharedCircleIds);

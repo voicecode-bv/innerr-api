@@ -10,6 +10,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Notifications\CommentReplied;
 use App\Notifications\PostCommented;
+use App\Support\PostViewerVisibility;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -203,17 +204,28 @@ class CommentController extends Controller
         // post reageerde, behalve de reageerder zelf en de eigenaar (die hierboven
         // al de PostCommented-notificatie kreeg). Eén geïndexeerde subquery op
         // comments.post_id, gechunkt om bij veel deelnemers efficiënt te blijven.
-        User::whereIn('id', function ($query) use ($post): void {
+        //
+        // Privacy: een post kan in meerdere circles gedeeld zijn. Een deelnemer
+        // mag alleen genotificeerd worden over een reactie als hij minstens één
+        // circle deelt met de reageerder — anders ziet hij de reactie zelf niet
+        // eens in de listing. Filter de ontvangers met dezelfde shared-circle
+        // logica als CommentController::index gebruikt.
+        $visibility = PostViewerVisibility::for($request->user(), $post);
+
+        $recipients = User::whereIn('id', function ($query) use ($post): void {
             $query->select('user_id')
                 ->distinct()
                 ->from('comments')
                 ->where('post_id', $post->id);
         })
             ->whereNot('id', $commenterId)
-            ->whereNot('id', $post->user_id)
-            ->chunkById(200, function ($recipients) use ($request, $post, $comment): void {
-                Notification::send($recipients, new CommentReplied($request->user(), $post, $comment));
-            });
+            ->whereNot('id', $post->user_id);
+
+        $visibility->scopeVisibleUsers($recipients, 'id');
+
+        $recipients->chunkById(200, function ($recipients) use ($request, $post, $comment): void {
+            Notification::send($recipients, new CommentReplied($request->user(), $post, $comment));
+        });
 
         return (new CommentResource($comment))
             ->response()

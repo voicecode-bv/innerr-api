@@ -94,6 +94,23 @@ it('returns paginated notifications for the authenticated user', function () {
         ]);
 });
 
+it('only returns unread notifications', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+
+    User::factory(3)->create()->each(function (User $liker) use ($post) {
+        shareCircle($post, $liker);
+        $this->actingAs($liker)->postJson("/api/posts/{$post->id}/like");
+    });
+
+    $user->notifications->first()->markAsRead();
+
+    $this->actingAs($user)
+        ->getJson('/api/notifications')
+        ->assertOk()
+        ->assertJsonCount(2, 'data');
+});
+
 it('can mark all notifications as read', function () {
     $user = User::factory()->create();
     $post = Post::factory()->create(['user_id' => $user->id]);

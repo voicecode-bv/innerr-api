@@ -526,7 +526,9 @@ it('notifies prior commenters when the post owner replies in their own thread', 
     $postOwner = User::factory()->create();
     $post = Post::factory()->create(['user_id' => $postOwner->id]);
     $priorCommenter = User::factory()->create();
-    shareCircle($post, $priorCommenter);
+    // De eigenaar zit (zoals in productie) zelf in de circle waarin de post is
+    // gedeeld, en deelt dus een circle met de mede-reageerder.
+    shareCircleOwnedBy($post, $postOwner, $priorCommenter);
 
     Comment::factory()->create(['post_id' => $post->id, 'user_id' => $priorCommenter->id]);
 
@@ -554,4 +556,56 @@ it('does not notify a commenter about their own follow-up comment', function () 
         ->assertCreated();
 
     Notification::assertNotSentTo($commenter, CommentReplied::class);
+});
+
+it('does not notify a prior commenter who is in a different circle than the new commenter', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+
+    // Post gedeeld in twee losse circles. priorCommenter zit alleen in A,
+    // newCommenter alleen in B — ze delen dus geen circle.
+    $priorCommenter = User::factory()->create();
+    $newCommenter = User::factory()->create();
+    shareCircle($post, $priorCommenter);
+    shareCircle($post, $newCommenter);
+
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $priorCommenter->id]);
+
+    $this->actingAs($newCommenter)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Reactie uit een andere kring'])
+        ->assertCreated();
+
+    // priorCommenter mag de reactie niet zien en krijgt dus geen melding.
+    Notification::assertNotSentTo($priorCommenter, CommentReplied::class);
+
+    // De eigenaar deelde de post in beide circles en wordt wél genotificeerd.
+    Notification::assertSentTo($postOwner, PostCommented::class);
+});
+
+it('notifies a prior commenter who shares a circle while skipping one who does not', function () {
+    Notification::fake();
+
+    $postOwner = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $postOwner->id]);
+
+    $sharedCommenter = User::factory()->create();
+    $otherCircleCommenter = User::factory()->create();
+    $newCommenter = User::factory()->create();
+
+    // Circle A: bevat zowel sharedCommenter als newCommenter.
+    shareCircle($post, $sharedCommenter, $newCommenter);
+    // Circle B: bevat alleen otherCircleCommenter.
+    shareCircle($post, $otherCircleCommenter);
+
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $sharedCommenter->id]);
+    Comment::factory()->create(['post_id' => $post->id, 'user_id' => $otherCircleCommenter->id]);
+
+    $this->actingAs($newCommenter)
+        ->postJson("/api/posts/{$post->id}/comments", ['body' => 'Hallo kring A'])
+        ->assertCreated();
+
+    Notification::assertSentTo($sharedCommenter, CommentReplied::class);
+    Notification::assertNotSentTo($otherCircleCommenter, CommentReplied::class);
 });

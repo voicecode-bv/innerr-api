@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Notifications\CommentLiked;
+use App\Support\PostViewerVisibility;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -45,6 +46,16 @@ class CommentLikeController extends Controller
         $this->authorize('view', $comment->post);
 
         abort_if($request->user()->id === $comment->user_id, 403, 'Cannot like your own comment.');
+
+        // Privacy: de post kan in meerdere circles gedeeld zijn. Een reactie van
+        // een auteur uit een circle die de liker niet deelt, hoort onzichtbaar te
+        // zijn — die mag dus niet geliket worden (en de auteur niet genotificeerd
+        // worden). 404 zodat het bestaan van de reactie niet lekt.
+        $visibility = PostViewerVisibility::for($request->user(), $comment->post);
+        abort_unless(
+            $visibility->visibleSubset(collect([$comment->user_id]))->has($comment->user_id),
+            404
+        );
 
         $like = $comment->likes()->firstOrCreate([
             'user_id' => $request->user()->id,
