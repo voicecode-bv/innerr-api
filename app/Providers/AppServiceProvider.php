@@ -32,6 +32,7 @@ use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Telescope\TelescopeServiceProvider;
 use MatanYadaev\EloquentSpatial\EloquentSpatial;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
 use Mollie\Api\MollieApiClient;
@@ -42,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->registerTelescope();
+
         $this->app->singleton(MollieApiClient::class, function (): MollieApiClient {
             $client = new MollieApiClient;
             $apiKey = (string) config('services.mollie.api_key');
@@ -166,6 +169,24 @@ class AppServiceProvider extends ServiceProvider
         if ($replyToAddress = (string) config('mail.reply_to.address', '')) {
             Mail::alwaysReplyTo($replyToAddress, (string) config('mail.reply_to.name', ''));
         }
+    }
+
+    /**
+     * Register Telescope only in the local environment so it never records
+     * requests, queries, or credentials in staging/production.
+     */
+    private function registerTelescope(): void
+    {
+        if (! $this->app->environment('local')) {
+            return;
+        }
+
+        if (! class_exists(TelescopeServiceProvider::class)) {
+            return;
+        }
+
+        $this->app->register(TelescopeServiceProvider::class);
+        $this->app->register(\App\Providers\TelescopeServiceProvider::class);
     }
 
     private function passwordResetUrl(CanResetPassword $user, string $token): string
