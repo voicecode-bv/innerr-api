@@ -109,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
                 jwksUrl: (string) config('google-play.jwks_url'),
                 jwksCacheTtl: (int) config('google-play.jwks_cache_ttl', 3600),
                 expectedAudience: config('google-play.pubsub_audience') ?: null,
+                expectedEmail: config('google-play.pubsub_service_account') ?: null,
                 verifySignature: true,
             );
         });

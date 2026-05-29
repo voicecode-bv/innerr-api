@@ -10,12 +10,20 @@ use RuntimeException;
 
 class PubSubOidcVerifier
 {
+    /**
+     * Issuers Google uses for OIDC tokens.
+     *
+     * @var array<int, string>
+     */
+    private const ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+
     public function __construct(
         private HttpFactory $http,
         private Cache $cache,
         private string $jwksUrl,
         private int $jwksCacheTtl,
         private ?string $expectedAudience,
+        private ?string $expectedEmail = null,
         private bool $verifySignature = true,
     ) {}
 
@@ -38,8 +46,25 @@ class PubSubOidcVerifier
         $decoded = JWT::decode($token, $keys);
         $payload = json_decode(json_encode($decoded), true) ?? [];
 
+        // Issuer is always enforced: the token must come from Google itself.
+        if (! in_array((string) ($payload['iss'] ?? ''), self::ISSUERS, true)) {
+            throw new RuntimeException('Pub/Sub OIDC issuer mismatch.');
+        }
+
+        // Audience binds the token to our push endpoint; enforced when configured.
         if ($this->expectedAudience !== null && (string) ($payload['aud'] ?? '') !== $this->expectedAudience) {
             throw new RuntimeException('Pub/Sub OIDC audience mismatch.');
+        }
+
+        // Service-account email binds the token to the subscription's push
+        // identity, so a token from any other Google service account is rejected;
+        // enforced when configured.
+        if ($this->expectedEmail !== null) {
+            $verified = filter_var($payload['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+            if (! $verified || ! hash_equals($this->expectedEmail, (string) ($payload['email'] ?? ''))) {
+                throw new RuntimeException('Pub/Sub OIDC service account mismatch.');
+            }
         }
 
         return $payload;
