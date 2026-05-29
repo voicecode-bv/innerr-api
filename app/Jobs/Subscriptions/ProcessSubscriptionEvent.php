@@ -26,6 +26,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Mollie\Api\MollieApiClient;
 use Mollie\Api\Resources\Payment;
 
@@ -401,8 +402,15 @@ class ProcessSubscriptionEvent implements ShouldQueue
         }
 
         $user = User::query()
-            ->where('id', $appAccountToken)
-            ->orWhere('apple_id', $appAccountToken)
+            ->where(function ($query) use ($appAccountToken): void {
+                $query->where('apple_id', $appAccountToken);
+
+                // users.id is a uuid column; querying it with a non-uuid legacy
+                // value throws (Postgres 22P02), so only match it for valid uuids.
+                if (Str::isUuid($appAccountToken)) {
+                    $query->orWhere('id', $appAccountToken);
+                }
+            })
             ->value('id');
 
         return $user !== null ? (string) $user : null;
@@ -510,8 +518,15 @@ class ProcessSubscriptionEvent implements ShouldQueue
         }
 
         $user = User::query()
-            ->where('id', $obfuscated)
-            ->orWhere('google_id', $obfuscated)
+            ->where(function ($query) use ($obfuscated): void {
+                $query->where('google_id', $obfuscated);
+
+                // users.id is a uuid column; querying it with a non-uuid legacy
+                // value throws (Postgres 22P02), so only match it for valid uuids.
+                if (Str::isUuid($obfuscated)) {
+                    $query->orWhere('id', $obfuscated);
+                }
+            })
             ->value('id');
 
         return $user !== null ? (string) $user : null;
