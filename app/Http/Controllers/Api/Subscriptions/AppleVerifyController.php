@@ -13,6 +13,7 @@ use App\Models\Subscription;
 use App\Services\Subscriptions\ChannelRegistry;
 use App\Services\Subscriptions\Channels\AppleChannel;
 use App\Services\Subscriptions\Dto\VerifyPurchaseRequest;
+use App\Services\Subscriptions\Exceptions\PurchaseOwnershipException;
 use App\Services\Subscriptions\SubscriptionGuard;
 use App\Services\Subscriptions\SubscriptionStateMachine;
 use Illuminate\Http\JsonResponse;
@@ -92,6 +93,11 @@ class AppleVerifyController extends Controller
                     ? $request->string('original_transaction_id')->toString()
                     : null,
             ));
+        } catch (PurchaseOwnershipException) {
+            return new JsonResponse([
+                'message' => 'This purchase is registered to a different account.',
+                'error_code' => 'purchase_account_mismatch',
+            ], 403);
         } catch (\Throwable $e) {
             return new JsonResponse([
                 'message' => 'Could not verify Apple purchase.',

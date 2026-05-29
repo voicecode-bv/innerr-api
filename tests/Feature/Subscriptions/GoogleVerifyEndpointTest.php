@@ -60,6 +60,7 @@ it('verifies and creates a Google subscription', function () {
             'kind' => 'androidpublisher#subscriptionPurchaseV2',
             'subscriptionState' => 'SUBSCRIPTION_STATE_ACTIVE',
             'startTime' => now()->toIso8601String(),
+            'externalAccountIdentifiers' => ['obfuscatedExternalAccountId' => $user->id],
             'lineItems' => [[
                 'productId' => 'plus_google_monthly',
                 'expiryTime' => now()->addMonth()->toIso8601String(),
@@ -82,6 +83,66 @@ it('verifies and creates a Google subscription', function () {
         ->and($sub->plan_id)->toBe($this->plus->id);
 });
 
+it('rejects a purchase whose obfuscatedExternalAccountId belongs to another account', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $api = Mockery::mock(PlayDeveloperApi::class);
+    $api->shouldReceive('getSubscriptionV2')
+        ->with('victim-purchase-token')
+        ->andReturn([
+            'kind' => 'androidpublisher#subscriptionPurchaseV2',
+            'subscriptionState' => 'SUBSCRIPTION_STATE_ACTIVE',
+            'startTime' => now()->toIso8601String(),
+            'externalAccountIdentifiers' => ['obfuscatedExternalAccountId' => $otherUser->id],
+            'lineItems' => [[
+                'productId' => 'plus_google_monthly',
+                'expiryTime' => now()->addMonth()->toIso8601String(),
+                'autoRenewingPlan' => ['autoRenewEnabled' => true],
+            ]],
+        ]);
+    $this->app->instance(PlayDeveloperApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $this->postJson('/api/subscription/iap/google/verify', [
+        'purchase_token' => 'victim-purchase-token',
+        'product_id' => 'plus_google_monthly',
+    ])
+        ->assertStatus(403)
+        ->assertJsonPath('error_code', 'purchase_account_mismatch');
+
+    expect(Subscription::query()->where('channel', SubscriptionChannel::Google)->count())->toBe(0);
+});
+
+it('rejects a purchase with no obfuscatedExternalAccountId (cannot attribute ownership)', function () {
+    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $api = Mockery::mock(PlayDeveloperApi::class);
+    $api->shouldReceive('getSubscriptionV2')
+        ->with('orphan-token')
+        ->andReturn([
+            'kind' => 'androidpublisher#subscriptionPurchaseV2',
+            'subscriptionState' => 'SUBSCRIPTION_STATE_ACTIVE',
+            'startTime' => now()->toIso8601String(),
+            'lineItems' => [[
+                'productId' => 'plus_google_monthly',
+                'expiryTime' => now()->addMonth()->toIso8601String(),
+                'autoRenewingPlan' => ['autoRenewEnabled' => true],
+            ]],
+        ]);
+    $this->app->instance(PlayDeveloperApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $this->postJson('/api/subscription/iap/google/verify', [
+        'purchase_token' => 'orphan-token',
+        'product_id' => 'plus_google_monthly',
+    ])->assertStatus(403);
+
+    expect(Subscription::query()->where('channel', SubscriptionChannel::Google)->count())->toBe(0);
+});
+
 it('handles testPurchase object in subscriptionsv2 response without crashing', function () {
     // Regression: Play Developer API returns testPurchase as an empty object {}
     // for license-tester / sandbox purchases. Casting that array to string used
@@ -97,6 +158,7 @@ it('handles testPurchase object in subscriptionsv2 response without crashing', f
             'subscriptionState' => 'SUBSCRIPTION_STATE_ACTIVE',
             'startTime' => now()->toIso8601String(),
             'testPurchase' => [], // Google v2 returns {} which json_decode renders as []
+            'externalAccountIdentifiers' => ['obfuscatedExternalAccountId' => $user->id],
             'lineItems' => [[
                 'productId' => 'plus_google_monthly',
                 'expiryTime' => now()->addMonth()->toIso8601String(),

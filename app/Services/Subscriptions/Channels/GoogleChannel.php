@@ -6,6 +6,7 @@ use App\Enums\SubscriptionChannel;
 use App\Enums\SubscriptionEventType;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Services\Subscriptions\Contracts\PaymentChannel;
 use App\Services\Subscriptions\Dto\CheckoutResultDto;
 use App\Services\Subscriptions\Dto\CreateCheckoutRequest;
@@ -13,6 +14,7 @@ use App\Services\Subscriptions\Dto\SubscriptionStatusDto;
 use App\Services\Subscriptions\Dto\VerifyPurchaseRequest;
 use App\Services\Subscriptions\Dto\WebhookOutcomeDto;
 use App\Services\Subscriptions\Exceptions\NotImplementedException;
+use App\Services\Subscriptions\Exceptions\PurchaseOwnershipException;
 use App\Services\Subscriptions\Google\PlayDeveloperApi;
 use App\Services\Subscriptions\Google\PubSubOidcVerifier;
 use Illuminate\Http\Request;
@@ -31,6 +33,13 @@ class GoogleChannel implements PaymentChannel
         return SubscriptionChannel::Google;
     }
 
+    /**
+     * The client-supplied purchase_token only selects WHICH purchase to look up;
+     * it never proves ownership. We therefore require Google's authoritative
+     * `obfuscatedExternalAccountId` (which the Android client sets to the user's
+     * id at purchase time) to match the authenticated user, otherwise any user
+     * could claim another user's subscription by replaying their purchase_token.
+     */
     public function verifyClientPurchase(VerifyPurchaseRequest $dto): SubscriptionStatusDto
     {
         $purchaseToken = $dto->token;
@@ -41,7 +50,34 @@ class GoogleChannel implements PaymentChannel
 
         $remote = $this->api->getSubscriptionV2($purchaseToken);
 
+        $this->assertPurchaseBelongsToUser($dto->user, $remote);
+
         return $this->dtoFromRemote($remote, $purchaseToken, $dto->productId);
+    }
+
+    /**
+     * Verify Google's authoritative `obfuscatedExternalAccountId` attributes the
+     * purchase to the authenticated user. Mirrors
+     * ProcessSubscriptionEvent::resolveGoogleUserId (user id first, google_id as
+     * fallback for older purchases).
+     *
+     * @param  array<string, mixed>  $remote  authoritative response from PlayDeveloperApi
+     */
+    private function assertPurchaseBelongsToUser(User $user, array $remote): void
+    {
+        $identifiers = (array) ($remote['externalAccountIdentifiers'] ?? []);
+        $obfuscated = strtolower(trim((string) ($identifiers['obfuscatedExternalAccountId'] ?? '')));
+
+        if ($obfuscated === '') {
+            throw new PurchaseOwnershipException('Google purchase has no obfuscatedExternalAccountId; the purchase cannot be attributed to this account.');
+        }
+
+        $belongsToUser = hash_equals(strtolower((string) $user->id), $obfuscated)
+            || ($user->google_id !== null && hash_equals(strtolower((string) $user->google_id), $obfuscated));
+
+        if (! $belongsToUser) {
+            throw new PurchaseOwnershipException('This Google purchase is registered to a different account.');
+        }
     }
 
     public function createCheckout(CreateCheckoutRequest $dto): CheckoutResultDto

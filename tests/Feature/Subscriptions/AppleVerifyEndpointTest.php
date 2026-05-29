@@ -74,6 +74,7 @@ it('verifies, fetches authoritative status from Apple, and creates an active sub
                     'purchaseDate' => (int) (now()->valueOf()),
                     'expiresDate' => (int) (now()->addMonth()->valueOf()),
                     'inAppOwnershipType' => 'PURCHASED',
+                    'appAccountToken' => $user->id,
                 ], $privatePem, 'ES256'),
                 'signedRenewalInfo' => JWT::encode([
                     'autoRenewStatus' => 1,
@@ -115,6 +116,7 @@ it('verifies using only an original_transaction_id when no JWS is available', fu
                     'purchaseDate' => (int) (now()->valueOf()),
                     'expiresDate' => (int) (now()->addMonth()->valueOf()),
                     'inAppOwnershipType' => 'PURCHASED',
+                    'appAccountToken' => $user->id,
                 ], $privatePem, 'ES256'),
                 'signedRenewalInfo' => JWT::encode([
                     'autoRenewStatus' => 1,
@@ -135,6 +137,77 @@ it('verifies using only an original_transaction_id when no JWS is available', fu
     expect($sub)->not->toBeNull()
         ->and($sub->status)->toBe(SubscriptionStatus::Active)
         ->and($sub->user_id)->toBe($user->id);
+});
+
+it('rejects a purchase whose appAccountToken belongs to another account', function () {
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+    openssl_pkey_export($key, $privatePem);
+
+    $api = Mockery::mock(AppStoreServerApi::class);
+    $api->shouldReceive('getAllSubscriptionStatuses')
+        ->with('victim-orig-999')
+        ->andReturn([
+            'environment' => 'Production',
+            'bundleId' => 'app.innerr.test',
+            'data' => [[
+                'status' => 1,
+                'signedTransactionInfo' => JWT::encode([
+                    'productId' => 'plus_apple_monthly',
+                    'purchaseDate' => (int) (now()->valueOf()),
+                    'expiresDate' => (int) (now()->addMonth()->valueOf()),
+                    'inAppOwnershipType' => 'PURCHASED',
+                    'appAccountToken' => $otherUser->id,
+                ], $privatePem, 'ES256'),
+                'signedRenewalInfo' => JWT::encode(['autoRenewStatus' => 1], $privatePem, 'ES256'),
+            ]],
+        ]);
+    $this->app->instance(AppStoreServerApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $this->postJson('/api/subscription/iap/apple/verify', [
+        'original_transaction_id' => 'victim-orig-999',
+    ])
+        ->assertStatus(403)
+        ->assertJsonPath('error_code', 'purchase_account_mismatch');
+
+    expect(Subscription::query()->where('channel', SubscriptionChannel::Apple)->count())->toBe(0);
+});
+
+it('rejects a purchase with no appAccountToken (cannot attribute ownership)', function () {
+    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+    openssl_pkey_export($key, $privatePem);
+
+    $api = Mockery::mock(AppStoreServerApi::class);
+    $api->shouldReceive('getAllSubscriptionStatuses')
+        ->with('orphan-orig-1')
+        ->andReturn([
+            'environment' => 'Production',
+            'bundleId' => 'app.innerr.test',
+            'data' => [[
+                'status' => 1,
+                'signedTransactionInfo' => JWT::encode([
+                    'productId' => 'plus_apple_monthly',
+                    'expiresDate' => (int) (now()->addMonth()->valueOf()),
+                    'inAppOwnershipType' => 'PURCHASED',
+                ], $privatePem, 'ES256'),
+                'signedRenewalInfo' => JWT::encode(['autoRenewStatus' => 1], $privatePem, 'ES256'),
+            ]],
+        ]);
+    $this->app->instance(AppStoreServerApi::class, $api);
+    $this->app->forgetInstance(ChannelRegistry::class);
+
+    $this->postJson('/api/subscription/iap/apple/verify', [
+        'original_transaction_id' => 'orphan-orig-1',
+    ])->assertStatus(403);
+
+    expect(Subscription::query()->where('channel', SubscriptionChannel::Apple)->count())->toBe(0);
 });
 
 it('rejects requests with neither signed_transaction nor original_transaction_id', function () {

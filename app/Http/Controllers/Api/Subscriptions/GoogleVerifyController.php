@@ -13,6 +13,7 @@ use App\Models\Subscription;
 use App\Services\Subscriptions\ChannelRegistry;
 use App\Services\Subscriptions\Channels\GoogleChannel;
 use App\Services\Subscriptions\Dto\VerifyPurchaseRequest;
+use App\Services\Subscriptions\Exceptions\PurchaseOwnershipException;
 use App\Services\Subscriptions\SubscriptionGuard;
 use App\Services\Subscriptions\SubscriptionStateMachine;
 use Illuminate\Http\JsonResponse;
@@ -91,6 +92,11 @@ class GoogleVerifyController extends Controller
                 token: $request->string('purchase_token')->toString(),
                 productId: $request->string('product_id')->toString(),
             ));
+        } catch (PurchaseOwnershipException) {
+            return new JsonResponse([
+                'message' => 'This purchase is registered to a different account.',
+                'error_code' => 'purchase_account_mismatch',
+            ], 403);
         } catch (\Throwable $e) {
             return new JsonResponse([
                 'message' => 'Could not verify Google Play purchase.',

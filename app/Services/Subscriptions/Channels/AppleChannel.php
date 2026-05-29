@@ -6,6 +6,7 @@ use App\Enums\SubscriptionChannel;
 use App\Enums\SubscriptionEventType;
 use App\Enums\SubscriptionStatus;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Services\Subscriptions\Apple\AppleJwsVerifier;
 use App\Services\Subscriptions\Apple\AppStoreServerApi;
 use App\Services\Subscriptions\Contracts\PaymentChannel;
@@ -15,6 +16,7 @@ use App\Services\Subscriptions\Dto\SubscriptionStatusDto;
 use App\Services\Subscriptions\Dto\VerifyPurchaseRequest;
 use App\Services\Subscriptions\Dto\WebhookOutcomeDto;
 use App\Services\Subscriptions\Exceptions\NotImplementedException;
+use App\Services\Subscriptions\Exceptions\PurchaseOwnershipException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use RuntimeException;
@@ -38,6 +40,13 @@ class AppleChannel implements PaymentChannel
      * IAP bridge currently doesn't expose `jwsRepresentation` — so we also
      * accept the bare ID. In both cases we trust the App Store Server API for
      * the authoritative subscription state, not the client payload itself.
+     *
+     * The client-supplied identifier only selects WHICH subscription to look up;
+     * it never proves ownership. We therefore require the authoritative
+     * transaction's `appAccountToken` (which the iOS client sets to the user's
+     * id at purchase time) to match the authenticated user, otherwise any user
+     * could claim another user's subscription by replaying their
+     * originalTransactionId.
      */
     public function verifyClientPurchase(VerifyPurchaseRequest $dto): SubscriptionStatusDto
     {
@@ -54,7 +63,31 @@ class AppleChannel implements PaymentChannel
 
         $statuses = $this->api->getAllSubscriptionStatuses($originalTransactionId);
 
+        $transaction = $this->latestRenewalInfo($statuses)['transaction'];
+        $this->assertPurchaseBelongsToUser($dto->user, (string) ($transaction['appAccountToken'] ?? ''));
+
         return $this->dtoFromStatuses($statuses, $originalTransactionId);
+    }
+
+    /**
+     * Verify Apple's authoritative `appAccountToken` attributes the purchase to
+     * the authenticated user. Mirrors ProcessSubscriptionEvent::resolveAppleUserId
+     * (user id first, apple_id as fallback for older purchases).
+     */
+    private function assertPurchaseBelongsToUser(User $user, string $appAccountToken): void
+    {
+        $token = strtolower(trim($appAccountToken));
+
+        if ($token === '') {
+            throw new PurchaseOwnershipException('Apple transaction has no appAccountToken; the purchase cannot be attributed to this account.');
+        }
+
+        $belongsToUser = hash_equals(strtolower((string) $user->id), $token)
+            || ($user->apple_id !== null && hash_equals(strtolower((string) $user->apple_id), $token));
+
+        if (! $belongsToUser) {
+            throw new PurchaseOwnershipException('This Apple purchase is registered to a different account.');
+        }
     }
 
     public function createCheckout(CreateCheckoutRequest $dto): CheckoutResultDto
