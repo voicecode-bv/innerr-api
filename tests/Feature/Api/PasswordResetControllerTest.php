@@ -108,6 +108,30 @@ it('rejects an invalid reset token', function () {
         ->assertJsonValidationErrors('email');
 });
 
+it('does not reveal whether an email exists on reset (no enumeration)', function () {
+    User::factory()->create(['email' => 'jane@example.com']);
+
+    // Unknown email + any token: must return the SAME generic message as a
+    // bogus token for a known user, so the response can't confirm account
+    // existence.
+    $unknownEmail = $this->postJson('/api/auth/reset-password', [
+        'token' => 'bogus-token',
+        'email' => 'nobody@example.com',
+        'password' => 'new-password-123',
+        'password_confirmation' => 'new-password-123',
+    ])->assertUnprocessable()->assertJsonValidationErrors('email');
+
+    $knownEmail = $this->postJson('/api/auth/reset-password', [
+        'token' => 'bogus-token',
+        'email' => 'jane@example.com',
+        'password' => 'new-password-123',
+        'password_confirmation' => 'new-password-123',
+    ])->assertUnprocessable()->assertJsonValidationErrors('email');
+
+    expect($unknownEmail->json('errors.email.0'))
+        ->toBe($knownEmail->json('errors.email.0'));
+});
+
 it('requires password confirmation on reset', function () {
     $user = User::factory()->create(['email' => 'jane@example.com']);
     $token = app('auth.password.broker')->createToken($user);

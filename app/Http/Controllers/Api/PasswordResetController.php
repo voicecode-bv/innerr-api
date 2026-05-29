@@ -97,8 +97,11 @@ class PasswordResetController extends Controller
         );
 
         if ($status !== Password::PASSWORD_RESET) {
+            // Map an unknown email (INVALID_USER) to the same generic message as
+            // an invalid/expired token so this endpoint can't be used to
+            // enumerate which email addresses have an account.
             throw ValidationException::withMessages([
-                'email' => [__($status)],
+                'email' => [__(Password::INVALID_TOKEN)],
             ]);
         }
 
