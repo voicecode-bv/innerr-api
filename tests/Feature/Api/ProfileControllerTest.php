@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\FeedLayout;
 use App\Models\Circle;
 use App\Models\Person;
 use App\Models\Post;
@@ -82,7 +83,7 @@ it('can list profile posts', function () {
         ->assertJsonCount(3, 'data')
         ->assertJsonStructure([
             'data' => [
-                '*' => ['id', 'media_url', 'media_type', 'caption', 'likes_count', 'comments_count'],
+                '*' => ['id', 'media_url', 'media_type', 'thumbnail_url', 'thumbnail_small_url', 'width', 'height', 'caption', 'likes_count', 'comments_count'],
             ],
             'links',
             'meta',
@@ -115,31 +116,51 @@ it('only lists profile posts shared with circles the viewer belongs to', functio
     expect($ids)->toContain($shared->id, $sharedAsMember->id)->not->toContain($hidden->id);
 });
 
-it('uses the thumbnail url for profile posts when available', function () {
+it('exposes the aspect-preserving display image as media_url and square crops separately', function () {
     $viewer = User::factory()->create();
     $user = User::factory()->create();
     $circle = Circle::factory()->for($viewer)->create();
-    $withThumb = Post::factory()->create([
+    $post = Post::factory()->create([
         'user_id' => $user->id,
         'media_url' => 'posts/full.jpg',
         'thumbnail_url' => 'posts/thumbnails/thumb.jpg',
+        'thumbnail_small_url' => 'posts/thumbnails/small.jpg',
     ]);
-    $withThumb->circles()->attach($circle);
-    $withoutThumb = Post::factory()->create([
-        'user_id' => $user->id,
-        'media_url' => 'posts/no-thumb.jpg',
-        'thumbnail_url' => null,
-    ]);
-    $withoutThumb->circles()->attach($circle);
+    $post->circles()->attach($circle);
 
     $response = $this->actingAs($viewer)
         ->getJson("/api/profiles/{$user->username}/posts")
         ->assertSuccessful();
 
-    $byId = collect($response->json('data'))->keyBy('id');
+    $payload = collect($response->json('data'))->firstWhere('id', $post->id);
 
-    expect($byId[$withThumb->id]['media_url'])->toContain('posts/thumbnails/thumb.jpg')
-        ->and($byId[$withoutThumb->id]['media_url'])->toContain('posts/no-thumb.jpg');
+    expect($payload['media_url'])->toContain('posts/full.jpg')
+        ->and($payload['thumbnail_url'])->toContain('posts/thumbnails/thumb.jpg')
+        ->and($payload['thumbnail_small_url'])->toContain('posts/thumbnails/small.jpg');
+});
+
+it('exposes the primary media dimensions for masonry layout', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($viewer)->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $post->circles()->attach($circle);
+    $post->media()->createMany([
+        ['sort_order' => 1, 'path' => 'posts/b.jpg', 'type' => 'image', 'status' => 'ready', 'width' => 800, 'height' => 800],
+        ['sort_order' => 0, 'path' => 'posts/a.jpg', 'type' => 'image', 'status' => 'ready', 'width' => 1080, 'height' => 1350],
+    ]);
+
+    $payload = collect(
+        $this->actingAs($viewer)
+            ->getJson("/api/profiles/{$user->username}/posts")
+            ->assertSuccessful()
+            ->json('data')
+    )->firstWhere('id', $post->id);
+
+    expect($payload['width'])->toBe(1080)
+        ->and($payload['height'])->toBe(1350)
+        ->and($payload['media'][0]['width'])->toBe(1080)
+        ->and($payload['media'][0]['height'])->toBe(1350);
 });
 
 it('exposes a media array per profile post ordered by sort_order', function () {
@@ -268,7 +289,7 @@ it('can set the feed layout preference through profile update', function () {
         ->assertSuccessful()
         ->assertJsonPath('data.feed_layout', 'list');
 
-    expect($user->fresh()->feed_layout)->toBe(App\Enums\FeedLayout::List);
+    expect($user->fresh()->feed_layout)->toBe(FeedLayout::List);
 });
 
 it('rejects an unknown feed layout value', function () {
