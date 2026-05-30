@@ -90,6 +90,24 @@ it('can list profile posts', function () {
         ]);
 });
 
+it('includes the post author so grid tiles can resolve ownership', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($viewer)->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $post->circles()->attach($circle);
+
+    $payload = collect(
+        $this->actingAs($viewer)
+            ->getJson("/api/profiles/{$user->username}/posts")
+            ->assertSuccessful()
+            ->json('data')
+    )->firstWhere('id', $post->id);
+
+    expect($payload['user']['id'])->toBe($user->id)
+        ->and($payload['user']['username'])->toBe($user->username);
+});
+
 it('only lists profile posts shared with circles the viewer belongs to', function () {
     $viewer = User::factory()->create();
     $user = User::factory()->create();
