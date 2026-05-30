@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\FeedLayout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,6 +32,7 @@ class UpdateProfileRequest extends FormRequest
             'username' => ['sometimes', 'string', 'min:1', 'max:255', 'regex:/^[a-z0-9-]+$/', Rule::unique('users')->ignore($this->user())],
             'bio' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'searchable' => ['sometimes', 'boolean'],
+            'feed_layout' => ['sometimes', 'nullable', Rule::enum(FeedLayout::class)],
             'locale' => ['sometimes', 'string', 'max:5'],
             'birthdate' => ['sometimes', 'nullable', 'date'],
         ];

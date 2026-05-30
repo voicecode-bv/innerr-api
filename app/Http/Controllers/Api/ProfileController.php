@@ -150,6 +150,7 @@ class ProfileController extends Controller
                     new OA\Property(property: 'username', type: 'string', example: 'johndoe'),
                     new OA\Property(property: 'bio', type: 'string', nullable: true, example: 'Hello world'),
                     new OA\Property(property: 'searchable', type: 'boolean', example: true),
+                    new OA\Property(property: 'feed_layout', type: 'string', enum: ['list', 'masonry'], nullable: true, example: 'masonry'),
                     new OA\Property(property: 'locale', type: 'string', example: 'en'),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true, example: '1990-01-01'),
                 ],
@@ -210,6 +211,7 @@ class ProfileController extends Controller
                             new OA\Property(property: 'avatar', type: 'string', nullable: true),
                             new OA\Property(property: 'bio', type: 'string', nullable: true),
                             new OA\Property(property: 'searchable', type: 'boolean'),
+                            new OA\Property(property: 'feed_layout', type: 'string', enum: ['list', 'masonry'], nullable: true),
                             new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
                         ]),
                     ],
@@ -230,6 +232,7 @@ class ProfileController extends Controller
                 'avatar' => MediaUrl::sign($user->avatar),
                 'bio' => $user->bio,
                 'searchable' => (bool) $user->searchable,
+                'feed_layout' => $user->feed_layout?->value,
                 'birthdate' => $user->person?->birthdate?->toDateString(),
             ],
         ]);

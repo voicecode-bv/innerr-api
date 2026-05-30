@@ -251,6 +251,35 @@ it('exposes the searchable flag on the editable profile', function () {
         ->assertJsonPath('data.searchable', false);
 });
 
+it('defaults the feed layout to null until the user picks one', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson('/api/profile')
+        ->assertSuccessful()
+        ->assertJsonPath('data.feed_layout', null);
+});
+
+it('can set the feed layout preference through profile update', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patchJson('/api/profile', ['feed_layout' => 'list'])
+        ->assertSuccessful()
+        ->assertJsonPath('data.feed_layout', 'list');
+
+    expect($user->fresh()->feed_layout)->toBe(App\Enums\FeedLayout::List);
+});
+
+it('rejects an unknown feed layout value', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->patchJson('/api/profile', ['feed_layout' => 'carousel'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrorFor('feed_layout');
+});
+
 it('can toggle the searchable flag through profile update', function () {
     $user = User::factory()->create(['searchable' => true]);
 

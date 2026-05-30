@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Entitlement;
+use App\Enums\FeedLayout;
 use App\Enums\NotificationPreference;
 use App\Enums\SubscriptionStatus;
 use App\Observers\UserObserver;
@@ -25,7 +26,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Soved\Laravel\Gdpr\Contracts\Portable as PortableContract;
 use Soved\Laravel\Gdpr\Portable;
 
-#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'avatar_thumbnail', 'bio', 'searchable', 'locale', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id', 'mollie_customer_id', 'onboarded_at'])]
+#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'avatar_thumbnail', 'bio', 'searchable', 'feed_layout', 'locale', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id', 'mollie_customer_id', 'onboarded_at'])]
 #[Hidden(['password', 'remember_token'])]
 #[ObservedBy([UserObserver::class])]
 class User extends Authenticatable implements FilamentUser, HasLocalePreference, PortableContract
@@ -55,6 +56,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             'storage_used_bytes' => 'integer',
             'admin' => 'boolean',
             'searchable' => 'boolean',
+            'feed_layout' => FeedLayout::class,
         ];
     }
 

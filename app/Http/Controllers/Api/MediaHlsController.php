@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
+use League\Flysystem\FilesystemException;
 
 /**
  * Serveert HLS playlists (master + variants) via een korte cache-token URL,
@@ -40,18 +41,38 @@ class MediaHlsController extends Controller
 
         $prefix = rtrim($resolved['prefix'], '/').'/';
         $diskPath = $prefix.$file;
-        $disk = MediaUrl::disk();
-
-        abort_unless($disk->exists($diskPath), 404);
 
         if (str_ends_with($file, '.m3u8')) {
-            return $this->servePlaylist($disk->get($diskPath), $prefix, $token, $file);
+            // Lees de playlist direct in plaats van eerst exists() te checken: op
+            // S3-disks (Hetzner/BunnyCDN) gooit fileExists() een HeadObject die bij
+            // elke non-404/403 status (400, redirect, 5xx, timeout) een
+            // UnableToCheckExistence throwt → 500. read() gebruikt GetObject en
+            // levert simpelweg null op een ontbrekend bestand.
+            $content = $this->readPlaylist($diskPath);
+
+            abort_if($content === null, 404);
+
+            return $this->servePlaylist($content, $prefix, $token, $file);
         }
 
         // Init mp4 / segments: redirect naar een direct-signed BunnyCDN URL.
         // Onze m3u8-rewrite zou voor segmenten meestal al absolute BunnyCDN URLs
-        // hebben geschreven, dus dit is een fallback voor stragglers.
+        // hebben geschreven, dus dit is een fallback voor stragglers. De CDN edge
+        // resolved bestaan/ontbreken zelf, dus geen extra storage-roundtrip hier.
         return $this->redirectToCdn($diskPath);
+    }
+
+    /**
+     * Lees een playlist van disk; geef null terug als het bestand ontbreekt of
+     * onleesbaar is, ongeacht de `throw`-instelling van de disk.
+     */
+    protected function readPlaylist(string $diskPath): ?string
+    {
+        try {
+            return MediaUrl::disk()->get($diskPath);
+        } catch (FilesystemException $e) {
+            return null;
+        }
     }
 
     protected function servePlaylist(string $content, string $prefix, string $token, string $file): Response

@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\MediaHlsController;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use League\Flysystem\UnableToReadFile;
 
 beforeEach(function () {
     Storage::fake('public');
@@ -131,4 +133,18 @@ it('redirects non-playlist files to a direct BunnyCDN signed URL', function () {
 
     $this->get('/api/media/hls/'.$token.'/v1080/seg-0001.m4s')
         ->assertRedirect();
+});
+
+it('returns 404 instead of 500 when reading the playlist from disk fails', function () {
+    $prefix = 'users/abc/posts/hls/m1/';
+    $token = issueToken($prefix);
+
+    // Simuleer een S3-disk die op read een Flysystem-fout gooit, zoals BunnyCDN's
+    // "Unable to check existence" / een non-404 HeadObject of GetObject status.
+    $disk = Mockery::mock(Filesystem::class);
+    $disk->shouldReceive('get')
+        ->andThrow(UnableToReadFile::fromLocation($prefix.'master.m3u8', 'boom'));
+    Storage::set('public', $disk);
+
+    $this->get('/api/media/hls/'.$token.'/master.m3u8')->assertStatus(404);
 });

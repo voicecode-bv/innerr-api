@@ -183,13 +183,14 @@ it('validates login fields', function (array $data, string $errorField) {
 ]);
 
 it('can get the authenticated user', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create(['feed_layout' => 'masonry']);
 
     $this->actingAs($user)
         ->getJson('/api/auth/me')
         ->assertSuccessful()
         ->assertJsonPath('user.id', $user->id)
-        ->assertJsonPath('user.email', $user->email);
+        ->assertJsonPath('user.email', $user->email)
+        ->assertJsonPath('user.feed_layout', 'masonry');
 });
 
 it('returns unauthenticated for me endpoint without token', function () {
