@@ -20,6 +20,8 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'media_type', type: 'string', enum: ['image', 'video']),
         new OA\Property(property: 'thumbnail_url', type: 'string', nullable: true, description: 'Signed URL for the video thumbnail. Only present for video posts.'),
         new OA\Property(property: 'thumbnail_small_url', type: 'string', nullable: true, description: 'Signed URL for the 300×300 grid thumbnail. Only present for image posts.'),
+        new OA\Property(property: 'width', type: 'integer', nullable: true, description: 'Orientation-corrected pixel width of the primary media item. Null until processing fills it (or for legacy media not yet backfilled). Mirrors the first item in `media`.'),
+        new OA\Property(property: 'height', type: 'integer', nullable: true, description: 'Orientation-corrected pixel height of the primary media item. Use together with `width` to lay out media at its natural aspect ratio.'),
         new OA\Property(property: 'media_status', type: 'string', enum: ['processing', 'ready', 'failed'], description: 'Processing status of the media. Videos start as "processing" until transcoding completes.'),
         new OA\Property(property: 'caption', type: 'string', nullable: true),
         new OA\Property(property: 'location', type: 'string', nullable: true),
@@ -40,6 +42,8 @@ use OpenApi\Attributes as OA;
                     new OA\Property(property: 'status', type: 'string', enum: ['processing', 'ready', 'failed']),
                     new OA\Property(property: 'thumbnail_url', type: 'string', nullable: true),
                     new OA\Property(property: 'thumbnail_small_url', type: 'string', nullable: true),
+                    new OA\Property(property: 'width', type: 'integer', nullable: true, description: 'Orientation-corrected pixel width of this media item.'),
+                    new OA\Property(property: 'height', type: 'integer', nullable: true, description: 'Orientation-corrected pixel height of this media item.'),
                     new OA\Property(property: 'taken_at', type: 'string', format: 'date-time', nullable: true),
                     new OA\Property(property: 'latitude', type: 'number', format: 'float', nullable: true),
                     new OA\Property(property: 'longitude', type: 'number', format: 'float', nullable: true),
@@ -121,6 +125,12 @@ class PostResource extends JsonResource
         $isOwner = $request->user()?->id === $this->user_id;
         $isDownloadable = $isOwner || (bool) ($this->is_downloadable_via_circles ?? false);
 
+        // The primary item (sort_order 0) is what the top-level media_url
+        // mirrors, so its dimensions describe the cover the feed/grid renders.
+        $primaryMedia = $this->relationLoaded('media')
+            ? ($this->media->firstWhere('sort_order', 0) ?? $this->media->first())
+            : null;
+
         $data = [
             'id' => $this->id,
             'media_url' => MediaUrl::sign($this->media_url),
@@ -130,6 +140,8 @@ class PostResource extends JsonResource
             'media_type' => $this->media_type,
             'thumbnail_url' => MediaUrl::sign($this->thumbnail_url),
             'thumbnail_small_url' => MediaUrl::sign($this->thumbnail_small_url),
+            'width' => $primaryMedia?->width,
+            'height' => $primaryMedia?->height,
             'media_status' => $this->media_status?->value ?? 'ready',
             'caption' => $this->caption,
             'location' => $this->location,
@@ -160,6 +172,8 @@ class PostResource extends JsonResource
                 'status' => $m->status?->value ?? 'ready',
                 'thumbnail_url' => MediaUrl::sign($m->thumbnail_path),
                 'thumbnail_small_url' => MediaUrl::sign($m->thumbnail_small_path),
+                'width' => $m->width,
+                'height' => $m->height,
                 'taken_at' => $m->taken_at,
                 'latitude' => $m->latitude,
                 'longitude' => $m->longitude,

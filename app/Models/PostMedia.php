@@ -13,8 +13,8 @@ use MatanYadaev\EloquentSpatial\Traits\HasSpatial;
 
 #[Fillable([
     'post_id', 'sort_order', 'path', 'original_path', 'type', 'format', 'status',
-    'thumbnail_path', 'thumbnail_small_path', 'taken_at', 'coordinates',
-    'external_job_id', 'processing_started_at',
+    'thumbnail_path', 'thumbnail_small_path', 'width', 'height', 'taken_at',
+    'coordinates', 'external_job_id', 'processing_started_at',
 ])]
 class PostMedia extends Model
 {

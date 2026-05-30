@@ -166,6 +166,8 @@ class PostController extends Controller
                 'status' => $data['status'],
                 'thumbnail_path' => $data['thumbnail_path'],
                 'thumbnail_small_path' => $data['thumbnail_small_path'],
+                'width' => $data['width'],
+                'height' => $data['height'],
                 'taken_at' => $data['taken_at'],
                 'coordinates' => $data['coordinates'],
             ]);
@@ -304,7 +306,7 @@ class PostController extends Controller
      * for images. Client-provided metadata overrides extracted values.
      *
      * @param  array{taken_at: ?string, latitude: ?float, longitude: ?float}  $clientMeta
-     * @return array{path: string, type: string, status: MediaStatus, thumbnail_path: ?string, thumbnail_small_path: ?string, taken_at: mixed, coordinates: ?Point}
+     * @return array{path: string, type: string, status: MediaStatus, thumbnail_path: ?string, thumbnail_small_path: ?string, width: ?int, height: ?int, taken_at: mixed, coordinates: ?Point}
      */
     private function processMediaFile(UploadedFile $file, string $userId, array $clientMeta, MediaUploadService $media): array
     {
@@ -316,10 +318,19 @@ class PostController extends Controller
         $status = MediaStatus::Ready;
         $extracted = ['taken_at' => null, 'latitude' => null, 'longitude' => null];
 
+        // Dimensions for videos are probed here while the upload is still on
+        // local disk (transcoding preserves the aspect ratio). Images defer to
+        // ProcessPostImage, which reads orientation-corrected dimensions after
+        // the HEIC decode — getimagesize on the raw upload would miss EXIF
+        // rotation and HEIC sources entirely.
+        $dimensions = ['width' => null, 'height' => null];
+
         if ($type === 'video') {
             $thumbnailPath = $media->generateVideoThumbnail(
                 $file->getPathname(), $userId, 'posts', isLocalPath: true,
             );
+
+            $dimensions = $media->probeVideoDimensions($file->getPathname());
 
             $path = $file->store("users/{$userId}/posts");
             UserStorage::trackPut($path);
@@ -347,6 +358,8 @@ class PostController extends Controller
             'status' => $status,
             'thumbnail_path' => $thumbnailPath,
             'thumbnail_small_path' => $thumbnailSmallPath,
+            'width' => $dimensions['width'],
+            'height' => $dimensions['height'],
             'taken_at' => $clientMeta['taken_at'] ?? $extracted['taken_at'],
             'coordinates' => ($latitude !== null && $longitude !== null)
                 ? new Point((float) $latitude, (float) $longitude, Srid::WGS84->value)

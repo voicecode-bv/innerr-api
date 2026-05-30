@@ -122,7 +122,7 @@ class MediaUploadService
      *
      * The caller persists the returned paths and removes the raw source.
      *
-     * @return array{path: string, original_path: ?string, thumbnail_path: ?string, thumbnail_small_path: ?string, taken_at: ?Carbon, latitude: ?float, longitude: ?float}
+     * @return array{path: string, original_path: ?string, thumbnail_path: ?string, thumbnail_small_path: ?string, width: ?int, height: ?int, taken_at: ?Carbon, latitude: ?float, longitude: ?float}
      */
     public function processStoredPostImage(string $rawPath, string $userId, string $folder): array
     {
@@ -144,6 +144,8 @@ class MediaUploadService
             // recover metadata for clients that didn't send their own.
             $exif = ExifExtractor::fromUploadedFile($file);
 
+            $dimensions = $this->readOrientedImageDimensions($file);
+
             $thumbnailPath = $this->generateImageThumbnail($file, $userId, $folder);
             $thumbnailSmallPath = $this->generateImageThumbnail($file, $userId, $folder, size: self::THUMBNAIL_SIZE_SMALL);
             $displayPath = $this->store($file, $userId, $folder);
@@ -153,6 +155,8 @@ class MediaUploadService
                 'original_path' => MediaUrl::originalPath($displayPath),
                 'thumbnail_path' => $thumbnailPath,
                 'thumbnail_small_path' => $thumbnailSmallPath,
+                'width' => $dimensions['width'],
+                'height' => $dimensions['height'],
                 'taken_at' => $exif['taken_at'],
                 'latitude' => $exif['latitude'],
                 'longitude' => $exif['longitude'],
@@ -443,6 +447,72 @@ class MediaUploadService
             }
             @unlink($tempThumb);
         }
+    }
+
+    /**
+     * Read the orientation-corrected pixel dimensions of an image upload.
+     *
+     * Decoding and orienting mirrors what the display variant goes through,
+     * so the returned width/height match the aspect ratio the client renders.
+     * The display variant only scales down (preserving ratio), so these source
+     * dimensions describe the served image's shape exactly.
+     *
+     * @return array{width: ?int, height: ?int}
+     */
+    private function readOrientedImageDimensions(UploadedFile $file): array
+    {
+        try {
+            $image = Image::decodePath($file->getPathname());
+            $image->orient();
+
+            return ['width' => $image->width(), 'height' => $image->height()];
+        } catch (\Throwable) {
+            return ['width' => null, 'height' => null];
+        }
+    }
+
+    /**
+     * Probe a local video file for its display pixel dimensions via ffprobe.
+     *
+     * Accounts for rotation metadata (phones store portrait footage as rotated
+     * landscape): when the rotation is ±90° the coded width/height are swapped
+     * so the result describes the upright frame the player shows. Returns nulls
+     * when ffprobe is unavailable or the stream cannot be read, so callers can
+     * persist them as "unknown" and fall back to a square tile.
+     *
+     * @return array{width: ?int, height: ?int}
+     */
+    public function probeVideoDimensions(string $localPath): array
+    {
+        $result = Process::run([
+            'ffprobe',
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height:stream_tags=rotate:stream_side_data=rotation',
+            '-of', 'json',
+            $localPath,
+        ]);
+
+        if ($result->failed()) {
+            return ['width' => null, 'height' => null];
+        }
+
+        $stream = json_decode($result->output(), true)['streams'][0] ?? null;
+
+        if (! is_array($stream) || ! isset($stream['width'], $stream['height'])) {
+            return ['width' => null, 'height' => null];
+        }
+
+        $width = (int) $stream['width'];
+        $height = (int) $stream['height'];
+
+        $rotation = (int) ($stream['tags']['rotate'] ?? $stream['side_data_list'][0]['rotation'] ?? 0);
+
+        if (abs($rotation) % 180 === 90) {
+            [$width, $height] = [$height, $width];
+        }
+
+        return ['width' => $width, 'height' => $height];
     }
 
     private function isImage(UploadedFile $file): bool

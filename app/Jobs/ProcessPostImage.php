@@ -72,6 +72,8 @@ class ProcessPostImage implements ShouldQueue
             'original_path' => $result['original_path'],
             'thumbnail_path' => $result['thumbnail_path'],
             'thumbnail_small_path' => $result['thumbnail_small_path'],
+            'width' => $result['width'],
+            'height' => $result['height'],
             'status' => MediaStatus::Ready,
         ];
 
