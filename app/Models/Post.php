@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\MediaStatus;
+use App\Enums\PostType;
 use App\Support\PostViewerVisibility;
 use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Traits\HasSpatial;
 
-#[Fillable(['user_id', 'media_url', 'media_type', 'media_status', 'thumbnail_url', 'thumbnail_small_url', 'caption', 'location', 'taken_at', 'coordinates'])]
+#[Fillable(['user_id', 'type', 'media_url', 'media_type', 'media_status', 'thumbnail_url', 'thumbnail_small_url', 'caption', 'quote_text', 'quote_author', 'location', 'taken_at', 'coordinates'])]
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */
@@ -162,6 +163,7 @@ class Post extends Model
     protected function casts(): array
     {
         return [
+            'type' => PostType::class,
             'media_status' => MediaStatus::class,
             'taken_at' => 'datetime',
             'coordinates' => Point::class,

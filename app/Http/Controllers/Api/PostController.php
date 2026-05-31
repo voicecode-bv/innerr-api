@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\MediaStatus;
+use App\Enums\PostType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
@@ -147,12 +148,15 @@ class PostController extends Controller
         $first = $processed[0];
 
         $post = $request->user()->posts()->create([
+            'type' => $request->validated('type', PostType::Media->value),
             'media_url' => $first['path'],
             'media_type' => $first['type'],
             'media_status' => $first['status'],
             'thumbnail_url' => $first['thumbnail_path'],
             'thumbnail_small_url' => $first['thumbnail_small_path'],
             'caption' => $request->validated('caption'),
+            'quote_text' => $request->validated('quote_text'),
+            'quote_author' => $request->validated('quote_author'),
             'location' => $request->validated('location'),
             'taken_at' => $first['taken_at'],
             'coordinates' => $first['coordinates'],

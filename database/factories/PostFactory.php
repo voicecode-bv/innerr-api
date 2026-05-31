@@ -22,6 +22,7 @@ class PostFactory extends Factory
 
         return [
             'user_id' => User::factory(),
+            'type' => 'media',
             'media_url' => 'https://picsum.photos/seed/'.fake()->unique()->numberBetween(1, 10000).'/600/600',
             'media_type' => 'image',
             'caption' => fake()->optional(0.8)->sentence(),
@@ -37,6 +38,19 @@ class PostFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'media_type' => 'video',
+        ]);
+    }
+
+    /**
+     * A quote post: the rendered quote image plus its text + attribution.
+     */
+    public function quote(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'quote',
+            'media_type' => 'image',
+            'quote_text' => fake()->sentence(),
+            'quote_author' => fake()->firstName(),
         ]);
     }
 }

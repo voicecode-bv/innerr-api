@@ -15,6 +15,7 @@ use OpenApi\Attributes as OA;
     schema: 'Post',
     properties: [
         new OA\Property(property: 'id', type: 'string', format: 'uuid'),
+        new OA\Property(property: 'type', type: 'string', enum: ['media', 'quote'], description: 'Post kind. "quote" posts carry `quote_text`/`quote_author` alongside the rendered quote image.'),
         new OA\Property(property: 'media_url', type: 'string'),
         new OA\Property(property: 'original_media_url', type: 'string', nullable: true, description: 'Signed URL for the untouched original upload (pre-resize / pre-transcode). Only present when `is_downloadable` is true.'),
         new OA\Property(property: 'media_type', type: 'string', enum: ['image', 'video']),
@@ -24,6 +25,8 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'height', type: 'integer', nullable: true, description: 'Orientation-corrected pixel height of the primary media item. Use together with `width` to lay out media at its natural aspect ratio.'),
         new OA\Property(property: 'media_status', type: 'string', enum: ['processing', 'ready', 'failed'], description: 'Processing status of the media. Videos start as "processing" until transcoding completes.'),
         new OA\Property(property: 'caption', type: 'string', nullable: true),
+        new OA\Property(property: 'quote_text', type: 'string', nullable: true, description: 'The quote text. Only set for posts where `type` is "quote".'),
+        new OA\Property(property: 'quote_author', type: 'string', nullable: true, description: 'Who the quote is attributed to (e.g. the child\'s name). Only set for quote posts.'),
         new OA\Property(property: 'location', type: 'string', nullable: true),
         new OA\Property(property: 'taken_at', type: 'string', format: 'date-time', nullable: true, description: 'Capture time read from EXIF, if present.'),
         new OA\Property(property: 'latitude', type: 'number', format: 'float', nullable: true, description: 'GPS latitude from EXIF, decimal degrees.'),
@@ -133,6 +136,7 @@ class PostResource extends JsonResource
 
         $data = [
             'id' => $this->id,
+            'type' => $this->type?->value ?? 'media',
             'media_url' => MediaUrl::sign($this->media_url),
             'original_media_url' => $isDownloadable
                 ? MediaUrl::sign($this->resolveOriginalMediaPath())
@@ -144,6 +148,8 @@ class PostResource extends JsonResource
             'height' => $primaryMedia?->height,
             'media_status' => $this->media_status?->value ?? 'ready',
             'caption' => $this->caption,
+            'quote_text' => $this->quote_text,
+            'quote_author' => $this->quote_author,
             'location' => $this->location,
             'taken_at' => $this->taken_at,
             'latitude' => $this->latitude,

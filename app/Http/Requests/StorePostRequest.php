@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\PostType;
 use App\Http\Controllers\Api\UploadController;
 use App\Rules\AccessibleCircle;
 use App\Rules\MaxImageDimensions;
@@ -12,6 +13,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\Rules\Enum;
 
 class StorePostRequest extends FormRequest
 {
@@ -23,6 +25,14 @@ class StorePostRequest extends FormRequest
     private const MAX_KB = 1024000;
 
     public const MAX_MEDIA_ITEMS = 10;
+
+    /**
+     * Upper bound for a quote's text. Quotes from kids are short by nature; the
+     * cap keeps the rendered image legible and the column lean.
+     */
+    public const MAX_QUOTE_TEXT = 280;
+
+    public const MAX_QUOTE_AUTHOR = 100;
 
     /**
      * Cap voor afbeeldings-resolutie. Een 50 MP smartphone-foto haalt
@@ -208,6 +218,7 @@ class StorePostRequest extends FormRequest
             'media_token' => ['sometimes', 'uuid'],
             'media_tokens' => ['prohibited'],
             'caption' => ['nullable', 'string', 'max:2200'],
+            ...$this->quoteRules(),
             'location' => ['nullable', 'string', 'max:255'],
             'taken_at' => ['nullable', 'date', 'before_or_equal:now', 'after:1990-01-01'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
@@ -238,6 +249,7 @@ class StorePostRequest extends FormRequest
             'media_metadata.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'media_metadata.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'caption' => ['nullable', 'string', 'max:2200'],
+            ...$this->quoteRules(),
             'location' => ['nullable', 'string', 'max:255'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
@@ -247,6 +259,23 @@ class StorePostRequest extends FormRequest
             'tag_ids.*' => ['uuid', new OwnedTag($this->user())],
             'person_ids' => ['sometimes', 'array', 'max:50'],
             'person_ids.*' => ['uuid', new TaggablePerson($this->user(), $this->effectiveCircleIds())],
+        ];
+    }
+
+    /**
+     * Rules shared by the single- and multi-media rule sets. A quote post still
+     * carries one rendered image (validated by the media rules above); these
+     * fields add its text + attribution. `quote_text` is required only when the
+     * client marks the post as a quote, so regular posts stay unaffected.
+     *
+     * @return array<string, array<int, mixed>>
+     */
+    private function quoteRules(): array
+    {
+        return [
+            'type' => ['sometimes', new Enum(PostType::class)],
+            'quote_text' => ['nullable', 'required_if:type,quote', 'string', 'max:'.self::MAX_QUOTE_TEXT],
+            'quote_author' => ['nullable', 'string', 'max:'.self::MAX_QUOTE_AUTHOR],
         ];
     }
 
