@@ -231,6 +231,16 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
         return $this->locale;
     }
 
+    /**
+     * Whether this account must verify its email before accessing the app.
+     * Accounts that existed before verification was enforced were backfilled
+     * with a verified timestamp, so this is simply "not yet verified".
+     */
+    public function requiresEmailVerification(): bool
+    {
+        return $this->email_verified_at === null;
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->admin === true;

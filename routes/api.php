@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\CommentLikeController;
 use App\Http\Controllers\Api\DefaultCircleController;
 use App\Http\Controllers\Api\DeviceInfoController;
 use App\Http\Controllers\Api\DeviceTokenController;
+use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\FeatureTourCompletedController;
 use App\Http\Controllers\Api\FeatureTourSegmentController;
 use App\Http\Controllers\Api\FeatureTourStartedController;
@@ -109,6 +110,13 @@ Route::prefix('webhooks/media')->middleware('throttle:120,1')->group(function ()
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
+    Route::post('/auth/email/verify', [EmailVerificationController::class, 'verify'])
+        ->middleware('throttle:10,1')
+        ->name('api.auth.email.verify');
+    Route::post('/auth/email/resend', [EmailVerificationController::class, 'resend'])
+        ->middleware('throttle:5,1')
+        ->name('api.auth.email.resend');
 
     Route::get('/feed', FeedController::class)->name('api.feed');
 

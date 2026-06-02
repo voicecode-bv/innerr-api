@@ -9,6 +9,7 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Resources\UserResource;
 use App\Models\CircleInvitation;
 use App\Models\User;
+use App\Services\EmailVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,10 @@ use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private EmailVerificationService $verification,
+    ) {}
+
     #[OA\Post(
         path: '/api/auth/login',
         summary: 'Login',
@@ -119,6 +124,10 @@ class AuthController extends Controller
         // Zie login(): zonder gezette auth user laat UserResource email
         // zien als null vanwege de PII-scoping.
         Auth::setUser($user);
+
+        // Verstuur direct een verificatiecode zodat die al klaarstaat tegen de
+        // tijd dat de gebruiker de onboarding heeft doorlopen.
+        $this->verification->send($user);
 
         return response()->json([
             'token' => $user->createToken($request->device_name)->plainTextToken,

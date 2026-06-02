@@ -26,6 +26,8 @@ class EmailTemplateRegistry
 
     public const ONBOARDING_COMPLETED = 'onboarding_completed';
 
+    public const EMAIL_VERIFICATION = 'email_verification';
+
     /**
      * @return array<string, array{
      *     label: string,
@@ -319,6 +321,36 @@ MD,
                     'fr' => [
                         'subject' => 'Réinitialisez votre mot de passe',
                         'body' => "# Bonjour {recipient_name} !\n\nVous recevez cet e-mail parce que nous avons reçu une demande de réinitialisation du mot de passe de votre compte.\n\n[Réinitialiser le mot de passe]({reset_url})\n\nCe lien de réinitialisation expirera dans {minutes} minutes.\n\nSi vous n'avez pas demandé de réinitialisation, aucune action n'est requise.",
+                    ],
+                ],
+            ],
+
+            self::EMAIL_VERIFICATION => [
+                'label' => 'Email verification code',
+                'description' => 'Sent after registration with a one-time code the user enters in the app to verify their email address.',
+                'format' => EmailTemplate::FORMAT_MARKDOWN_MESSAGE,
+                'placeholders' => [
+                    'recipient_name' => 'Name of the recipient.',
+                    'code' => 'The 6-digit verification code the user must enter.',
+                    'minutes' => 'Number of minutes the code stays valid.',
+                ],
+                'samples' => [
+                    'recipient_name' => 'Jordan',
+                    'code' => '123456',
+                    'minutes' => '15',
+                ],
+                'defaults' => [
+                    'nl' => [
+                        'subject' => 'Je verificatiecode: {code}',
+                        'body' => "# Hallo {recipient_name}!\n\nBedankt voor je aanmelding bij Innerr. Bevestig je e-mailadres met onderstaande code:\n\n## {code}\n\nVul deze code in de app in. De code verloopt over {minutes} minuten.\n\nHeb je je niet aangemeld bij Innerr? Dan kun je deze e-mail negeren.",
+                    ],
+                    'en' => [
+                        'subject' => 'Your verification code: {code}',
+                        'body' => "# Hello {recipient_name}!\n\nThanks for signing up for Innerr. Confirm your email address with the code below:\n\n## {code}\n\nEnter this code in the app. The code expires in {minutes} minutes.\n\nIf you did not sign up for Innerr, you can ignore this email.",
+                    ],
+                    'fr' => [
+                        'subject' => 'Votre code de vérification : {code}',
+                        'body' => "# Bonjour {recipient_name} !\n\nMerci de votre inscription à Innerr. Confirmez votre adresse e-mail avec le code ci-dessous :\n\n## {code}\n\nSaisissez ce code dans l'application. Le code expire dans {minutes} minutes.\n\nSi vous ne vous êtes pas inscrit à Innerr, vous pouvez ignorer cet e-mail.",
                     ],
                 ],
             ],
