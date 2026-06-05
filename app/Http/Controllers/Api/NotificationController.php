@@ -11,6 +11,18 @@ use OpenApi\Attributes as OA;
 
 class NotificationController extends Controller
 {
+    /**
+     * Notification types that represent an outstanding action and are cleared
+     * only when the user accepts or declines them. A blanket "mark all read"
+     * must leave these unread so they keep counting until the user responds.
+     *
+     * @var array<int, string>
+     */
+    private const ACTIONABLE_TYPES = [
+        'circle-invitation-received',
+        'circle-ownership-transfer-requested',
+    ];
+
     #[OA\Get(
         path: '/api/notifications',
         summary: 'List notifications',
@@ -92,6 +104,8 @@ class NotificationController extends Controller
 
         if ($request->has('ids')) {
             $query->whereIn('id', $request->input('ids'));
+        } else {
+            $query->whereNotIn('type', self::ACTIONABLE_TYPES);
         }
 
         $query->update(['read_at' => now()]);
