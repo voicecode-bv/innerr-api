@@ -8,6 +8,7 @@ use App\Notifications\CircleOwnershipTransferAcceptedNotification;
 use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 it('lists pending ownership transfers offered to the authenticated user', function () {
     $user = User::factory()->create();
@@ -168,6 +169,35 @@ it('accepts a pending transfer, swaps ownership, and notifies the previous owner
     ]);
 
     Notification::assertSentTo($owner, CircleOwnershipTransferAcceptedNotification::class);
+});
+
+it('marks the requested notification as read when the transfer is answered', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $circle->members()->attach($member);
+
+    $transfer = CircleOwnershipTransfer::factory()->create([
+        'circle_id' => $circle->id,
+        'from_user_id' => $owner->id,
+        'to_user_id' => $member->id,
+        'status' => InvitationStatus::Pending,
+    ]);
+
+    $notification = $member->notifications()->create([
+        'id' => (string) Str::uuid(),
+        'type' => 'circle-ownership-transfer-requested',
+        'data' => ['transfer_id' => $transfer->id],
+    ]);
+
+    $this->actingAs($member)
+        ->postJson("/api/circle-ownership-transfers/{$transfer->id}/decline")
+        ->assertOk();
+
+    expect($notification->fresh()->read_at)->not->toBeNull();
+    expect($member->unreadNotifications()->count())->toBe(0);
 });
 
 it('cannot accept another users transfer', function () {

@@ -8,6 +8,7 @@ use App\Http\Requests\StoreCircleOwnershipTransferRequest;
 use App\Http\Resources\CircleOwnershipTransferResource;
 use App\Models\Circle;
 use App\Models\CircleOwnershipTransfer;
+use App\Models\User;
 use App\Notifications\CircleOwnershipTransferAcceptedNotification;
 use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
@@ -207,6 +208,8 @@ class CircleOwnershipTransferController extends Controller
             $circleOwnershipTransfer->update(['status' => InvitationStatus::Accepted]);
         });
 
+        $this->markRequestedNotificationAsRead($request->user(), $circleOwnershipTransfer);
+
         $circleOwnershipTransfer->fromUser->notify(
             new CircleOwnershipTransferAcceptedNotification($circleOwnershipTransfer)
         );
@@ -249,10 +252,25 @@ class CircleOwnershipTransferController extends Controller
 
         $circleOwnershipTransfer->update(['status' => InvitationStatus::Declined]);
 
+        $this->markRequestedNotificationAsRead($request->user(), $circleOwnershipTransfer);
+
         $circleOwnershipTransfer->fromUser->notify(
             new CircleOwnershipTransferDeclinedNotification($circleOwnershipTransfer)
         );
 
         return response()->json(['message' => 'Ownership transfer declined.']);
+    }
+
+    /**
+     * Mark the recipient's "transfer requested" notification as read once they
+     * respond, so it stops counting as unread (a blanket mark-all-read leaves
+     * actionable notifications untouched, so this is the only place it clears).
+     */
+    private function markRequestedNotificationAsRead(User $user, CircleOwnershipTransfer $transfer): void
+    {
+        $user->unreadNotifications()
+            ->where('type', 'circle-ownership-transfer-requested')
+            ->whereRaw("(data::jsonb->>'transfer_id') = ?", [$transfer->id])
+            ->update(['read_at' => now()]);
     }
 }
