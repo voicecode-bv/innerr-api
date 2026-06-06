@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\MediaStatus;
 use App\Enums\PostType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BatchAttachCirclesRequest;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Http\Resources\PostResource;
@@ -25,6 +26,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
 use MatanYadaev\EloquentSpatial\Objects\Point;
@@ -486,6 +488,60 @@ class PostController extends Controller
         ]);
 
         return new PostResource($post);
+    }
+
+    #[OA\Post(
+        path: '/api/posts/batch/circles',
+        summary: 'Batch add posts to circles',
+        description: 'Add one or more of the authenticated user\'s own posts to one or more circles in a single call. Circles are attached without detaching existing ones (additive), so a post keeps the circles it was already shared with. Posts not owned by the user are silently skipped. The authenticated user must be owner or member of every circle in `circle_ids`.',
+        tags: ['Posts'],
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['post_ids', 'circle_ids'],
+                properties: [
+                    new OA\Property(property: 'post_ids', type: 'array', maxItems: 100, items: new OA\Items(type: 'string', format: 'uuid'), description: 'IDs of the posts to add. Only posts owned by the authenticated user are affected.'),
+                    new OA\Property(property: 'circle_ids', type: 'array', maxItems: 50, items: new OA\Items(type: 'string', format: 'uuid'), description: 'Circle IDs to add the posts to (user must be owner or member).'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Posts added to circles',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'updated_count', type: 'integer', description: 'Number of owned posts that were added to the circles.'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 422, description: 'Validation error'),
+        ],
+    )]
+    public function batchAttachCircles(BatchAttachCirclesRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $circleIds = $request->validated('circle_ids');
+
+        // Only the user's own posts are touched. Others are silently skipped so
+        // a stale client list can't grant access to posts the user doesn't own.
+        $posts = Post::query()
+            ->where('user_id', $user->id)
+            ->whereIn('id', $request->validated('post_ids'))
+            ->get();
+
+        DB::transaction(function () use ($posts, $circleIds): void {
+            foreach ($posts as $post) {
+                // Additive: keep the circles the post is already shared with.
+                $post->circles()->syncWithoutDetaching($circleIds);
+            }
+        });
+
+        return response()->json([
+            'updated_count' => $posts->count(),
+        ]);
     }
 
     #[OA\Delete(

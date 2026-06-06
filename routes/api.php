@@ -126,6 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/uploads/{upload}/chunk', [UploadController::class, 'chunk'])->name('api.uploads.chunk');
     Route::delete('/uploads/{upload}', [UploadController::class, 'abort'])->name('api.uploads.abort');
 
+    Route::post('/posts/batch/circles', [PostController::class, 'batchAttachCircles'])->name('api.posts.batch-attach-circles');
     Route::get('/posts/{post}', [PostController::class, 'show'])->name('api.posts.show');
     Route::post('/posts', [PostController::class, 'store'])->middleware('throttle:30,1')->name('api.posts.store');
     Route::put('/posts/{post}', [PostController::class, 'update'])->name('api.posts.update');
