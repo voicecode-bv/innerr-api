@@ -56,6 +56,27 @@ it('counts all own posts when viewing own profile', function () {
         ->assertJsonPath('data.posts_count', 4);
 });
 
+it('exposes own activity counts on the own profile', function () {
+    $user = User::factory()->create(['likes_count' => 7, 'comments_count' => 3]);
+
+    $this->actingAs($user)
+        ->getJson("/api/profiles/{$user->username}")
+        ->assertOk()
+        ->assertJsonPath('data.likes_count', 7)
+        ->assertJsonPath('data.comments_count', 3);
+});
+
+it('hides activity counts when viewing someone else\'s profile', function () {
+    $viewer = User::factory()->create();
+    $user = User::factory()->create(['likes_count' => 7, 'comments_count' => 3]);
+
+    $this->actingAs($viewer)
+        ->getJson("/api/profiles/{$user->username}")
+        ->assertOk()
+        ->assertJsonMissingPath('data.likes_count')
+        ->assertJsonMissingPath('data.comments_count');
+});
+
 it('returns not found for non-existent username', function () {
     $this->actingAs(User::factory()->create())
         ->getJson('/api/profiles/nonexistent')

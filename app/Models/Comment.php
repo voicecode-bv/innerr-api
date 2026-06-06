@@ -20,10 +20,12 @@ class Comment extends Model
     {
         static::created(function (Comment $comment) {
             $comment->post()->increment('comments_count');
+            $comment->user()->increment('comments_count');
         });
 
         static::deleted(function (Comment $comment) {
             $comment->post()->decrement('comments_count');
+            $comment->user()->decrement('comments_count');
         });
     }
 

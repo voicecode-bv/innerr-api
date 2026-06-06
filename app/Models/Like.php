@@ -20,10 +20,12 @@ class Like extends Model
     {
         static::created(function (Like $like) {
             $like->likeable()->increment('likes_count');
+            $like->user()->increment('likes_count');
         });
 
         static::deleted(function (Like $like) {
             $like->likeable()->decrement('likes_count');
+            $like->user()->decrement('likes_count');
         });
     }
 
