@@ -20,6 +20,8 @@ class EmailTemplateRegistry
 
     public const EARLY_ADOPTERS = 'early_adopters';
 
+    public const LAUNCH_ANNOUNCEMENT = 'launch_announcement';
+
     public const SUBSCRIPTION_STARTED = 'subscription_started';
 
     public const PASSWORD_RESET = 'password_reset';
@@ -288,6 +290,67 @@ De app is beschikbaar voor iOS en Android.
 ## Heb je vragen of zorgen?
 
 Stuur gerust jouw vragen naar [hallo@innerr.app](mailto:hallo@innerr.app). Wij helpen je graag verder op weg.
+MD,
+                    ],
+                    'en' => ['subject' => '', 'body' => ''],
+                    'fr' => ['subject' => '', 'body' => ''],
+                ],
+            ],
+
+            self::LAUNCH_ANNOUNCEMENT => [
+                'label' => 'Launch announcement (live)',
+                'description' => 'Aankondiging dat de app officieel live is. Wordt verstuurd naar de early adopters via de standaard transactionele mailer.',
+                'format' => EmailTemplate::FORMAT_MARKDOWN_MESSAGE,
+                'placeholders' => [],
+                'samples' => [],
+                'defaults' => [
+                    'nl' => [
+                        'subject' => 'Het is zover: Innerr is live! 🎉',
+                        'body' => <<<'MD'
+# Het is zover — we gaan officieel van start!
+
+Waar we zo lang naartoe hebben gewerkt, is nu echt: **Innerr is vanaf vandaag officieel live!**
+
+Jij hoort bij de allereersten die met ons meegaan. Zonder jou als early adopter was dit moment er niet geweest, en daar zijn we je oprecht dankbaar voor.
+
+## Maak je kringen en deel je mooiste momenten
+
+Innerr is jouw privé sociale tijdlijn met je eigen foto's en video's, alleen voor de kringen die jij kiest. Liken, reageren, scrollen, net als je gewend bent. Geen race om likes of volgers, geen algoritme, geen advertenties én geen AI die meekijkt.
+
+Begin vandaag nog:
+
+1. Maak een kring aan voor je familie, vrienden of de klas.
+2. Nodig de mensen uit die ertoe doen.
+3. Deel je eerste foto of video, alleen met hen.
+
+## Jouw early adopter belofte blijft staan
+
+Omdat jij er vanaf het eerste uur bij bent, **betaal jij nooit abonnementskosten**. Dat was onze belofte en die houden we.
+
+## Waarom Innerr?
+
+**Alleen privé kringen** — Jij bepaalt wie erin zit. Niemand anders.
+
+**Geen advertenties & nul AI op jouw foto's** — Jouw familiemomenten worden nooit gebruikt om modellen te trainen of advertenties te verkopen.
+
+**Gehost in de EU & AVG proof** — Jouw data is en blijft van jou. Download of verwijder alles wanneer je wilt.
+
+## Innerr geeft terug
+
+We doneren standaard 10% van elk betaald abonnement aan een Nederlandse ANBI-stichting die zich inzet voor zieke kinderen. Innerr is daarbij de donor, niet jij.
+
+## Meteen aan de slag
+
+De app staat klaar in de stores:
+
+- [Download voor iOS](https://apps.apple.com/nl/app/innerr-priv%C3%A9-fotos-delen/id6761749591)
+- [Download voor Android](https://play.google.com/store/apps/details?id=com.innerr.app)
+
+Loop je ergens tegenaan of heb je een idee? Reageer gerust op deze mail of stuur je vraag naar [hallo@innerr.app](mailto:hallo@innerr.app). We lezen en beantwoorden alles persoonlijk.
+
+Bedankt dat je vanaf het begin meebouwt aan iets moois: **social media weer sociaal maken.**
+
+— Michael & Nicky Blijleven, oprichters Innerr
 MD,
                     ],
                     'en' => ['subject' => '', 'body' => ''],

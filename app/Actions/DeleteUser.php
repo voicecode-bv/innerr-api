@@ -2,8 +2,8 @@
 
 namespace App\Actions;
 
+use App\Jobs\DeleteUserMedia;
 use App\Models\User;
-use App\Support\MediaUrl;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
  * Most child records (posts, comments, likes, circles, subscriptions, …) are
  * removed by database `ON DELETE CASCADE` constraints, so we only clean up the
  * rows that aren't cascaded (auth tokens, sessions, password-reset tokens and
- * polymorphic notifications) before deleting the user. Finally the user's whole
- * media folder on object storage (`users/{id}`) is wiped.
+ * polymorphic notifications) before deleting the user. Finally a queued job
+ * wipes the user's whole media folder on object storage (`users/{id}`).
  */
 class DeleteUser
 {
@@ -42,6 +42,6 @@ class DeleteUser
             $user->delete();
         });
 
-        MediaUrl::disk()->deleteDirectory("users/{$userId}");
+        DeleteUserMedia::dispatch($userId);
     }
 }

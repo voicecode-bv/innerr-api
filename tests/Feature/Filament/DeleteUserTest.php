@@ -3,11 +3,13 @@
 use App\Actions\DeleteUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Jobs\DeleteUserMedia;
 use App\Models\Post;
 use App\Models\User;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -15,14 +17,11 @@ beforeEach(function () {
     $this->actingAs(User::factory()->admin()->create());
 });
 
-it('deletes the user, its cascaded records and its media folder', function () {
-    $disk = Storage::fake('public');
+it('deletes the user with its cascaded and non-cascaded records', function () {
+    Queue::fake();
 
     $user = User::factory()->create();
     Post::factory()->count(2)->for($user)->create();
-
-    $disk->put("users/{$user->id}/posts/photo.jpg", 'x');
-    $disk->put("users/{$user->id}/originals/posts/photo.jpg", 'y');
 
     DB::table('sessions')->insert([
         'id' => 'sess-1',
@@ -38,8 +37,28 @@ it('deletes the user, its cascaded records and its media folder', function () {
     expect(User::find($user->id))->toBeNull();
     expect(Post::where('user_id', $user->id)->count())->toBe(0);
     expect(DB::table('sessions')->where('user_id', $user->id)->count())->toBe(0);
-    expect($disk->exists("users/{$user->id}/posts/photo.jpg"))->toBeFalse();
-    expect($disk->directoryExists("users/{$user->id}"))->toBeFalse();
+});
+
+it('queues a job to wipe the user media folder', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+
+    app(DeleteUser::class)($user);
+
+    Queue::assertPushed(DeleteUserMedia::class, fn (DeleteUserMedia $job): bool => $job->userId === $user->id);
+});
+
+it('wipes the whole user media folder when the job runs', function () {
+    $disk = Storage::fake('public');
+
+    $userId = '00000000-0000-0000-0000-000000000001';
+    $disk->put("users/{$userId}/posts/photo.jpg", 'x');
+    $disk->put("users/{$userId}/originals/posts/photo.jpg", 'y');
+
+    (new DeleteUserMedia($userId))->handle();
+
+    expect($disk->directoryExists("users/{$userId}"))->toBeFalse();
 });
 
 it('deletes a user and its media via the table delete action', function () {
