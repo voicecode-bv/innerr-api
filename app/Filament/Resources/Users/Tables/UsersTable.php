@@ -2,11 +2,15 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Actions\DeleteUser;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Number;
 
 class UsersTable
@@ -65,10 +69,19 @@ class UsersTable
             ])
             ->recordActions([
                 EditAction::make(),
+                DeleteAction::make()
+                    ->using(function (User $record): bool {
+                        app(DeleteUser::class)($record);
+
+                        return true;
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->using(function (Collection $records): void {
+                            $records->each(fn (User $record) => app(DeleteUser::class)($record));
+                        }),
                 ]),
             ]);
     }
