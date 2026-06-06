@@ -26,6 +26,20 @@ it('renders the requested locale and replaces placeholders', function () {
         ->and($rendered['body'])->toContain('border-radius: 9999px');
 });
 
+it('renders the launch announcement with its Dutch content and signature', function () {
+    $rendered = app(EmailTemplateRenderer::class)->render(
+        EmailTemplateRegistry::LAUNCH_ANNOUNCEMENT,
+        [],
+        'nl',
+    );
+
+    expect($rendered['subject'])->toBe('Het is zover: Innerr is live! 🎉')
+        ->and($rendered['body'])->toContain('Innerr is vanaf vandaag officieel live')
+        ->and($rendered['body'])->toContain('betaal jij nooit abonnementskosten')
+        ->and($rendered['body'])->toContain('Groetjes,')
+        ->and($rendered['body'])->toContain('Nicky van Innerr');
+});
+
 it('falls back to english when the requested locale is empty', function () {
     EmailTemplate::query()->where('key', EmailTemplateRegistry::CIRCLE_INVITATION)->update([
         'subject_fr' => null,
