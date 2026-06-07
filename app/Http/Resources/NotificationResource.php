@@ -23,6 +23,7 @@ class NotificationResource extends JsonResource
             'to_user_avatar',
             'to_user_avatar_thumbnail',
             'post_media_url',
+            'post_thumbnail_url',
             'post_thumbnail_small_url',
         ] as $key) {
             if (isset($data[$key])) {

@@ -177,6 +177,30 @@ it('includes signed small-thumbnail URLs for avatar and post media', function ()
         ->and($data['post_thumbnail_small_url'])->toContain('token=');
 });
 
+it('includes a signed poster URL for video posts without a small thumbnail', function () {
+    $postOwner = User::factory()->create();
+    $liker = User::factory()->create();
+    // Videos never get a 300x300 small thumbnail; they only have the poster
+    // frame (thumbnail_url), which the app falls back to for the list preview.
+    $post = Post::factory()->create([
+        'user_id' => $postOwner->id,
+        'thumbnail_url' => 'users/2/posts/thumbnails/post-poster.jpg',
+        'thumbnail_small_url' => null,
+    ]);
+    shareCircle($post, $liker);
+
+    $this->actingAs($liker)->postJson("/api/posts/{$post->id}/like");
+
+    $data = $this->actingAs($postOwner)
+        ->getJson('/api/notifications')
+        ->assertOk()
+        ->json('data.0.data');
+
+    expect($data['post_thumbnail_small_url'])->toBeNull()
+        ->and($data['post_thumbnail_url'])->toContain('post-poster.jpg')
+        ->and($data['post_thumbnail_url'])->toContain('token=');
+});
+
 it('keeps actionable notifications unread when marking all as read', function () {
     $user = User::factory()->create();
     $post = Post::factory()->create(['user_id' => $user->id]);

@@ -67,6 +67,7 @@ class PostTagged extends Notification implements ShouldQueue
             'user_avatar_thumbnail' => $this->poster->avatar_thumbnail,
             'post_id' => $this->post->id,
             'post_media_url' => $this->post->media_url,
+            'post_thumbnail_url' => $this->post->thumbnail_url,
             'post_thumbnail_small_url' => $this->post->thumbnail_small_url,
         ];
     }
