@@ -70,6 +70,10 @@ class AuthController extends Controller
         // (`$isSelf`) klopt.
         Auth::setUser($user);
 
+        // Verwijder alle bestaande tokens zodat er per gebruiker maar één
+        // actieve sessie tegelijk bestaat; inloggen verloopt elk eerder token.
+        $user->tokens()->delete();
+
         return response()->json([
             'token' => $user->createToken($request->device_name)->plainTextToken,
             'user' => new UserResource($user),

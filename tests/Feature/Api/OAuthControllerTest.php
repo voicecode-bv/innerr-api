@@ -93,6 +93,25 @@ it('redirects the mobile app with a token after a successful google login', func
     expect($response->headers->get('Location'))->toStartWith('innerrapp://oauth/callback?token=');
 });
 
+it('deletes all existing tokens on oauth login', function () {
+    $existing = User::factory()->create([
+        'email' => 'tokens@example.com',
+        'google_id' => 'g-tokens',
+    ]);
+    $existing->createToken('old-device-1');
+    $existing->createToken('old-device-2');
+
+    expect($existing->tokens()->count())->toBe(2);
+
+    mockSocialiteDriver('google', mockSocialiteUser('g-tokens', 'tokens@example.com', 'Any Name'));
+
+    $this->get('/api/oauth/google/callback?code=test')->assertRedirect();
+
+    $tokens = $existing->fresh()->tokens()->get();
+    expect($tokens)->toHaveCount(1);
+    expect($tokens->first()->name)->toBe('innerr-mobile');
+});
+
 it('reuses an existing user matched by google_id and updates the name', function () {
     $existing = User::factory()->create([
         'email' => 'old@example.com',

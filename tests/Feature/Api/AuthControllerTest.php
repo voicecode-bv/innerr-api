@@ -152,6 +152,24 @@ it('can login with valid credentials', function () {
         ->assertJsonPath('user.email', $user->email);
 });
 
+it('deletes all existing tokens on login', function () {
+    $user = User::factory()->create();
+    $user->createToken('old-device-1');
+    $user->createToken('old-device-2');
+
+    expect($user->tokens()->count())->toBe(2);
+
+    $this->postJson('/api/auth/login', [
+        'email' => $user->email,
+        'password' => 'secret',
+        'device_name' => 'new-device',
+    ])->assertSuccessful();
+
+    $tokens = $user->tokens()->get();
+    expect($tokens)->toHaveCount(1);
+    expect($tokens->first()->name)->toBe('new-device');
+});
+
 it('rejects login with invalid password', function () {
     $user = User::factory()->create();
 

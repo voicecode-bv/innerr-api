@@ -63,6 +63,10 @@ class OAuthController extends Controller
             return $this->redirectToApp(['error' => 'unverified_account_exists']);
         }
 
+        // Verwijder alle bestaande tokens zodat er per gebruiker maar één
+        // actieve sessie tegelijk bestaat; inloggen verloopt elk eerder token.
+        $user->tokens()->delete();
+
         $token = $user->createToken('innerr-mobile')->plainTextToken;
 
         return $this->redirectToApp(['token' => $token]);
