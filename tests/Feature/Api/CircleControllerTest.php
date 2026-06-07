@@ -80,6 +80,40 @@ it('returns all related circles when not_member_username does not match an exist
         ->assertJsonCount(2, 'data');
 });
 
+it('sorts circles by name ascending', function () {
+    $user = User::factory()->create();
+    $charlie = Circle::factory()->for($user)->create(['name' => 'Charlie']);
+    $alpha = Circle::factory()->for($user)->create(['name' => 'Alpha']);
+    $bravo = Circle::factory()->for($user)->create(['name' => 'Bravo']);
+
+    $response = $this->actingAs($user)
+        ->getJson('/api/circles?sort=name')
+        ->assertOk();
+
+    expect($response->json('data.*.id'))->toBe([$alpha->id, $bravo->id, $charlie->id]);
+});
+
+it('sorts circles by updated_at descending', function () {
+    $user = User::factory()->create();
+    $oldest = Circle::factory()->for($user)->create(['updated_at' => now()->subDays(3)]);
+    $newest = Circle::factory()->for($user)->create(['updated_at' => now()->subDay()]);
+    $middle = Circle::factory()->for($user)->create(['updated_at' => now()->subDays(2)]);
+
+    $response = $this->actingAs($user)
+        ->getJson('/api/circles?sort=updated_at&direction=desc')
+        ->assertOk();
+
+    expect($response->json('data.*.id'))->toBe([$newest->id, $middle->id, $oldest->id]);
+});
+
+it('rejects an invalid sort column', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->getJson('/api/circles?sort=user_id')
+        ->assertStatus(422);
+});
+
 it('allows a member to view a circle and its members', function () {
     $owner = User::factory()->create();
     $circle = Circle::factory()->for($owner)->create();

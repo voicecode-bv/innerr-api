@@ -41,6 +41,20 @@ class CircleController extends Controller
                 description: 'Exclude circles where the user with this username is already the owner or a member.',
                 schema: new OA\Schema(type: 'string', example: 'janedoe'),
             ),
+            new OA\Parameter(
+                name: 'sort',
+                in: 'query',
+                required: false,
+                description: 'Column to sort by. Defaults to `created_at`.',
+                schema: new OA\Schema(type: 'string', enum: ['name', 'updated_at', 'created_at'], example: 'name'),
+            ),
+            new OA\Parameter(
+                name: 'direction',
+                in: 'query',
+                required: false,
+                description: 'Sort direction. Defaults to `asc` for `name` and `desc` otherwise.',
+                schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], example: 'asc'),
+            ),
         ],
         responses: [
             new OA\Response(
@@ -60,9 +74,14 @@ class CircleController extends Controller
     {
         $userId = $request->user()->id;
 
-        $request->validate([
+        $validated = $request->validate([
             'not_member_username' => ['sometimes', 'string'],
+            'sort' => ['sometimes', 'string', 'in:name,updated_at,created_at'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
         ]);
+
+        $sortColumn = $validated['sort'] ?? 'created_at';
+        $sortDirection = $validated['direction'] ?? ($sortColumn === 'name' ? 'asc' : 'desc');
 
         $excludeUserId = null;
         if ($request->filled('not_member_username')) {
@@ -86,7 +105,7 @@ class CircleController extends Controller
                     ]);
             })
             ->withCount('members')
-            ->latest()
+            ->orderBy($sortColumn, $sortDirection)
             ->limit(500)
             ->get();
 

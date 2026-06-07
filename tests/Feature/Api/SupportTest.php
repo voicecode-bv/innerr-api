@@ -49,6 +49,25 @@ it('accepts a support request without version or platform', function () {
     });
 });
 
+it('renders the Filament-managed template with the request details and no signature', function () {
+    $user = User::factory()->create(['name' => 'Sophie de Vries', 'email' => 'sophie@example.com']);
+
+    $mail = new SupportRequestMail(
+        supportMessage: 'The map keeps crashing.',
+        appVersion: '1.2.3',
+        platform: 'ios',
+        sender: $user,
+    );
+
+    $mail->assertHasSubject('Supportverzoek van Sophie de Vries');
+    $mail->assertSeeInHtml('The map keeps crashing.');
+    $mail->assertSeeInHtml('sophie@example.com');
+    $mail->assertSeeInHtml('1.2.3');
+    $mail->assertSeeInHtml('ios');
+    // The marketing signature must not be appended to an internal support mail.
+    $mail->assertDontSeeInHtml('Groetjes');
+});
+
 it('validates the request', function () {
     Mail::fake();
 

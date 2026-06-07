@@ -20,7 +20,7 @@ class EmailTemplateRenderer
             ? [$template->subjectFor($locale), $template->bodyFor($locale)]
             : $this->defaults($key, $locale);
 
-        if (! $this->isRawHtml($template, $key)) {
+        if (! $this->isRawHtml($template, $key) && $this->signatureEnabled($key)) {
             $body = $this->appendSignature($body, $locale);
         }
 
@@ -56,6 +56,11 @@ class EmailTemplateRenderer
 
         return (EmailTemplateRegistry::get($key)['format'] ?? EmailTemplate::FORMAT_MARKDOWN_MESSAGE)
             === EmailTemplate::FORMAT_RAW_HTML;
+    }
+
+    private function signatureEnabled(string $key): bool
+    {
+        return EmailTemplateRegistry::get($key)['signature'] ?? true;
     }
 
     private function appendSignature(string $body, string $locale): string

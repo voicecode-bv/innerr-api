@@ -30,12 +30,15 @@ class EmailTemplateRegistry
 
     public const EMAIL_VERIFICATION = 'email_verification';
 
+    public const SUPPORT_REQUEST = 'support_request';
+
     /**
      * @return array<string, array{
      *     label: string,
      *     description: string,
      *     format: string,
      *     mailer?: string|null,
+     *     signature?: bool,
      *     placeholders: array<string, string>,
      *     samples: array<string, string>,
      *     defaults: array<string, array{subject: string, body: string}>,
@@ -540,6 +543,41 @@ MD,
                     'fr' => [
                         'subject' => 'Merci pour votre abonnement à Innerr',
                         'body' => "# Merci {recipient_name} !\n\nNous sommes ravis que vous ayez souscrit un abonnement à Innerr. Votre soutien nous permet de continuer à améliorer et à développer l'application.\n\n## Innerr Donne\n\nSaviez-vous qu'une partie de chaque abonnement est directement reversée à des œuvres caritatives ? Grâce à **Innerr Donne**, nous reversons un pourcentage fixe de nos revenus à des initiatives qui favorisent le bien-être, le lien social et la santé mentale.\n\nEnvie d'en savoir plus sur les projets que nous soutenons ? Rendez-vous sur [innerr.app/fr/don]({donate_url}).\n\nMerci encore de faire partie d'Innerr.",
+                    ],
+                ],
+            ],
+
+            self::SUPPORT_REQUEST => [
+                'label' => 'Support request (internal)',
+                'description' => 'Sent to the internal support inbox when a user submits the in-app support form. Reply-To is set to the user so the team can answer directly.',
+                'format' => EmailTemplate::FORMAT_MARKDOWN_MESSAGE,
+                'signature' => false,
+                'placeholders' => [
+                    'sender_name' => 'Name of the user who submitted the request.',
+                    'sender_email' => 'Email address of the user (also set as Reply-To).',
+                    'app_version' => 'App version reported by the client.',
+                    'platform' => 'Platform reported by the client (ios, android or web).',
+                    'message' => 'The support message typed by the user.',
+                ],
+                'samples' => [
+                    'sender_name' => 'Sophie de Vries',
+                    'sender_email' => 'sophie@example.com',
+                    'app_version' => '1.2.3',
+                    'platform' => 'ios',
+                    'message' => 'The app keeps crashing when I open the map.',
+                ],
+                'defaults' => [
+                    'nl' => [
+                        'subject' => 'Supportverzoek van {sender_name}',
+                        'body' => "# Nieuw supportverzoek\n\n**Van:** {sender_name} ({sender_email})\n**App versie:** {app_version}\n**Platform:** {platform}\n\n---\n\n{message}",
+                    ],
+                    'en' => [
+                        'subject' => 'Support request from {sender_name}',
+                        'body' => "# New support request\n\n**From:** {sender_name} ({sender_email})\n**App version:** {app_version}\n**Platform:** {platform}\n\n---\n\n{message}",
+                    ],
+                    'fr' => [
+                        'subject' => 'Demande de support de {sender_name}',
+                        'body' => "# Nouvelle demande de support\n\n**De :** {sender_name} ({sender_email})\n**Version de l'app :** {app_version}\n**Plateforme :** {platform}\n\n---\n\n{message}",
                     ],
                 ],
             ],
