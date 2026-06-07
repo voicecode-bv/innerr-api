@@ -25,6 +25,15 @@ class Post extends Model
     /** @use HasFactory<PostFactory> */
     use HasFactory, HasSpatial, HasUuids;
 
+    /**
+     * Werk de `updated_at` van gekoppelde circles bij wanneer een post wordt
+     * geplaatst in of gewijzigd binnen een circle, zodat circles op recente
+     * activiteit gesorteerd kunnen worden.
+     *
+     * @var array<int, string>
+     */
+    protected $touches = ['circles'];
+
     protected static function booted(): void
     {
         static::deleting(function (Post $post) {

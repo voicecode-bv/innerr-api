@@ -45,14 +45,14 @@ class CircleController extends Controller
                 name: 'sort',
                 in: 'query',
                 required: false,
-                description: 'Column to sort by. Defaults to `created_at`.',
+                description: 'Column to sort by. Defaults to `name`.',
                 schema: new OA\Schema(type: 'string', enum: ['name', 'updated_at', 'created_at'], example: 'name'),
             ),
             new OA\Parameter(
                 name: 'direction',
                 in: 'query',
                 required: false,
-                description: 'Sort direction. Defaults to `asc` for `name` and `desc` otherwise.',
+                description: 'Sort direction. Defaults to `asc`.',
                 schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], example: 'asc'),
             ),
         ],
@@ -80,8 +80,8 @@ class CircleController extends Controller
             'direction' => ['sometimes', 'string', 'in:asc,desc'],
         ]);
 
-        $sortColumn = $validated['sort'] ?? 'created_at';
-        $sortDirection = $validated['direction'] ?? ($sortColumn === 'name' ? 'asc' : 'desc');
+        $sortColumn = $validated['sort'] ?? 'name';
+        $sortDirection = $validated['direction'] ?? 'asc';
 
         $excludeUserId = null;
         if ($request->filled('not_member_username')) {

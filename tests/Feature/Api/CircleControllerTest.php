@@ -106,12 +106,35 @@ it('sorts circles by updated_at descending', function () {
     expect($response->json('data.*.id'))->toBe([$newest->id, $middle->id, $oldest->id]);
 });
 
+it('sorts circles by name ascending by default', function () {
+    $user = User::factory()->create();
+    $charlie = Circle::factory()->for($user)->create(['name' => 'Charlie']);
+    $alpha = Circle::factory()->for($user)->create(['name' => 'Alpha']);
+    $bravo = Circle::factory()->for($user)->create(['name' => 'Bravo']);
+
+    $response = $this->actingAs($user)
+        ->getJson('/api/circles')
+        ->assertOk();
+
+    expect($response->json('data.*.id'))->toBe([$alpha->id, $bravo->id, $charlie->id]);
+});
+
 it('rejects an invalid sort column', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->getJson('/api/circles?sort=user_id')
         ->assertStatus(422);
+});
+
+it('touches the circle updated_at when a post is attached to it', function () {
+    $user = User::factory()->create();
+    $circle = Circle::factory()->for($user)->create(['updated_at' => now()->subWeek()]);
+    $post = Post::factory()->for($user)->create();
+
+    $post->circles()->attach($circle);
+
+    expect($circle->fresh()->updated_at->isToday())->toBeTrue();
 });
 
 it('allows a member to view a circle and its members', function () {
