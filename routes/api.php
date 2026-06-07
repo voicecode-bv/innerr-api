@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\Subscriptions\MollieCancelController;
 use App\Http\Controllers\Api\Subscriptions\MollieCheckoutController;
 use App\Http\Controllers\Api\Subscriptions\PlansController;
 use App\Http\Controllers\Api\Subscriptions\SubscriptionController;
+use App\Http\Controllers\Api\SupportController;
 use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserSearchController;
@@ -234,6 +235,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profiles/{user:username}/photos/map', [PhotoMapController::class, 'profile'])->name('api.profiles.photos.map');
 
     Route::get('/service-keys', ServiceKeyController::class)->name('api.service-keys.index');
+
+    Route::post('/support', SupportController::class)
+        ->middleware('throttle:5,1')
+        ->name('api.support.store');
 
     Route::get('/subscription/me', [SubscriptionController::class, 'show'])->name('api.subscription.me');
     Route::post('/subscription/iap/apple/verify', AppleVerifyController::class)
