@@ -51,6 +51,21 @@ it('is idempotent and keeps the original completed_at on re-post', function () {
     expect($rows->first()->completed_at->timestamp)->toBe($first->timestamp);
 });
 
+it('records the add_children step', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'add_children'])
+        ->assertNoContent();
+
+    expect(
+        OnboardingStep::query()
+            ->where('user_id', $user->id)
+            ->where('step', OnboardingStepEnum::AddChildren)
+            ->exists()
+    )->toBeTrue();
+});
+
 it('rejects an unknown step', function () {
     $user = User::factory()->create();
 

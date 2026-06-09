@@ -22,6 +22,7 @@ class UpdatePersonRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:50'],
             'birthdate' => ['sometimes', 'nullable', 'date', 'before_or_equal:today', 'after:1900-01-01'],
+            'is_child' => ['sometimes', 'boolean'],
             'user_id' => ['sometimes', 'nullable', 'uuid', 'exists:users,id'],
         ];
     }

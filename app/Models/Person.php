@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['created_by_user_id', 'user_id', 'name', 'birthdate', 'avatar', 'avatar_thumbnail'])]
+#[Fillable(['created_by_user_id', 'user_id', 'name', 'birthdate', 'is_child', 'avatar', 'avatar_thumbnail'])]
 class Person extends Model
 {
     /** @use HasFactory<PersonFactory> */
@@ -20,6 +20,7 @@ class Person extends Model
     /** @var array<string, mixed> */
     protected $attributes = [
         'usage_count' => 0,
+        'is_child' => false,
     ];
 
     /**
@@ -29,6 +30,7 @@ class Person extends Model
     {
         return [
             'birthdate' => 'date',
+            'is_child' => 'boolean',
             'usage_count' => 'integer',
         ];
     }

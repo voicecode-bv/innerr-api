@@ -22,6 +22,7 @@ class StorePersonRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:50'],
             'birthdate' => ['nullable', 'date', 'before_or_equal:today', 'after:1900-01-01'],
+            'is_child' => ['sometimes', 'boolean'],
             'user_id' => ['nullable', 'uuid', 'exists:users,id'],
             'circle_ids' => ['required', 'array', 'min:1', 'max:50'],
             'circle_ids.*' => ['uuid', 'distinct', new ManageablePersonCircle($this->user())],

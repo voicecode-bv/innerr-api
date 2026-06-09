@@ -269,6 +269,50 @@ describe('store', function () {
             ->assertJsonValidationErrors('birthdate');
     });
 
+    it('defaults is_child to false', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+
+        $this->actingAs($owner)
+            ->postJson('/api/persons', [
+                'name' => 'Oma Marie',
+                'circle_ids' => [$circle->id],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_child', false);
+    });
+
+    it('stores a person as a child', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+
+        $this->actingAs($owner)
+            ->postJson('/api/persons', [
+                'name' => 'Lotte',
+                'birthdate' => '2018-03-04',
+                'is_child' => true,
+                'circle_ids' => [$circle->id],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_child', true);
+
+        expect(Person::firstWhere('name', 'Lotte')->is_child)->toBeTrue();
+    });
+
+    it('rejects a non-boolean is_child', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+
+        $this->actingAs($owner)
+            ->postJson('/api/persons', [
+                'name' => 'Invalid',
+                'is_child' => 'yes-please',
+                'circle_ids' => [$circle->id],
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('is_child');
+    });
+
     it('lets the person be linked to a user account that is a member of every circle', function () {
         $owner = User::factory()->create();
         $linked = User::factory()->create();
@@ -327,6 +371,20 @@ describe('update', function () {
             ->assertOk()
             ->assertJsonPath('data.name', 'New')
             ->assertJsonPath('data.birthdate', '1985-01-01');
+    });
+
+    it('lets the creator toggle is_child', function () {
+        $owner = User::factory()->create();
+        $circle = Circle::factory()->for($owner)->create();
+        $person = Person::factory()->for($owner, 'creator')->create(['is_child' => false]);
+        $person->circles()->attach($circle);
+
+        $this->actingAs($owner)
+            ->putJson('/api/persons/'.$person->id, ['is_child' => true])
+            ->assertOk()
+            ->assertJsonPath('data.is_child', true);
+
+        expect($person->fresh()->is_child)->toBeTrue();
     });
 
     it('lets a circle owner update a person someone else created', function () {

@@ -100,6 +100,7 @@ class PersonController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'is_child', type: 'boolean', description: 'Optional. Mark this person as a child of the user.'),
                     new OA\Property(property: 'user_id', type: 'string', format: 'uuid', nullable: true, description: 'Optional. Link this person to an existing user account.'),
                     new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid')),
                 ],
@@ -145,6 +146,7 @@ class PersonController extends Controller
                 properties: [
                     new OA\Property(property: 'name', type: 'string', maxLength: 50),
                     new OA\Property(property: 'birthdate', type: 'string', format: 'date', nullable: true),
+                    new OA\Property(property: 'is_child', type: 'boolean'),
                     new OA\Property(property: 'user_id', type: 'string', format: 'uuid', nullable: true),
                 ],
             ),
