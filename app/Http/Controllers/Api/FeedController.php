@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 
 class FeedController extends Controller
@@ -32,6 +33,7 @@ class FeedController extends Controller
             new OA\Parameter(name: 'circle_ids[]', in: 'query', required: false, schema: new OA\Schema(type: 'array', items: new OA\Items(type: 'string', format: 'uuid'))),
             new OA\Parameter(name: 'date_from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
             new OA\Parameter(name: 'date_to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'sort', in: 'query', required: false, description: 'Sort posts by upload time (`created_at`, default) or capture time (`taken_at`, falling back to `created_at` when no EXIF capture date is present). Always newest first.', schema: new OA\Schema(type: 'string', enum: ['created_at', 'taken_at'], default: 'created_at')),
         ],
         responses: [
             new OA\Response(
@@ -53,6 +55,7 @@ class FeedController extends Controller
         $request->validate([
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'sort' => ['nullable', Rule::in(['created_at', 'taken_at'])],
         ]);
 
         $user = $request->user();
@@ -77,12 +80,20 @@ class FeedController extends Controller
         $this->applyCircleFilters($query, $request, $user);
         $this->applyDateFilters($query, $request);
 
+        $sortByTakenAt = $request->string('sort')->toString() === 'taken_at';
+
         $posts = $query
             ->withExists([
                 'likes as is_liked' => fn ($q) => $q->where('user_id', $user->id),
                 'circles as is_downloadable_via_circles' => fn ($q) => $q->where('members_can_download', true),
             ])
-            ->latest()
+            // Capture-time sort falls back to upload time for posts without EXIF,
+            // mirroring how the client renders `taken_at ?? created_at`.
+            ->when(
+                $sortByTakenAt,
+                fn (Builder $q) => $q->orderByRaw('COALESCE(taken_at, created_at) DESC'),
+                fn (Builder $q) => $q->latest(),
+            )
             ->paginate(10)
             ->withQueryString();
 

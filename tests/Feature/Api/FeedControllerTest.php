@@ -600,3 +600,65 @@ describe('combined filters', function () {
             ->and($response->json('data.0.id'))->toBe($match->id);
     });
 });
+
+describe('sorting', function () {
+    it('sorts by taken_at when requested, ignoring upload order', function () {
+        $user = User::factory()->create();
+
+        // Uploaded just now but captured two years ago.
+        $uploadedLastTakenFirst = Post::factory()->for($user)->create([
+            'created_at' => now(),
+            'taken_at' => now()->subYears(2),
+        ]);
+
+        // Uploaded yesterday but captured today.
+        $uploadedFirstTakenLast = Post::factory()->for($user)->create([
+            'created_at' => now()->subDay(),
+            'taken_at' => now(),
+        ]);
+
+        $ids = collect(
+            $this->actingAs($user)
+                ->getJson('/api/feed?sort=taken_at')
+                ->assertSuccessful()
+                ->json('data')
+        )->pluck('id')->all();
+
+        expect($ids[0])->toBe($uploadedFirstTakenLast->id)
+            ->and($ids[1])->toBe($uploadedLastTakenFirst->id);
+    });
+
+    it('falls back to created_at when a post has no taken_at', function () {
+        $user = User::factory()->create();
+
+        $withTakenAt = Post::factory()->for($user)->create([
+            'created_at' => now()->subYear(),
+            'taken_at' => now()->subYear(),
+        ]);
+
+        // No EXIF capture date, uploaded just now: should rank first.
+        $withoutTakenAt = Post::factory()->for($user)->create([
+            'created_at' => now(),
+            'taken_at' => null,
+        ]);
+
+        $ids = collect(
+            $this->actingAs($user)
+                ->getJson('/api/feed?sort=taken_at')
+                ->assertSuccessful()
+                ->json('data')
+        )->pluck('id')->all();
+
+        expect($ids[0])->toBe($withoutTakenAt->id)
+            ->and($ids[1])->toBe($withTakenAt->id);
+    });
+
+    it('rejects an unknown sort value', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/feed?sort=bogus')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('sort');
+    });
+});
