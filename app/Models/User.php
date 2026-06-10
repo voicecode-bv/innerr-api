@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Entitlement;
 use App\Enums\FeedLayout;
 use App\Enums\NotificationPreference;
+use App\Enums\OnboardingStep as OnboardingStepEnum;
 use App\Enums\SubscriptionStatus;
 use App\Observers\UserObserver;
 use Database\Factories\UserFactory;
@@ -138,6 +139,21 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
     public function onboardingSteps(): HasMany
     {
         return $this->hasMany(OnboardingStep::class);
+    }
+
+    /**
+     * The furthest completed onboarding step, ranked by flow position rather
+     * than timestamp so back-and-forth navigation can never move the resume
+     * point backwards. Null when no steps were tracked yet.
+     */
+    public function furthestOnboardingStep(): ?OnboardingStepEnum
+    {
+        $rank = array_flip(array_column(OnboardingStepEnum::cases(), 'value'));
+
+        return $this->onboardingSteps
+            ->sortByDesc(fn (OnboardingStep $step): int => $rank[$step->step->value] ?? -1)
+            ->first()
+            ?->step;
     }
 
     /**

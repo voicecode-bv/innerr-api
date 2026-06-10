@@ -24,6 +24,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'email_verified', type: 'boolean', description: 'Whether the email address is verified. Only present for the authenticated user.'),
         new OA\Property(property: 'email_verification_required', type: 'boolean', description: 'Whether this account must verify its email before accessing the app. Grandfathered accounts return false. Only present for the authenticated user.'),
         new OA\Property(property: 'onboarded_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'onboarding_step', type: 'string', enum: ['intro', 'first_circle', 'add_children', 'invite_members', 'notifications'], nullable: true, description: 'Furthest completed onboarding step, so the client can resume mid-flow. Only present for the authenticated user while not yet onboarded; null otherwise.'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
@@ -54,6 +55,12 @@ class UserResource extends JsonResource
             'email_verified' => $isSelf ? $this->email_verified_at !== null : null,
             'email_verification_required' => $isSelf ? $this->requiresEmailVerification() : null,
             'onboarded_at' => $isSelf ? $this->onboarded_at : null,
+            // Computed only for the not-yet-onboarded account itself: this
+            // resource is reused on every nested user (comments, posts) and
+            // must not cost an onboarding-steps query there.
+            'onboarding_step' => $isSelf && $this->onboarded_at === null
+                ? $this->furthestOnboardingStep()?->value
+                : null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
