@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountExportController;
 use App\Http\Controllers\Api\AccountStorageController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChildFilterController;
 use App\Http\Controllers\Api\CircleController;
 use App\Http\Controllers\Api\CircleInvitationController;
 use App\Http\Controllers\Api\CircleInviteLinkController;
@@ -200,6 +201,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/default-circles', [DefaultCircleController::class, 'index'])->name('api.default-circles.index');
     Route::put('/default-circles', [DefaultCircleController::class, 'update'])->name('api.default-circles.update');
+
+    Route::get('/child-filter', [ChildFilterController::class, 'index'])->name('api.child-filter.index');
+    Route::put('/child-filter', [ChildFilterController::class, 'update'])->name('api.child-filter.update');
 
     Route::post('/device-token', [DeviceTokenController::class, 'store'])->name('api.device-token.store');
     Route::post('/device-info', [DeviceInfoController::class, 'store'])->name('api.device-info.store');

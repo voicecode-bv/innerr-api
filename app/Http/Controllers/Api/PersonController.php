@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\CircleMemberRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePersonRequest;
 use App\Http\Requests\UpdatePersonAvatarRequest;
@@ -70,18 +69,7 @@ class PersonController extends Controller
 
             $query->whereHas('circles', fn ($q) => $q->whereKey($circle->id));
         } else {
-            $query->whereHas('circles', function ($q) use ($user) {
-                $q->where('circles.user_id', $user->id)
-                    ->orWhereHas('members', function ($m) use ($user) {
-                        $m->where('users.id', $user->id)
-                            ->where(function ($w) {
-                                // Members only see a circle's persons when the
-                                // member list is visible, unless they administer it.
-                                $w->where('circles.members_can_view_members', true)
-                                    ->orWhere('circle_user.role', CircleMemberRole::Administrator->value);
-                            });
-                    });
-            });
+            $query->visibleTo($user);
         }
 
         return PersonResource::collection($query->get());

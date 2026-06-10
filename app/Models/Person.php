@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\CircleMemberRole;
 use App\Services\MediaUploadService;
 use Database\Factories\PersonFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -76,5 +78,27 @@ class Person extends Model
     public function posts(): BelongsToMany
     {
         return $this->belongsToMany(Post::class)->withTimestamps();
+    }
+
+    /**
+     * Persons the given user may see: those in circles they own, or circles
+     * they are a member of with a visible member list (administrators always
+     * see them). Mirrors the persons index scope.
+     *
+     * @param  Builder<Person>  $query
+     * @return Builder<Person>
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $query->whereHas('circles', function ($q) use ($user) {
+            $q->where('circles.user_id', $user->id)
+                ->orWhereHas('members', function ($m) use ($user) {
+                    $m->where('users.id', $user->id)
+                        ->where(function ($w) {
+                            $w->where('circles.members_can_view_members', true)
+                                ->orWhere('circle_user.role', CircleMemberRole::Administrator->value);
+                        });
+                });
+        });
     }
 }

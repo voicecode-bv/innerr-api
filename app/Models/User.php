@@ -27,7 +27,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Soved\Laravel\Gdpr\Contracts\Portable as PortableContract;
 use Soved\Laravel\Gdpr\Portable;
 
-#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'avatar_thumbnail', 'bio', 'searchable', 'feed_layout', 'locale', 'notification_preferences', 'default_circle_ids', 'device_info', 'google_id', 'apple_id', 'mollie_customer_id', 'onboarded_at'])]
+#[Fillable(['name', 'username', 'email', 'password', 'avatar', 'avatar_thumbnail', 'bio', 'searchable', 'feed_layout', 'locale', 'notification_preferences', 'default_circle_ids', 'child_filter_ids', 'device_info', 'google_id', 'apple_id', 'mollie_customer_id', 'onboarded_at'])]
 #[Hidden(['password', 'remember_token'])]
 #[ObservedBy([UserObserver::class])]
 class User extends Authenticatable implements FilamentUser, HasLocalePreference, PortableContract
@@ -53,6 +53,7 @@ class User extends Authenticatable implements FilamentUser, HasLocalePreference,
             'password' => 'hashed',
             'notification_preferences' => 'array',
             'default_circle_ids' => 'array',
+            'child_filter_ids' => 'array',
             'device_info' => 'array',
             'storage_used_bytes' => 'integer',
             'admin' => 'boolean',
