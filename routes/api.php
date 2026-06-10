@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AccountExportController;
 use App\Http\Controllers\Api\AccountStorageController;
+use App\Http\Controllers\Api\AppVersionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChildFilterController;
 use App\Http\Controllers\Api\CircleController;
@@ -93,6 +94,8 @@ Route::post('/waiting-list', [WaitingListEntryController::class, 'store'])->midd
 Route::get('/waiting-list', [WaitingListEntryController::class, 'count'])->name('api.waiting-list.count');
 
 Route::get('/subscription/plans', [PlansController::class, 'index'])->name('api.subscription.plans.index');
+
+Route::get('/app-version', AppVersionController::class)->middleware('throttle:30,1')->name('api.app-version');
 
 Route::get('/invite-links/{token}', [CircleInviteLinkController::class, 'show'])
     ->middleware('throttle:60,1')
