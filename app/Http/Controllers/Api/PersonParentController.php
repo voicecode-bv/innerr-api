@@ -28,7 +28,8 @@ class PersonParentController extends Controller
         requestBody: new OA\RequestBody(
             required: true,
             content: new OA\JsonContent(properties: [
-                new OA\Property(property: 'username', type: 'string', description: 'Either username or email is required.'),
+                new OA\Property(property: 'username', type: 'string', description: 'One of username, email or user_id is required.'),
+                new OA\Property(property: 'user_id', type: 'string', format: 'uuid'),
                 new OA\Property(property: 'email', type: 'string', format: 'email'),
             ]),
         ),
@@ -44,15 +45,16 @@ class PersonParentController extends Controller
         $this->authorize('manageParents', $person);
 
         $validated = $request->validate([
-            'username' => ['required_without:email', 'nullable', 'string', 'exists:users,username'],
-            'email' => ['required_without:username', 'nullable', 'email', 'max:255'],
+            'username' => ['required_without_all:email,user_id', 'nullable', 'string', 'exists:users,username'],
+            'email' => ['required_without_all:username,user_id', 'nullable', 'email', 'max:255'],
+            'user_id' => ['required_without_all:username,email', 'nullable', 'uuid', 'exists:users,id'],
         ]);
 
-        $parent = isset($validated['username'])
-            ? User::where('username', $validated['username'])->first()
-            : User::where('email', $validated['email'])->first();
-
-        $field = isset($validated['username']) ? 'username' : 'email';
+        [$field, $parent] = match (true) {
+            isset($validated['user_id']) => ['user_id', User::find($validated['user_id'])],
+            isset($validated['username']) => ['username', User::where('username', $validated['username'])->first()],
+            default => ['email', User::where('email', $validated['email'])->first()],
+        };
 
         if ($parent === null) {
             throw ValidationException::withMessages([

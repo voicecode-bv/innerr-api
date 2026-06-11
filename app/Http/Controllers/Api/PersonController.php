@@ -104,7 +104,8 @@ class PersonController extends Controller
     {
         $data = $request->validated();
         $circleIds = $data['circle_ids'];
-        unset($data['circle_ids']);
+        $parentUserIds = $data['parent_user_ids'] ?? [];
+        unset($data['circle_ids'], $data['parent_user_ids']);
 
         $person = Person::create([
             ...$data,
@@ -112,9 +113,11 @@ class PersonController extends Controller
         ]);
 
         if ($person->is_child) {
-            // The creator is the child's first parent; co-parents are added
-            // explicitly via the parents endpoint.
-            $person->parents()->attach($request->user()->id);
+            // The creator is always the child's first parent; optional
+            // co-parents come along in the same request.
+            $person->parents()->syncWithoutDetaching(
+                array_unique([$request->user()->id, ...$parentUserIds]),
+            );
         }
 
         $person->circles()->sync($circleIds);

@@ -153,3 +153,55 @@ it('forbids circle owners who are not parents from updating a child', function (
     $this->deleteJson("/api/persons/{$child->id}/circles/{$otherCircle->id}")
         ->assertOk();
 });
+
+it('attaches co-parents passed along when creating a child', function () {
+    $creator = User::factory()->create();
+    $circle = Circle::factory()->for($creator)->create();
+    $partner = User::factory()->create();
+    $circle->members()->attach($partner);
+
+    Sanctum::actingAs($creator);
+
+    $response = $this->postJson('/api/persons', [
+        'name' => 'Lotte',
+        'is_child' => true,
+        'circle_ids' => [$circle->id],
+        'parent_user_ids' => [$partner->id],
+    ])->assertCreated();
+
+    $parentIds = collect($response->json('data.parents'))->pluck('id');
+    expect($parentIds)->toContain($creator->id)->toContain($partner->id);
+});
+
+it('rejects co-parents outside the selected circles at create time', function () {
+    $creator = User::factory()->create();
+    $circle = Circle::factory()->for($creator)->create();
+    $stranger = User::factory()->create();
+
+    Sanctum::actingAs($creator);
+
+    $this->postJson('/api/persons', [
+        'name' => 'Lotte',
+        'is_child' => true,
+        'circle_ids' => [$circle->id],
+        'parent_user_ids' => [$stranger->id],
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('parent_user_ids.0');
+});
+
+it('accepts a user_id when adding a co-parent', function () {
+    $creator = User::factory()->create();
+    [$circle, $child] = makeChildWithCircle($creator);
+
+    $partner = User::factory()->create();
+    $circle->members()->attach($partner);
+
+    Sanctum::actingAs($creator);
+
+    $this->postJson("/api/persons/{$child->id}/parents", [
+        'user_id' => $partner->id,
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.parents.1.id', $partner->id);
+});
