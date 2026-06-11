@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\OnboardingStepController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PersonController;
+use App\Http\Controllers\Api\PersonParentController;
 use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
@@ -160,6 +161,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/persons/{person}', [PersonController::class, 'destroy'])->name('api.persons.destroy');
     Route::post('/persons/{person}/avatar', [PersonController::class, 'updateAvatar'])->name('api.persons.avatar.update');
     Route::delete('/persons/{person}/avatar', [PersonController::class, 'deleteAvatar'])->name('api.persons.avatar.delete');
+    Route::post('/persons/{person}/parents', [PersonParentController::class, 'store'])->name('api.persons.parents.store');
+    Route::delete('/persons/{person}/parents/{user}', [PersonParentController::class, 'destroy'])->name('api.persons.parents.destroy');
     Route::post('/persons/{person}/circles/{circle}', [PersonController::class, 'attachCircle'])->name('api.persons.circles.attach');
     Route::delete('/persons/{person}/circles/{circle}', [PersonController::class, 'detachCircle'])->name('api.persons.circles.detach');
 

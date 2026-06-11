@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\CircleInvitationAcceptedNotification;
 use App\Notifications\CircleInvitationReceivedNotification;
 use App\Notifications\CircleMemberInvitedByMemberNotification;
+use App\Notifications\CircleMemberJoinedNotification;
 use App\Notifications\CircleOwnershipTransferAcceptedNotification;
 use App\Notifications\CircleOwnershipTransferDeclinedNotification;
 use App\Notifications\CircleOwnershipTransferRequestedNotification;
@@ -39,6 +40,20 @@ it('deep-links post interactions to the post', function () {
     expect(fcmDeepLink(new PostLiked($user, $post)))->toBe('/posts/7')
         ->and(fcmDeepLink(new PostTagged($user, $post)))->toBe('/posts/7')
         ->and(fcmDeepLink(new NewCirclePost($user, $post)))->toBe('/posts/7');
+});
+
+it('deep-links a member join to the circle', function () {
+    $owner = new User(['name' => 'Alice']);
+    $owner->id = 1;
+
+    $circle = new Circle(['name' => 'Family']);
+    $circle->id = 3;
+
+    $joiner = new User(['name' => 'Oma']);
+    $joiner->id = 2;
+
+    expect(fcmDeepLink(new CircleMemberJoinedNotification($circle, $joiner)))
+        ->toBe('/circles/3');
 });
 
 it('deep-links comment notifications to the comment thread', function () {

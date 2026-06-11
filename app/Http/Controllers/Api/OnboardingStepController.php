@@ -23,7 +23,7 @@ class OnboardingStepController extends Controller
             content: new OA\JsonContent(
                 required: ['step'],
                 properties: [
-                    new OA\Property(property: 'step', type: 'string', enum: ['intro', 'first_circle', 'add_children', 'invite_members', 'notifications']),
+                    new OA\Property(property: 'step', type: 'string', enum: ['intro', 'first_circle', 'add_children', 'first_moment', 'invite_members', 'notifications']),
                 ],
             ),
         ),

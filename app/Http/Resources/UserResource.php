@@ -24,7 +24,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'email_verified', type: 'boolean', description: 'Whether the email address is verified. Only present for the authenticated user.'),
         new OA\Property(property: 'email_verification_required', type: 'boolean', description: 'Whether this account must verify its email before accessing the app. Grandfathered accounts return false. Only present for the authenticated user.'),
         new OA\Property(property: 'onboarded_at', type: 'string', format: 'date-time', nullable: true),
-        new OA\Property(property: 'onboarding_step', type: 'string', enum: ['intro', 'first_circle', 'add_children', 'invite_members', 'notifications'], nullable: true, description: 'Furthest completed onboarding step, so the client can resume mid-flow. Only present for the authenticated user while not yet onboarded; null otherwise.'),
+        new OA\Property(property: 'onboarding_step', type: 'string', enum: ['intro', 'first_circle', 'add_children', 'first_moment', 'invite_members', 'notifications'], nullable: true, description: 'Furthest completed onboarding step, so the client can resume mid-flow. Only present for the authenticated user while not yet onboarded; null otherwise.'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],

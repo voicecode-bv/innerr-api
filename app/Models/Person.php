@@ -73,6 +73,23 @@ class Person extends Model
     }
 
     /**
+     * Users who manage this child: the creator plus explicitly assigned
+     * co-parents. Independent of circle roles or circle toggles.
+     *
+     * @return BelongsToMany<User, $this>
+     */
+    public function parents(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'person_parents')->withTimestamps();
+    }
+
+    public function isParent(User $user): bool
+    {
+        return $user->id === $this->created_by_user_id
+            || $this->parents()->whereKey($user->id)->exists();
+    }
+
+    /**
      * @return BelongsToMany<Post, $this>
      */
     public function posts(): BelongsToMany

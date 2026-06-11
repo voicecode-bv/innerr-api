@@ -9,6 +9,7 @@ use App\Http\Resources\CircleInviteLinkResource;
 use App\Models\Circle;
 use App\Models\CircleInviteLink;
 use App\Models\CircleInviteLinkRedemption;
+use App\Notifications\CircleMemberJoinedNotification;
 use App\Services\MemberPersonSyncer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -209,7 +210,8 @@ class CircleInviteLinkController extends Controller
     {
         $user = $request->user();
 
-        return DB::transaction(function () use ($token, $user, $memberPersons) {
+        /** @var array{circle: Circle, joined: bool} $result */
+        $result = DB::transaction(function () use ($token, $user, $memberPersons) {
             $link = CircleInviteLink::query()
                 ->where('token', $token)
                 ->lockForUpdate()
@@ -221,11 +223,7 @@ class CircleInviteLinkController extends Controller
                 || $circle->members()->whereKey($user->id)->exists();
 
             if ($alreadyMember) {
-                return response()->json([
-                    'message' => 'Already a member.',
-                    'already_member' => true,
-                    'circle' => ['id' => $circle->id, 'name' => $circle->name],
-                ]);
+                return ['circle' => $circle, 'joined' => false];
             }
 
             if (! $link->isUsable()) {
@@ -243,12 +241,27 @@ class CircleInviteLinkController extends Controller
 
             $link->increment('uses_count');
 
-            return response()->json([
-                'message' => 'Joined circle.',
-                'already_member' => false,
-                'circle' => ['id' => $circle->id, 'name' => $circle->name],
-            ]);
+            return ['circle' => $circle, 'joined' => true];
         });
+
+        // Notified after the transaction so the queued job can never observe
+        // (or be rolled back with) a half-committed join. When the circle has
+        // no posts yet, the notification nudges the owner to share their
+        // first moment so the new member does not land on an empty timeline.
+        if ($result['joined']) {
+            $result['circle']->user?->notify(
+                new CircleMemberJoinedNotification($result['circle'], $user),
+            );
+        }
+
+        return response()->json([
+            'message' => $result['joined'] ? 'Joined circle.' : 'Already a member.',
+            'already_member' => ! $result['joined'],
+            'circle' => [
+                'id' => $result['circle']->id,
+                'name' => $result['circle']->name,
+            ],
+        ]);
     }
 
     private function generateUniqueToken(): string

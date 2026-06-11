@@ -52,7 +52,7 @@ class PersonController extends Controller
 
         $user = $request->user();
 
-        $query = Person::with('circles:id')
+        $query = Person::with(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail'])
             ->orderByDesc('usage_count')
             ->orderBy('name')
             ->limit(1000);
@@ -111,8 +111,14 @@ class PersonController extends Controller
             'created_by_user_id' => $request->user()->id,
         ]);
 
+        if ($person->is_child) {
+            // The creator is the child's first parent; co-parents are added
+            // explicitly via the parents endpoint.
+            $person->parents()->attach($request->user()->id);
+        }
+
         $person->circles()->sync($circleIds);
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return (new PersonResource($person))
             ->response()
@@ -122,7 +128,7 @@ class PersonController extends Controller
     #[OA\Put(
         path: '/api/persons/{person}',
         summary: 'Update person',
-        description: 'Update a person\'s name, birthdate, or linked user account. The authenticated user must be the creator, the owner of one of the linked circles, or a member with `members_can_invite=true` on one of those circles.',
+        description: 'Update a person\'s name, birthdate, or linked user account. For children this requires being a parent (the creator or an assigned co-parent); for other persons the creator or the owner of one of the linked circles.',
         tags: ['Persons'],
         security: [['sanctum' => []]],
         parameters: [
@@ -152,7 +158,7 @@ class PersonController extends Controller
         $this->authorize('update', $person);
 
         $person->update($request->validated());
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return new PersonResource($person);
     }
@@ -206,7 +212,7 @@ class PersonController extends Controller
             'avatar_thumbnail' => $thumbnailPath,
         ]);
 
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return new PersonResource($person);
     }
@@ -237,7 +243,7 @@ class PersonController extends Controller
             $person->update(['avatar' => null, 'avatar_thumbnail' => null]);
         }
 
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return new PersonResource($person);
     }
@@ -271,7 +277,7 @@ class PersonController extends Controller
         }
 
         $person->circles()->syncWithoutDetaching([$circle->id]);
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return new PersonResource($person);
     }
@@ -304,7 +310,7 @@ class PersonController extends Controller
         }
 
         $person->circles()->detach($circle->id);
-        $person->load('circles:id');
+        $person->load(['circles:id', 'parents:users.id,name,username,avatar,avatar_thumbnail']);
 
         return new PersonResource($person);
     }

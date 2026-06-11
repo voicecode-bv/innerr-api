@@ -4,6 +4,8 @@ use App\Models\Circle;
 use App\Models\CircleInviteLink;
 use App\Models\CircleInviteLinkRedemption;
 use App\Models\User;
+use App\Notifications\CircleMemberJoinedNotification;
+use Illuminate\Support\Facades\Notification;
 
 it('lets the owner create an invite link with defaults', function () {
     $owner = User::factory()->create();
@@ -334,4 +336,45 @@ it('enforces max_uses across multiple users', function () {
 
     expect($link->fresh()->uses_count)->toBe(1);
     expect(CircleInviteLinkRedemption::count())->toBe(1);
+});
+
+it('notifies the owner when someone joins through an invite link', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $link = CircleInviteLink::factory()->for($circle)->create(['created_by_user_id' => $owner->id]);
+    $joiner = User::factory()->create();
+
+    $this->actingAs($joiner)
+        ->postJson("/api/invite-links/{$link->token}/accept")
+        ->assertOk();
+
+    Notification::assertSentTo(
+        $owner,
+        CircleMemberJoinedNotification::class,
+        function (CircleMemberJoinedNotification $notification) use ($circle, $joiner, $owner) {
+            // An empty circle marks the join as the first-moment nudge.
+            return $notification->circle->is($circle)
+                && $notification->joinedUser->is($joiner)
+                && $notification->toArray($owner)['circle_was_empty'] === true;
+        },
+    );
+});
+
+it('does not notify the owner when an existing member re-accepts a link', function () {
+    Notification::fake();
+
+    $owner = User::factory()->create();
+    $circle = Circle::factory()->for($owner)->create();
+    $link = CircleInviteLink::factory()->for($circle)->create(['created_by_user_id' => $owner->id]);
+    $member = User::factory()->create();
+    $circle->members()->attach($member);
+
+    $this->actingAs($member)
+        ->postJson("/api/invite-links/{$link->token}/accept")
+        ->assertOk()
+        ->assertJsonPath('already_member', true);
+
+    Notification::assertNothingSent();
 });

@@ -22,6 +22,12 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'created_by_user_id', type: 'string', format: 'uuid', description: 'The user that created this person.'),
         new OA\Property(property: 'usage_count', type: 'integer', description: 'Denormalized count of how many posts this person is attached to.'),
         new OA\Property(property: 'circle_ids', type: 'array', items: new OA\Items(type: 'string', format: 'uuid'), description: 'IDs of the circles this person belongs to. Only included when the `circles` relation is loaded.'),
+        new OA\Property(property: 'parents', type: 'array', description: 'Users who manage this child (the creator plus assigned co-parents). Only included when the `parents` relation is loaded.', items: new OA\Items(properties: [
+            new OA\Property(property: 'id', type: 'string', format: 'uuid'),
+            new OA\Property(property: 'name', type: 'string'),
+            new OA\Property(property: 'username', type: 'string'),
+            new OA\Property(property: 'avatar_thumbnail', type: 'string', nullable: true),
+        ])),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time'),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time'),
     ],
@@ -44,6 +50,12 @@ class PersonResource extends JsonResource
             'created_by_user_id' => $this->created_by_user_id,
             'usage_count' => $this->usage_count,
             'circle_ids' => $this->whenLoaded('circles', fn () => $this->circles->pluck('id')->all()),
+            'parents' => $this->whenLoaded('parents', fn () => $this->parents->map(fn ($parent) => [
+                'id' => $parent->id,
+                'name' => $parent->name,
+                'username' => $parent->username,
+                'avatar_thumbnail' => MediaUrl::sign($parent->avatar_thumbnail),
+            ])->all()),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
