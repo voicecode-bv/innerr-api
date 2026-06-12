@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Number;
+use Illuminate\Validation\ValidationException;
 
 class EditPrintdealProduct extends EditRecord
 {
@@ -20,6 +21,24 @@ class EditPrintdealProduct extends EditRecord
         return [
             DeleteAction::make(),
         ];
+    }
+
+    /**
+     * A validation error anywhere in the form blocks the whole save, and the
+     * inline message may sit below the viewport (e.g. an empty user-option
+     * row while editing order attributes). Announce it loudly so a rejected
+     * save never looks like a successful one.
+     */
+    protected function onValidationError(ValidationException $exception): void
+    {
+        Notification::make()
+            ->danger()
+            ->title('Not saved')
+            ->body(implode(' ', array_map(
+                fn (array $messages): string => implode(' ', $messages),
+                $exception->errors(),
+            )))
+            ->send();
     }
 
     /**
