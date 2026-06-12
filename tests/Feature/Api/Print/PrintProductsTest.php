@@ -16,6 +16,9 @@ it('lists every enabled offering, including multiple per app product', function 
     $premiumTee = PrintdealProduct::factory()->offered('tshirt', 2995)->create([
         'name' => ['en-EN' => 'Premium T-shirt', 'nl-NL' => 'Premium T-shirt'],
     ]);
+    $puzzle = PrintdealProduct::factory()->offered('puzzle', 3495)->create([
+        'name' => ['en-EN' => 'Photo puzzle 500 pieces'],
+    ]);
     // In the catalog but not offered: hidden entirely.
     PrintdealProduct::factory()->create();
 
@@ -24,11 +27,18 @@ it('lists every enabled offering, including multiple per app product', function 
     $response = $this->getJson('/api/print/products')->assertOk();
     $data = collect($response->json('data'));
 
-    expect($data)->toHaveCount(3)
+    expect($data)->toHaveCount(4)
         ->and($data->where('app_product', 'tshirt'))->toHaveCount(2)
         ->and($data->firstWhere('id', $premiumTee->id))->toMatchArray([
             'price_minor' => 2995,
             'available' => true,
+            'max_photos' => 1,
+        ])
+        ->and($data->firstWhere('id', $puzzle->id))->toMatchArray([
+            'app_product' => 'puzzle',
+            'price_minor' => 3495,
+            'available' => true,
+            'min_photos' => 1,
             'max_photos' => 1,
         ])
         ->and($data->firstWhere('id', $basicTee->id)['user_options'][0]['attribute'])->toBe('Size')

@@ -83,6 +83,7 @@ class PrintdealProductForm
                                 'album' => 'Photo album',
                                 'mug' => 'Mug',
                                 'tshirt' => 'T-shirt',
+                                'puzzle' => 'Photo puzzle',
                             ])
                             ->native(false)
                             ->helperText('Which product family this belongs to in the app; it decides the artwork layout and photo limits. Multiple enabled products per family all show up in the shop.'),

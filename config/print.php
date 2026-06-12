@@ -50,6 +50,14 @@ return [
             'pdf' => ['width' => 210, 'height' => 297, 'bleed' => 0, 'pages' => 1],
         ],
 
+        'puzzle' => [
+            'min_photos' => 1,
+            'max_photos' => 1,
+            // Single landscape canvas, sized for a ~500-piece puzzle. Adjust
+            // to the mapped product's real dimensions before going live.
+            'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1],
+        ],
+
     ],
 
     /*

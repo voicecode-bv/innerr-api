@@ -64,6 +64,7 @@ class PrintdealProductsTable
                         'album' => 'Photo album',
                         'mug' => 'Mug',
                         'tshirt' => 'T-shirt',
+                        'puzzle' => 'Photo puzzle',
                     ]),
                 TernaryFilter::make('delisted')
                     ->queries(
