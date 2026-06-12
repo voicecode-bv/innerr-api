@@ -46,6 +46,17 @@ class PrintdealProductForm
         return array_map(strval(...), $entry['values'] ?? []);
     }
 
+    /**
+     * Select options keyed by themselves: the stored value IS the label.
+     *
+     * @param  array<int, string>  $values
+     * @return array<string, string>
+     */
+    protected static function asOptions(array $values): array
+    {
+        return array_combine($values, $values);
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -102,15 +113,20 @@ class PrintdealProductForm
                         Repeater::make('order_attributes')
                             ->label('Order attributes')
                             ->schema([
-                                // Inside a repeater $record is the (absent)
-                                // item record, so the suggestions resolve the
-                                // page's product via $livewire instead.
-                                TextInput::make('attribute')
+                                // Real dropdowns, not datalist suggestions:
+                                // Safari barely surfaces datalists, which made
+                                // these fields feel uneditable. Inside a
+                                // repeater $record is the (absent) item
+                                // record, so the options resolve the page's
+                                // product via $livewire instead.
+                                Select::make('attribute')
                                     ->required()
-                                    ->datalist(fn (EditRecord $livewire): array => self::schemaAttributeNames($livewire->getRecord())),
-                                TextInput::make('value')
+                                    ->live()
+                                    ->distinct()
+                                    ->options(fn (EditRecord $livewire): array => self::asOptions(self::schemaAttributeNames($livewire->getRecord()))),
+                                Select::make('value')
                                     ->required()
-                                    ->datalist(fn (Get $get, EditRecord $livewire): array => self::schemaValuesFor($livewire->getRecord(), $get('attribute'))),
+                                    ->options(fn (Get $get, EditRecord $livewire): array => self::asOptions(self::schemaValuesFor($livewire->getRecord(), $get('attribute')))),
                             ])
                             ->columns(2)
                             ->columnSpanFull()
@@ -118,12 +134,11 @@ class PrintdealProductForm
                         Repeater::make('user_options')
                             ->label('User options')
                             ->schema([
-                                // Inside a repeater $record is the (absent)
-                                // item record, so the suggestions resolve the
-                                // page's product via $livewire instead.
-                                TextInput::make('attribute')
+                                Select::make('attribute')
                                     ->required()
-                                    ->datalist(fn (EditRecord $livewire): array => self::schemaAttributeNames($livewire->getRecord())),
+                                    ->live()
+                                    ->distinct()
+                                    ->options(fn (EditRecord $livewire): array => self::asOptions(self::schemaAttributeNames($livewire->getRecord()))),
                                 TagsInput::make('values')
                                     ->required()
                                     ->placeholder('S, M, L, ...')

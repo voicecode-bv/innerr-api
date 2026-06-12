@@ -71,6 +71,33 @@ it('suggests schema attributes and values inside the repeater fields', function 
         ->assertDontSee('value="quantity"', false);
 });
 
+it('persists an edited order attribute value', function () {
+    Http::fake(['api.printdeal.test/products/*' => Http::response(['price' => 10.0])]);
+
+    $product = PrintdealProduct::factory()->offered('puzzle')->create([
+        'attribute_schema' => [
+            ['attribute' => 'Packing', 'values' => ['Sealed On Cardboard', 'Box With Printed Sleeve']],
+        ],
+        'order_attributes' => [
+            ['attribute' => 'Packing', 'value' => 'Sealed On Cardboard'],
+        ],
+        'user_options' => null,
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->fillForm([
+            'order_attributes' => [
+                ['attribute' => 'Packing', 'value' => 'Box With Printed Sleeve'],
+            ],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($product->fresh()->order_attributes)->toBe([
+        ['attribute' => 'Packing', 'value' => 'Box With Printed Sleeve'],
+    ]);
+});
+
 it('drops order attributes that are also user options on save', function () {
     Http::fake([
         // The post-save price refresh; its outcome is irrelevant here.
