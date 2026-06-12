@@ -133,6 +133,28 @@ it('drops order attributes that are also user options on save', function () {
     ]);
 });
 
+it('never prefills rows for attributes that are already user options', function () {
+    // The everything-is-a-customer-choice setup: order attributes may stay
+    // empty, and the prefill must not keep resurrecting stripped rows.
+    $product = PrintdealProduct::factory()->create([
+        'order_attributes' => null,
+        'user_options' => [
+            ['attribute' => 'Packing', 'values' => ['Sealed On Cardboard', 'Box With Printed Sleeve']],
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)']],
+        ],
+        'attribute_schema' => [
+            ['attribute' => 'Packing', 'values' => ['Sealed On Cardboard', 'Box With Printed Sleeve']],
+            ['attribute' => 'Printing Process', 'values' => ['Sublimation']],
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '54 x 40 cm (500 pcs)']],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->assertSet('data.order_attributes', fn (array $state): bool => array_values($state) === [
+            ['attribute' => 'Printing Process', 'value' => 'Sublimation'],
+        ]);
+});
+
 it('prefills the order attributes from the schema, completing single-value ones', function () {
     $product = PrintdealProduct::factory()->create([
         'attribute_schema' => [

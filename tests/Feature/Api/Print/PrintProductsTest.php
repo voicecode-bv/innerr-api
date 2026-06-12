@@ -47,6 +47,23 @@ it('lists every enabled offering, including multiple per app product', function 
         ->and($response->json('return_url'))->toBeString();
 });
 
+it('treats offerings whose attributes are all user options as orderable', function () {
+    $offering = PrintdealProduct::factory()->offered('puzzle')->create([
+        'order_attributes' => null,
+        'user_options' => [
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '54 x 40 cm (500 pcs)']],
+            ['attribute' => 'Packing', 'values' => ['Box With Printed Sleeve']],
+        ],
+    ]);
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $puzzle = collect($this->getJson('/api/print/products')->json('data'))
+        ->firstWhere('id', $offering->id);
+
+    expect($puzzle['available'])->toBeTrue();
+});
+
 it('computes margin-based prices from the synced purchase price', function () {
     $offering = PrintdealProduct::factory()->offered('album')->create([
         'fixed_price_minor' => null,

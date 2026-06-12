@@ -91,6 +91,39 @@ it('refreshes purchase prices for offered products', function () {
     });
 });
 
+it('prices offerings whose attributes are all user options', function () {
+    $offered = PrintdealProduct::factory()->offered('puzzle')->create([
+        'sku' => 'sku-puzzle',
+        'order_attributes' => null,
+        'user_options' => [
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '54 x 40 cm (500 pcs)']],
+            ['attribute' => 'Packing', 'values' => ['Box With Printed Sleeve']],
+        ],
+    ]);
+
+    fakeCatalog(
+        [['sku' => 'sku-puzzle', 'name' => 'jigsaw puzzles']],
+        price: ['price' => 22.20],
+    );
+
+    $this->artisan('printdeal:sync-products')->assertSuccessful();
+
+    expect($offered->fresh()->purchase_price_minor)->toBe(2220);
+
+    // Priced with the first value of every user option plus the quantity.
+    Http::assertSent(function ($request): bool {
+        if ($request->method() !== 'POST') {
+            return true;
+        }
+
+        $attributes = collect($request['attributes'])->keyBy('attribute');
+
+        return $attributes['Print Area']['value'] === '28 x 19 cm (35 pcs)'
+            && $attributes['Packing']['value'] === 'Box With Printed Sleeve'
+            && $attributes['quantity']['value'] === '1';
+    });
+});
+
 it('stores attribute schemas for mapped products', function () {
     // Mapped but not yet enabled: exactly the moment the admin needs the
     // schema to fill in the order attributes.

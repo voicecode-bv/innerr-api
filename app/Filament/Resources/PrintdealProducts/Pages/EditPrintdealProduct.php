@@ -71,8 +71,16 @@ class EditPrintdealProduct extends EditRecord
         }
 
         if (empty($data['order_attributes']) && ! empty($record->attribute_schema)) {
+            // Attributes that are already a customer choice (user option)
+            // must not come back as fixed rows; that loop made saves look
+            // like they never happened.
+            $userChoices = collect($data['user_options'] ?? [])
+                ->pluck('attribute')
+                ->map(strtolower(...));
+
             $data['order_attributes'] = collect($record->attribute_schema)
-                ->reject(fn (array $entry): bool => strtolower($entry['attribute']) === 'quantity')
+                ->reject(fn (array $entry): bool => strtolower($entry['attribute']) === 'quantity'
+                    || $userChoices->contains(strtolower($entry['attribute'])))
                 ->map(fn (array $entry): array => [
                     'attribute' => $entry['attribute'],
                     'value' => count($entry['values'] ?? []) === 1 ? $entry['values'][0] : '',
@@ -97,10 +105,23 @@ class EditPrintdealProduct extends EditRecord
             ->pluck('attribute')
             ->map(strtolower(...));
 
-        $data['order_attributes'] = collect($data['order_attributes'] ?? [])
+        $kept = collect($data['order_attributes'] ?? [])
             ->reject(fn (array $row): bool => $userChoices->contains(strtolower((string) $row['attribute'])))
             ->values()
             ->all();
+
+        $dropped = count($data['order_attributes'] ?? []) - count($kept);
+
+        if ($dropped > 0) {
+            Notification::make()
+                ->info()
+                ->title($dropped === 1
+                    ? '1 order attribute is a user option and was removed; the customer picks it in the app.'
+                    : "{$dropped} order attributes are user options and were removed; the customer picks those in the app.")
+                ->send();
+        }
+
+        $data['order_attributes'] = $kept;
 
         return $data;
     }

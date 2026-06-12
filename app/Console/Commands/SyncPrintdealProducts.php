@@ -111,7 +111,9 @@ class SyncPrintdealProducts extends Command
 
         $offerings = PrintdealProduct::query()
             ->offered()
-            ->whereNotNull('order_attributes')
+            ->where(fn ($query) => $query
+                ->whereNotNull('order_attributes')
+                ->orWhereNotNull('user_options'))
             ->get();
 
         foreach ($offerings as $offering) {

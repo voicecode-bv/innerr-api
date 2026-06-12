@@ -47,13 +47,14 @@ class PrintdealProductSync
      */
     public function refreshPurchasePrice(PrintdealProduct $product): bool
     {
-        if (empty($product->order_attributes)) {
+        if (empty($product->order_attributes) && empty($product->user_options)) {
             return false;
         }
 
-        // Grouped products: price one piece with the first value of every
-        // user option (size, color, ...).
-        $variantAttributes = collect($product->user_options ?? [])
+        // Customer choices: price one piece with the first value of every
+        // user option (size, puzzle format, ...). The fixed order attributes
+        // may be empty when every choice belongs to the customer.
+        $optionAttributes = collect($product->user_options ?? [])
             ->map(fn (array $option): array => [
                 'attribute' => $option['attribute'],
                 'value' => $option['values'][0] ?? '',
@@ -62,7 +63,10 @@ class PrintdealProductSync
 
         $response = $this->printdeal->validateAndPrice(
             $product->sku,
-            PrintdealAttributes::withQuantity([...$product->order_attributes, ...$variantAttributes], 1),
+            PrintdealAttributes::withQuantity(
+                [...$product->order_attributes ?? [], ...$optionAttributes],
+                1,
+            ),
         );
 
         $price = $response['price'] ?? null;

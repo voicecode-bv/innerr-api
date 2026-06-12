@@ -111,13 +111,17 @@ class PrintdealProduct extends Model
         return $errors;
     }
 
-    /** Ready to be ordered: offered, with order attributes and a price. */
+    /**
+     * Ready to be ordered: offered, attributes configured, and priced. The
+     * attribute configuration may live entirely in user options (every
+     * choice belongs to the customer); fixed order attributes are optional.
+     */
     public function isOrderable(): bool
     {
         return $this->enabled
             && $this->delisted_at === null
             && $this->app_product !== null
-            && ! empty($this->order_attributes)
+            && (! empty($this->order_attributes) || ! empty($this->user_options))
             && $this->sellingPriceMinor() !== null;
     }
 

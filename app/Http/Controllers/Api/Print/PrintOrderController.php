@@ -96,7 +96,7 @@ class PrintOrderController extends Controller
                     'app_product' => $offering->app_product,
                     'name' => $offering->name,
                     'printdeal_sku' => $offering->sku,
-                    'printdeal_attributes' => $offering->order_attributes,
+                    'printdeal_attributes' => $offering->order_attributes ?? [],
                     'options' => ($item['options'] ?? []) !== [] ? $item['options'] : null,
                     'photos' => $this->resolvePhotos($request, $item['photos']),
                     'amount_minor' => $itemAmounts[$index],

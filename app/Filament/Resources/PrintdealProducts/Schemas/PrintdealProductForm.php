@@ -88,7 +88,7 @@ class PrintdealProductForm
                     ->columns(2),
 
                 Section::make('Offering')
-                    ->description('What the app sells. A product is orderable once it is enabled, mapped to an app product, has order attributes, and has a price (fixed, or a margin).')
+                    ->description('What the app sells. A product is orderable once it is enabled, mapped to an app product, has its attributes configured (fixed below, as user options, or a mix), and has a price (fixed, or a margin).')
                     ->schema([
                         Toggle::make('enabled')
                             ->label('Offer in the app')
