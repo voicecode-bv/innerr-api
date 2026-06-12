@@ -70,16 +70,16 @@ return [
     // Billing address on every Printdeal order: Printdeal invoices us
     // ('onAccount'), the user already paid us via Mollie.
     'billing_address' => [
-        'company' => env('PRINT_BILLING_COMPANY', 'Innerr'),
-        'firstName' => env('PRINT_BILLING_FIRST_NAME', ''),
-        'lastName' => env('PRINT_BILLING_LAST_NAME', ''),
-        'email' => env('PRINT_BILLING_EMAIL', ''),
-        'street' => env('PRINT_BILLING_STREET', ''),
-        'houseNumber' => env('PRINT_BILLING_HOUSE_NUMBER', ''),
-        'postalCode' => env('PRINT_BILLING_POSTAL_CODE', ''),
-        'city' => env('PRINT_BILLING_CITY', ''),
-        'country' => env('PRINT_BILLING_COUNTRY', 'NL'),
-        'vatId' => env('PRINT_BILLING_VAT_ID'),
+        'company' => 'Voicecode B.V.',
+        'firstName' => 'Michael',
+        'lastName' => 'Blijleven',
+        'email' => 'michael@voicecode.nl',
+        'street' => 'Koekoekslaan',
+        'houseNumber' => '9',
+        'postalCode' => '3121XJ',
+        'city' => 'Schiedam',
+        'country' => 'NL',
+        'vatId' => 'NL858816866B01',
     ],
 
 ];
