@@ -7,6 +7,7 @@ use App\Services\Printdeal\PrintdealClient;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('printdeal:sync-products')]
@@ -26,12 +27,14 @@ class SyncPrintdealProducts extends Command
             ->whereNotIn('sku', $seenSkus)
             ->update(['delisted_at' => now()]);
 
+        $schemas = $this->refreshAttributeSchemas($printdeal);
         $repriced = $this->refreshPurchasePrices($printdeal);
 
         $this->info(sprintf(
-            'Synced %d products (%d delisted), refreshed %d purchase prices.',
+            'Synced %d products (%d delisted), refreshed %d attribute schemas and %d purchase prices.',
             count($seenSkus),
             $delisted,
+            $schemas,
             $repriced,
         ));
 
@@ -71,6 +74,75 @@ class SyncPrintdealProducts extends Command
         } while (count($results) === self::PAGE_SIZE);
 
         return $seenSkus;
+    }
+
+    /**
+     * Store the attribute schema for every product that is mapped or enabled
+     * in the admin, so the order-attributes form can suggest valid names and
+     * values. Mapping happens before the attributes are known, hence the
+     * wide net: map + save + sync, then the schema is there to pick from.
+     */
+    private function refreshAttributeSchemas(PrintdealClient $printdeal): int
+    {
+        $refreshed = 0;
+
+        $configured = PrintdealProduct::query()
+            ->whereNull('delisted_at')
+            ->where(fn ($query) => $query
+                ->where('enabled', true)
+                ->orWhereNotNull('app_product'))
+            ->get();
+
+        foreach ($configured as $product) {
+            try {
+                $product->update([
+                    'attribute_schema' => $this->fetchAttributeSchema($printdeal, $product->sku),
+                ]);
+                $refreshed++;
+            } catch (\Throwable $e) {
+                Log::warning("Printdeal schema refresh failed for {$product->sku}", [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $refreshed;
+    }
+
+    /**
+     * Normalized to [{attribute, values: [...]}]. The v3 beta's details
+     * endpoint 404s for some catalog skus; validating an empty selection
+     * returns the same schema via `remainingOptions`.
+     *
+     * @return array<int, array{attribute: string, values: array<int, string>}>
+     */
+    private function fetchAttributeSchema(PrintdealClient $printdeal, string $sku): array
+    {
+        try {
+            $details = $printdeal->product($sku);
+
+            return collect($details['attributes'] ?? [])
+                ->map(fn (array $attribute): array => [
+                    'attribute' => $attribute['name'],
+                    'values' => collect($attribute['values'] ?? [])->pluck('name')->values()->all(),
+                ])
+                ->values()
+                ->all();
+        } catch (RequestException $e) {
+            if ($e->response->status() !== 404) {
+                throw $e;
+            }
+        }
+
+        $validation = $printdeal->validateSelection($sku, []);
+
+        return collect($validation['remainingOptions'] ?? [])
+            ->map(fn (array $option): array => [
+                'attribute' => (string) $option['attribute'],
+                'values' => array_values($option['values'] ?? []),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

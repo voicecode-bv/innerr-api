@@ -13,7 +13,7 @@ beforeEach(function () {
     ]);
 });
 
-function fakeCatalog(array $products, array $prices = []): void
+function fakeCatalog(array $products, array $prices = [], array $details = ['attributes' => []]): void
 {
     Http::fake([
         'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
@@ -21,7 +21,10 @@ function fakeCatalog(array $products, array $prices = []): void
             'total' => count($products),
             'results' => $products,
         ]),
+        // Order matters: the price pattern must win from the generic
+        // product-details pattern below it.
         'api.printdeal.test/products/*/prices' => Http::response($prices),
+        'api.printdeal.test/products/*' => Http::response($details),
     ]);
     Http::preventStrayRequests();
 }
@@ -78,8 +81,72 @@ it('refreshes purchase prices for offered products', function () {
     expect($offered->fresh()->purchase_price_minor)->toBe(1000)
         ->and($notOffered->fresh()->purchase_price_minor)->toBeNull();
 
-    // Only the offered product was priced.
-    Http::assertSentCount(3); // login + products page + one price call
+    // Only the offered product was inspected and priced.
+    Http::assertSentCount(4); // login + products page + schema + price call
+});
+
+it('stores attribute schemas for mapped products', function () {
+    // Mapped but not yet enabled: exactly the moment the admin needs the
+    // schema to fill in the order attributes.
+    $mapped = PrintdealProduct::factory()->create([
+        'sku' => 'sku-tshirt',
+        'app_product' => 'tshirt',
+        'enabled' => false,
+    ]);
+
+    fakeCatalog(
+        [['sku' => 'sku-tshirt', 'name' => ['en-EN' => 'Basic T-shirt']]],
+        details: [
+            'attributes' => [
+                [
+                    'name' => 'Gender Types',
+                    'values' => [['name' => 'Unisex'], ['name' => 'Men']],
+                ],
+                [
+                    'name' => 'Size',
+                    'values' => [['name' => 'S'], ['name' => 'M']],
+                ],
+            ],
+        ],
+    );
+
+    $this->artisan('printdeal:sync-products')->assertSuccessful();
+
+    expect($mapped->fresh()->attribute_schema)->toBe([
+        ['attribute' => 'Gender Types', 'values' => ['Unisex', 'Men']],
+        ['attribute' => 'Size', 'values' => ['S', 'M']],
+    ]);
+});
+
+it('falls back to the validate endpoint for schemas when details return 404', function () {
+    $mapped = PrintdealProduct::factory()->create([
+        'sku' => 'sku-tshirt',
+        'app_product' => 'tshirt',
+    ]);
+
+    Http::fake([
+        'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
+        'api.printdeal.test/products?*' => Http::response([
+            'results' => [['sku' => 'sku-tshirt', 'name' => ['en-EN' => 'Basic T-shirt']]],
+        ]),
+        'api.printdeal.test/products/sku-tshirt/validate' => Http::response([
+            'remainingOptions' => [
+                ['attribute' => 'Gender Types', 'values' => ['Unisex']],
+            ],
+            'selectionStatus' => 'partiallyResolved',
+            'violatedAttributes' => [],
+        ]),
+        'api.printdeal.test/products/sku-tshirt' => Http::response(
+            ['statusCode' => 404, 'message' => 'Product not found'],
+            404,
+        ),
+    ]);
+
+    $this->artisan('printdeal:sync-products')->assertSuccessful();
+
+    expect($mapped->fresh()->attribute_schema)->toBe([
+        ['attribute' => 'Gender Types', 'values' => ['Unisex']],
+    ]);
 });
 
 it('keeps syncing when one price request fails', function () {
@@ -91,6 +158,7 @@ it('keeps syncing when one price request fails', function () {
             'results' => [['sku' => 'sku-album', 'name' => ['en-EN' => 'Albums']]],
         ]),
         'api.printdeal.test/products/*/prices' => Http::response(['message' => 'nope'], 500),
+        'api.printdeal.test/products/*' => Http::response(['attributes' => []]),
     ]);
 
     $this->artisan('printdeal:sync-products')->assertSuccessful();

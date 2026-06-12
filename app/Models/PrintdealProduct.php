@@ -18,8 +18,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 #[Fillable([
     'sku', 'name', 'synced_at', 'delisted_at', 'enabled', 'app_product',
-    'order_attributes', 'sizes', 'fixed_price_minor', 'margin_percent',
-    'purchase_price_minor', 'currency',
+    'order_attributes', 'sizes', 'attribute_schema', 'fixed_price_minor',
+    'margin_percent', 'purchase_price_minor', 'currency',
 ])]
 class PrintdealProduct extends Model
 {
@@ -38,6 +38,7 @@ class PrintdealProduct extends Model
             'enabled' => 'boolean',
             'order_attributes' => 'array',
             'sizes' => 'array',
+            'attribute_schema' => 'array',
             'fixed_price_minor' => 'integer',
             'margin_percent' => 'float',
             'purchase_price_minor' => 'integer',

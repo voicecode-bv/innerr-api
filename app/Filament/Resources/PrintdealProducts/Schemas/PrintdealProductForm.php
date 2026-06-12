@@ -10,11 +10,37 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Number;
 
 class PrintdealProductForm
 {
+    /**
+     * Attribute names from the synced schema, for the datalist suggestions.
+     *
+     * @return array<int, string>
+     */
+    protected static function schemaAttributeNames(?PrintdealProduct $record): array
+    {
+        return collect($record?->attribute_schema ?? [])
+            ->pluck('attribute')
+            ->all();
+    }
+
+    /**
+     * Allowed values for one attribute from the synced schema.
+     *
+     * @return array<int, string>
+     */
+    protected static function schemaValuesFor(?PrintdealProduct $record, ?string $attribute): array
+    {
+        $entry = collect($record?->attribute_schema ?? [])
+            ->firstWhere('attribute', $attribute);
+
+        return array_map(strval(...), $entry['values'] ?? []);
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -60,18 +86,34 @@ class PrintdealProductForm
                             ])
                             ->native(false)
                             ->helperText('Which shop tile this product backs. With multiple enabled products per tile, the most recently updated wins.'),
+                        Placeholder::make('schema_status')
+                            ->label('Attribute schema')
+                            ->content(fn (PrintdealProduct $record): string => empty($record->attribute_schema)
+                                ? 'Not synced yet. Map or enable this product, save, and run "Sync catalog"; the fields below then suggest the valid attribute names and values.'
+                                : count($record->attribute_schema).' attributes known; the fields below suggest their names and allowed values.')
+                            ->columnSpanFull(),
                         Repeater::make('order_attributes')
                             ->label('Order attributes')
                             ->schema([
-                                TextInput::make('attribute')->required(),
-                                TextInput::make('value')->required(),
+                                TextInput::make('attribute')
+                                    ->required()
+                                    ->datalist(fn (?PrintdealProduct $record): array => self::schemaAttributeNames($record)),
+                                TextInput::make('value')
+                                    ->required()
+                                    ->datalist(fn (Get $get, ?PrintdealProduct $record): array => self::schemaValuesFor($record, $get('attribute'))),
                             ])
                             ->columns(2)
                             ->columnSpanFull()
-                            ->helperText('Exact attribute/value pairs Printdeal expects for this product (see GET /v3/products/{sku}). Sent with every order and used to fetch the purchase price.'),
+                            ->helperText('Exact attribute/value pairs Printdeal expects for this product. Pick one value per attribute; leave size-like attributes out (they go in Sizes below). Sent with every order and used to fetch the purchase price.'),
                         TagsInput::make('sizes')
                             ->label('Sizes')
                             ->placeholder('S, M, L, ...')
+                            ->suggestions(fn (?PrintdealProduct $record): array => collect($record?->attribute_schema ?? [])
+                                ->first(fn (array $entry): bool => in_array(
+                                    strtolower($entry['attribute']),
+                                    ['size', 'sizes', 'maat'],
+                                    true,
+                                ))['values'] ?? [])
                             ->helperText('Only for grouped products such as t-shirts; the chosen size is sent as a variant.'),
                     ])
                     ->columns(2),
