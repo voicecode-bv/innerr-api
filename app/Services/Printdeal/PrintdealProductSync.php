@@ -3,6 +3,7 @@
 namespace App\Services\Printdeal;
 
 use App\Models\PrintdealProduct;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Per-product refresh of API-derived data (attribute schema, purchase
@@ -12,7 +13,18 @@ use App\Models\PrintdealProduct;
  */
 class PrintdealProductSync
 {
-    public function __construct(private PrintdealClient $printdeal) {}
+    /**
+     * Ceiling on how many option combinations get priced per product. Above
+     * it, the first-value combination is priced instead, so a wildly
+     * configured product degrades to a possibly-off base price rather than
+     * hammering Printdeal.
+     */
+    private const MAX_PRICED_COMBINATIONS = 100;
+
+    public function __construct(
+        private PrintdealClient $printdeal,
+        private PrintOfferingPricing $pricing,
+    ) {}
 
     /**
      * Fetch and store the attribute schema, normalized to
@@ -39,9 +51,10 @@ class PrintdealProductSync
     }
 
     /**
-     * Fetch and store the purchase price (single piece) when the order
-     * attributes are configured. The price request mirrors what an actual
-     * order would submit, so the margin is applied to the real cost.
+     * Refresh the stored purchase price: the LOWEST single-piece price
+     * across every user-option combination, so the app's "from" price never
+     * overstates. Combinations that don't price (invalid selections) are
+     * skipped; quotes share the live-quote cache.
      *
      * @return bool whether a price was stored
      */
@@ -51,34 +64,75 @@ class PrintdealProductSync
             return false;
         }
 
-        // Customer choices: price one piece with the first value of every
-        // user option (size, puzzle format, ...). The fixed order attributes
-        // may be empty when every choice belongs to the customer.
-        $optionAttributes = collect($product->user_options ?? [])
-            ->map(fn (array $option): array => [
-                'attribute' => $option['attribute'],
-                'value' => $option['values'][0] ?? '',
-            ])
-            ->all();
+        $combinations = $this->optionCombinations($product->user_options ?? []);
 
-        $response = $this->printdeal->validateAndPrice(
-            $product->sku,
-            PrintdealAttributes::withQuantity(
-                [...$product->order_attributes ?? [], ...$optionAttributes],
-                1,
-            ),
-        );
+        if (count($combinations) > self::MAX_PRICED_COMBINATIONS) {
+            Log::warning("Printdeal price refresh for {$product->sku}: too many option combinations, pricing the first one only.", [
+                'combinations' => count($combinations),
+            ]);
+            $combinations = [array_shift($combinations)];
+        }
 
-        $price = $response['price'] ?? null;
+        $lowest = null;
 
-        if (! is_numeric($price)) {
+        foreach ($combinations as $options) {
+            $attributes = [
+                ...$product->order_attributes ?? [],
+                ...collect($options)
+                    ->map(fn (string $value, string $attribute): array => [
+                        'attribute' => $attribute,
+                        'value' => $value,
+                    ])
+                    ->values()
+                    ->all(),
+            ];
+
+            $price = $this->pricing->quotedPriceMinor($product->sku, $attributes);
+
+            if ($price !== null && ($lowest === null || $price < $lowest)) {
+                $lowest = $price;
+            }
+        }
+
+        if ($lowest === null) {
             return false;
         }
 
-        $product->update([
-            'purchase_price_minor' => (int) round((float) $price * 100),
-        ]);
+        $product->update(['purchase_price_minor' => $lowest]);
 
         return true;
+    }
+
+    /**
+     * Cartesian product of the user options:
+     * [{Size: S, Color: Red}, {Size: S, Color: Blue}, ...]. A product
+     * without options yields one empty combination (the fixed attributes).
+     *
+     * @param  array<int, array{attribute: string, values: array<int, string>}>  $userOptions
+     * @return array<int, array<string, string>>
+     */
+    private function optionCombinations(array $userOptions): array
+    {
+        $combinations = [[]];
+
+        foreach ($userOptions as $option) {
+            $values = $option['values'] ?? [];
+
+            if ($values === []) {
+                continue;
+            }
+
+            $next = [];
+
+            foreach ($combinations as $combination) {
+                foreach ($values as $value) {
+                    $next[] = [...$combination, $option['attribute'] => (string) $value];
+                }
+            }
+
+            $combinations = $next;
+        }
+
+        return $combinations;
     }
 }

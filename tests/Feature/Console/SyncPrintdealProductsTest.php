@@ -124,6 +124,40 @@ it('prices offerings whose attributes are all user options', function () {
     });
 });
 
+it('stores the lowest price across all option combinations', function () {
+    $offered = PrintdealProduct::factory()->offered('puzzle')->create([
+        'sku' => 'sku-puzzle',
+        'order_attributes' => null,
+        'user_options' => [
+            ['attribute' => 'Print Area', 'values' => ['25 x 17.5 cm (96 pcs)', '28 x 19.5 cm (120 pcs)', '54 x 40 cm (500 pcs)']],
+        ],
+    ]);
+
+    Http::fake(function ($request) {
+        if (str_contains($request->url(), '/products/categories')) {
+            return Http::response([['sku' => 'sku-puzzle', 'name' => 'jigsaw puzzles']]);
+        }
+
+        if (str_contains($request->url(), '/attributes')) {
+            return Http::response([]);
+        }
+
+        // The first option value is deliberately the most expensive one; the
+        // sync must keep looking and store the cheapest combination.
+        $area = collect($request['attributes'])->firstWhere('attribute', 'Print Area')['value'] ?? null;
+
+        return Http::response(['price' => match ($area) {
+            '25 x 17.5 cm (96 pcs)' => 40.25,
+            '28 x 19.5 cm (120 pcs)' => 22.10,
+            default => 28.25,
+        }]);
+    });
+
+    $this->artisan('printdeal:sync-products')->assertSuccessful();
+
+    expect($offered->fresh()->purchase_price_minor)->toBe(2210);
+});
+
 it('stores attribute schemas for mapped products', function () {
     // Mapped but not yet enabled: exactly the moment the admin needs the
     // schema to fill in the order attributes.

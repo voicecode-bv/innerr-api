@@ -72,9 +72,22 @@ class PrintOfferingPricing
                 ->all(),
         ];
 
+        return $this->quotedPriceMinor($offering->sku, $attributes)
+            ?? ($options === [] ? $offering->purchase_price_minor : null);
+    }
+
+    /**
+     * Cached single-piece quote for an exact attribute set. Null when the
+     * combination doesn't price (invalid selection, outage); shared by the
+     * live quotes and the base-price sync so they never disagree.
+     *
+     * @param  array<int, array{attribute: string, value: mixed}>  $attributes
+     */
+    public function quotedPriceMinor(string $sku, array $attributes): ?int
+    {
         $cacheKey = sprintf(
             'printdeal:price:%s:%s',
-            $offering->sku,
+            $sku,
             md5(json_encode($attributes)),
         );
 
@@ -83,12 +96,12 @@ class PrintOfferingPricing
                 $cacheKey,
                 now()->addHours(self::CACHE_TTL_HOURS),
                 fn (): array => $this->printdeal->validateAndPrice(
-                    $offering->sku,
+                    $sku,
                     PrintdealAttributes::withQuantity($attributes, 1),
                 ),
             );
         } catch (\Throwable) {
-            return $options === [] ? $offering->purchase_price_minor : null;
+            return null;
         }
 
         $price = $response['price'] ?? null;
