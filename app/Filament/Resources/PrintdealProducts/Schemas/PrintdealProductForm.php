@@ -60,10 +60,11 @@ class PrintdealProductForm
                             ->label('SKU')
                             ->content(fn (PrintdealProduct $record): string => $record->sku),
                         Placeholder::make('purchase_price')
-                            ->label('Purchase price (gross, 1 piece)')
+                            ->label('Purchase price (base, 1 piece)')
                             ->content(fn (PrintdealProduct $record): string => $record->purchase_price_minor !== null
                                 ? Number::currency($record->purchase_price_minor / 100, 'EUR', 'nl')
-                                : 'Not priced yet; runs during the next sync once the product is offered with order attributes.'),
+                                    .(empty($record->user_options) ? '' : ' (first value of every user option; other combinations are quoted live)')
+                                : 'Not priced yet; fetched on save once the order attributes are configured.'),
                         Placeholder::make('synced_at')
                             ->label('Last synced')
                             ->content(fn (PrintdealProduct $record): string => $record->synced_at?->diffForHumans() ?? 'Never'),
@@ -76,7 +77,7 @@ class PrintdealProductForm
                     ->columns(2),
 
                 Section::make('Offering')
-                    ->description('What the app sells. A product is orderable once it is enabled, mapped to an app product, has order attributes, and has a price (fixed, or margin on the synced purchase price).')
+                    ->description('What the app sells. A product is orderable once it is enabled, mapped to an app product, has order attributes, and has a price (fixed, or a margin).')
                     ->schema([
                         Toggle::make('enabled')
                             ->label('Offer in the app')
@@ -113,7 +114,7 @@ class PrintdealProductForm
                             ])
                             ->columns(2)
                             ->columnSpanFull()
-                            ->helperText('Exact attribute/value pairs Printdeal expects for this product. Pick one value per attribute; leave size-like attributes out (they go in Sizes below). Sent with every order and used to fetch the purchase price.'),
+                            ->helperText('The fixed part of every order: pick one value per attribute. Anything the customer should choose (size, puzzle format, ...) moves to User options below; an attribute that appears in both is removed here automatically on save.'),
                         Repeater::make('user_options')
                             ->label('User options')
                             ->schema([
@@ -130,7 +131,7 @@ class PrintdealProductForm
                             ])
                             ->columns(2)
                             ->columnSpanFull()
-                            ->helperText('Attributes the user picks in the app (Size, Color, ...) with the values they can choose from. Leave these out of the order attributes above; the chosen values are sent as a variant. Only for grouped products such as clothing.'),
+                            ->helperText('Attributes the customer picks in the app (size, puzzle format, packing, ...) with the values they can choose from. The price follows the choice automatically: the app quotes each combination live at Printdeal and applies the margin.'),
                     ])
                     ->columns(2),
 
@@ -141,17 +142,18 @@ class PrintdealProductForm
                             ->numeric()
                             ->minValue(0)
                             ->placeholder('2495')
-                            ->helperText('What the user pays, in cents (2495 = EUR 24,95). Takes precedence over the margin.'),
+                            ->helperText('What the user pays, in cents (2495 = EUR 24,95). Takes precedence over the margin and applies to every option combination, so cost differences between options are absorbed by us.'),
                         TextInput::make('margin_percent')
                             ->label('Margin %')
                             ->numeric()
                             ->minValue(0)
                             ->suffix('%')
-                            ->helperText('Applied to the synced purchase price when no fixed price is set.'),
+                            ->helperText('Applied to the live-quoted purchase price of the exact combination the customer picks. Used when no fixed price is set.'),
                         Placeholder::make('selling_price')
-                            ->label('Current selling price')
+                            ->label('Base selling price')
                             ->content(fn (PrintdealProduct $record): string => $record->sellingPriceMinor() !== null
                                 ? Number::currency($record->sellingPriceMinor() / 100, 'EUR', 'nl')
+                                    .(empty($record->user_options) ? '' : ' (shown as "from" price; the exact price follows the chosen options)')
                                 : 'None yet, product cannot be ordered.'),
                     ])
                     ->columns(2),

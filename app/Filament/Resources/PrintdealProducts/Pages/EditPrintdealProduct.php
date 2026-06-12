@@ -66,6 +66,27 @@ class EditPrintdealProduct extends EditRecord
     }
 
     /**
+     * An attribute that is a customer choice (user option) must not also be
+     * pinned as an order attribute: the order call would then send the
+     * attribute twice with conflicting values. The user-option wins; the
+     * prefilled order-attribute row is dropped silently because moving a
+     * choice to the customer is exactly what the admin just expressed.
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $userChoices = collect($data['user_options'] ?? [])
+            ->pluck('attribute')
+            ->map(strtolower(...));
+
+        $data['order_attributes'] = collect($data['order_attributes'] ?? [])
+            ->reject(fn (array $row): bool => $userChoices->contains(strtolower((string) $row['attribute'])))
+            ->values()
+            ->all();
+
+        return $data;
+    }
+
+    /**
      * Refresh the purchase price right away once order attributes are
      * configured, instead of waiting for the next catalog sync.
      */

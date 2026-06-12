@@ -71,6 +71,41 @@ it('suggests schema attributes and values inside the repeater fields', function 
         ->assertDontSee('value="quantity"', false);
 });
 
+it('drops order attributes that are also user options on save', function () {
+    Http::fake([
+        // The post-save price refresh; its outcome is irrelevant here.
+        'api.printdeal.test/products/*' => Http::response(['price' => 10.0]),
+    ]);
+
+    $product = PrintdealProduct::factory()->create([
+        'attribute_schema' => [
+            ['attribute' => 'Printing Process', 'values' => ['Sublimation']],
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '54 x 40 cm (500 pcs)']],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->fillForm([
+            'enabled' => true,
+            'app_product' => 'puzzle',
+            'order_attributes' => [
+                ['attribute' => 'Printing Process', 'value' => 'Sublimation'],
+                // Left over from the prefill, but moved to a customer choice.
+                ['attribute' => 'Print Area', 'value' => '28 x 19 cm (35 pcs)'],
+            ],
+            'user_options' => [
+                ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '54 x 40 cm (500 pcs)']],
+            ],
+            'margin_percent' => 10,
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($product->fresh()->order_attributes)->toBe([
+        ['attribute' => 'Printing Process', 'value' => 'Sublimation'],
+    ]);
+});
+
 it('prefills the order attributes from the schema, completing single-value ones', function () {
     $product = PrintdealProduct::factory()->create([
         'attribute_schema' => [
