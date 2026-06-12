@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\PrintOrderStatus;
 use App\Models\PrintOrder;
+use App\Models\PrintOrderItem;
 use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintdealClient;
 use App\Support\MediaUrl;
@@ -15,10 +16,11 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * After a paid Mollie payment: generate the print-ready PDF, store it, and
- * place the order at Printdeal. Split from the webhook request so a slow
- * PDF render or a Printdeal outage never blocks the webhook response, and
- * retries get the full backoff treatment.
+ * After a paid Mollie payment: generate a print-ready PDF per line item,
+ * store them, and place the whole order at Printdeal as one order with
+ * multiple line items. Split from the webhook request so a slow PDF render
+ * or a Printdeal outage never blocks the webhook response, and retries get
+ * the full backoff treatment.
  */
 class SubmitPrintOrder implements ShouldQueue
 {
@@ -41,7 +43,7 @@ class SubmitPrintOrder implements ShouldQueue
 
     public function handle(PrintdealClient $printdeal, PrintArtworkGenerator $artwork): void
     {
-        $order = $this->printOrder->fresh();
+        $order = $this->printOrder->fresh(['items']);
 
         // Idempotent: webhooks can fire multiple times for one payment, and a
         // timed-out attempt may already have placed the Printdeal order.
@@ -49,60 +51,24 @@ class SubmitPrintOrder implements ShouldQueue
             return;
         }
 
-        // Reuse the PDF from a previous attempt that failed after rendering.
         $disk = MediaUrl::disk();
-        $pdfPath = $order->pdf_path;
+        $payloadItems = [];
 
-        if ($pdfPath === null || ! $disk->exists($pdfPath)) {
-            $pdfPath = "print-orders/{$order->id}/artwork.pdf";
-            $disk->put($pdfPath, $artwork->generate($order));
-            $order->update(['pdf_path' => $pdfPath]);
+        foreach ($order->items as $item) {
+            // Reuse PDFs from a previous attempt that failed after rendering.
+            $pdfPath = $item->pdf_path;
+
+            if ($pdfPath === null || ! $disk->exists($pdfPath)) {
+                $pdfPath = "print-orders/{$order->id}/{$item->id}.pdf";
+                $disk->put($pdfPath, $artwork->generate($item));
+                $item->update(['pdf_path' => $pdfPath]);
+            }
+
+            $payloadItems[] = $this->buildItemPayload($order, $item, MediaUrl::sign($pdfPath));
         }
 
-        $response = $printdeal->createOrder($this->buildPayload($order, MediaUrl::sign($pdfPath)));
-
-        $order->update([
-            'status' => PrintOrderStatus::Submitted,
-            'printdeal_order_id' => $response['id'] ?? null,
-            'printdeal_order_number' => $response['number'] ?? null,
-            'printdeal_item_id' => $response['items'][0]['id'] ?? null,
-            'printdeal_status' => $response['status'] ?? null,
-        ]);
-    }
-
-    /**
-     * Built from the snapshot taken at order creation (sku, attributes,
-     * size), never from live admin config: the user paid for exactly this.
-     *
-     * @return array<string, mixed>
-     */
-    private function buildPayload(PrintOrder $order, string $artworkUrl): array
-    {
-        $shippingAddress = $order->shipping_address;
-
-        $item = [
-            'sku' => $order->printdeal_sku,
-            'attributes' => $order->printdeal_attributes,
-            'files' => [['url' => $artworkUrl]],
-        ];
-
-        $size = $order->options['size'] ?? null;
-
-        if ($size !== null) {
-            // Grouped product (t-shirt): the size is a variant and carries the
-            // quantity, so the shipping address must not repeat it.
-            $item['variants'] = [[
-                ['attribute' => 'Size', 'value' => $size],
-                ['attribute' => 'Quantity', 'value' => '1'],
-            ]];
-        } else {
-            $shippingAddress['quantity'] = 1;
-        }
-
-        $item['shippingAddresses'] = [$shippingAddress];
-
-        return [
-            'items' => [$item],
+        $response = $printdeal->createOrder([
+            'items' => $payloadItems,
             'billingAddress' => array_filter(
                 config('print.billing_address'),
                 fn ($value) => $value !== null && $value !== '',
@@ -110,8 +76,62 @@ class SubmitPrintOrder implements ShouldQueue
             'reference' => "innerr-{$order->id}",
             'paymentMethod' => 'onAccount',
             'platform' => 'Own',
-            'testOrder' => app(PrintdealClient::class)->testOrdersEnabled(),
+            'testOrder' => $printdeal->testOrdersEnabled(),
+        ]);
+
+        // Response items follow the request order, so they pair up by index.
+        foreach (array_values($response['items'] ?? []) as $index => $responseItem) {
+            $order->items[$index]?->update([
+                'printdeal_item_id' => $responseItem['id'] ?? null,
+            ]);
+        }
+
+        $order->update([
+            'status' => PrintOrderStatus::Submitted,
+            'printdeal_order_id' => $response['id'] ?? null,
+            'printdeal_order_number' => $response['number'] ?? null,
+            'printdeal_status' => $response['status'] ?? null,
+        ]);
+    }
+
+    /**
+     * Built from the snapshot taken at order creation (sku, attributes,
+     * options), never from live admin config: the user paid for exactly this.
+     * Items with user options are grouped products: the options travel as a
+     * variant that also carries the quantity.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildItemPayload(PrintOrder $order, PrintOrderItem $item, string $artworkUrl): array
+    {
+        $shippingAddress = $order->shipping_address;
+
+        $payload = [
+            'sku' => $item->printdeal_sku,
+            'attributes' => $item->printdeal_attributes,
+            'files' => [['url' => $artworkUrl]],
         ];
+
+        $options = $item->options ?? [];
+
+        if ($options !== []) {
+            $variant = collect($options)
+                ->map(fn (string $value, string $attribute): array => [
+                    'attribute' => $attribute,
+                    'value' => $value,
+                ])
+                ->values()
+                ->all();
+            $variant[] = ['attribute' => 'Quantity', 'value' => '1'];
+
+            $payload['variants'] = [$variant];
+        } else {
+            $shippingAddress['quantity'] = 1;
+        }
+
+        $payload['shippingAddresses'] = [$shippingAddress];
+
+        return $payload;
     }
 
     public function failed(?\Throwable $exception): void

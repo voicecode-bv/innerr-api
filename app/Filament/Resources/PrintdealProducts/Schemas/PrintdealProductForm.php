@@ -85,7 +85,7 @@ class PrintdealProductForm
                                 'tshirt' => 'T-shirt',
                             ])
                             ->native(false)
-                            ->helperText('Which shop tile this product backs. With multiple enabled products per tile, the most recently updated wins.'),
+                            ->helperText('Which product family this belongs to in the app; it decides the artwork layout and photo limits. Multiple enabled products per family all show up in the shop.'),
                         Placeholder::make('schema_status')
                             ->label('Attribute schema')
                             ->content(fn (PrintdealProduct $record): string => empty($record->attribute_schema)
@@ -105,16 +105,20 @@ class PrintdealProductForm
                             ->columns(2)
                             ->columnSpanFull()
                             ->helperText('Exact attribute/value pairs Printdeal expects for this product. Pick one value per attribute; leave size-like attributes out (they go in Sizes below). Sent with every order and used to fetch the purchase price.'),
-                        TagsInput::make('sizes')
-                            ->label('Sizes')
-                            ->placeholder('S, M, L, ...')
-                            ->suggestions(fn (?PrintdealProduct $record): array => collect($record?->attribute_schema ?? [])
-                                ->first(fn (array $entry): bool => in_array(
-                                    strtolower($entry['attribute']),
-                                    ['size', 'sizes', 'maat'],
-                                    true,
-                                ))['values'] ?? [])
-                            ->helperText('Only for grouped products such as t-shirts; the chosen size is sent as a variant.'),
+                        Repeater::make('user_options')
+                            ->label('User options')
+                            ->schema([
+                                TextInput::make('attribute')
+                                    ->required()
+                                    ->datalist(fn (?PrintdealProduct $record): array => self::schemaAttributeNames($record)),
+                                TagsInput::make('values')
+                                    ->required()
+                                    ->placeholder('S, M, L, ...')
+                                    ->suggestions(fn (Get $get, ?PrintdealProduct $record): array => self::schemaValuesFor($record, $get('attribute'))),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull()
+                            ->helperText('Attributes the user picks in the app (Size, Color, ...) with the values they can choose from. Leave these out of the order attributes above; the chosen values are sent as a variant. Only for grouped products such as clothing.'),
                     ])
                     ->columns(2),
 

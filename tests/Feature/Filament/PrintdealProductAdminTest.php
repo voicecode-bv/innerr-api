@@ -27,9 +27,12 @@ it('configures an offering through the edit page', function () {
     Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
         ->fillForm([
             'enabled' => true,
-            'app_product' => 'mug',
+            'app_product' => 'tshirt',
             'order_attributes' => [
-                ['attribute' => 'Type', 'value' => 'Ceramic'],
+                ['attribute' => 'Style', 'value' => 'Basic'],
+            ],
+            'user_options' => [
+                ['attribute' => 'Size', 'values' => ['S', 'M']],
             ],
             'margin_percent' => 40,
         ])
@@ -39,9 +42,12 @@ it('configures an offering through the edit page', function () {
     $product->refresh();
 
     expect($product->enabled)->toBeTrue()
-        ->and($product->app_product)->toBe('mug')
+        ->and($product->app_product)->toBe('tshirt')
         ->and($product->order_attributes)->toBe([
-            ['attribute' => 'Type', 'value' => 'Ceramic'],
+            ['attribute' => 'Style', 'value' => 'Basic'],
+        ])
+        ->and($product->user_options)->toBe([
+            ['attribute' => 'Size', 'values' => ['S', 'M']],
         ])
         ->and($product->margin_percent)->toBe(40.0);
 });

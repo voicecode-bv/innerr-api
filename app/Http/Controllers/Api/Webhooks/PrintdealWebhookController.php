@@ -30,6 +30,9 @@ class PrintdealWebhookController extends Controller
             ?? ($payload['order']['id'] ?? null);
         $status = $payload['status']
             ?? ($payload['orderline']['status'] ?? null);
+        $orderlineId = $payload['orderlineId']
+            ?? $payload['orderline_id']
+            ?? ($payload['orderline']['id'] ?? null);
 
         if (! is_string($orderId) || $orderId === '') {
             Log::info('Printdeal webhook without recognizable order id.', ['payload' => $payload]);
@@ -48,6 +51,14 @@ class PrintdealWebhookController extends Controller
         }
 
         if (is_string($status) && $status !== '') {
+            // Track the line's own status when the event names one; the
+            // order-level status always reflects the latest event.
+            if (is_string($orderlineId) && $orderlineId !== '') {
+                $order->items()
+                    ->where('printdeal_item_id', $orderlineId)
+                    ->update(['printdeal_status' => $status]);
+            }
+
             $order->update(['printdeal_status' => $status]);
         }
 

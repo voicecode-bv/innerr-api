@@ -4,7 +4,9 @@ namespace App\Http\Requests;
 
 use App\Models\PrintdealProduct;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StorePrintOrderRequest extends FormRequest
 {
@@ -18,26 +20,14 @@ class StorePrintOrderRequest extends FormRequest
      */
     public function rules(): array
     {
-        $products = config('print.products');
-        $product = $products[$this->input('product')] ?? null;
-        $sizes = $this->offering()?->sizes ?? [];
-
         return [
-            'product' => ['required', 'string', Rule::in(array_keys($products))],
-
-            'photos' => [
-                'required', 'array',
-                'min:'.($product['min_photos'] ?? 1),
-                'max:'.($product['max_photos'] ?? 50),
-            ],
-            'photos.*.post_id' => ['required', 'uuid'],
-            'photos.*.media_id' => ['required', 'uuid'],
-
-            'options' => ['sometimes', 'array'],
-            'options.size' => [
-                Rule::requiredIf($sizes !== []),
-                Rule::in($sizes),
-            ],
+            'items' => ['required', 'array', 'min:1', 'max:10'],
+            'items.*.offering_id' => ['required', 'uuid', 'distinct'],
+            'items.*.photos' => ['required', 'array', 'min:1', 'max:50'],
+            'items.*.photos.*.post_id' => ['required', 'uuid'],
+            'items.*.photos.*.media_id' => ['required', 'uuid'],
+            'items.*.options' => ['sometimes', 'array'],
+            'items.*.options.*' => ['string', 'max:100'],
 
             'shipping_address' => ['required', 'array'],
             'shipping_address.firstName' => ['required', 'string', 'max:100'],
@@ -56,14 +46,75 @@ class StorePrintOrderRequest extends FormRequest
     }
 
     /**
-     * The admin-configured offering that currently backs the requested app
-     * product. Memoized: rules() and the controller both need it.
+     * Per-item rules that depend on the offering: photo-count limits come
+     * from the app-product config, and the options must match the offering's
+     * user options exactly (every option chosen, every value allowed).
+     *
+     * @return array<int, callable>
      */
-    public function offering(): ?PrintdealProduct
+    public function after(): array
     {
-        return once(fn (): ?PrintdealProduct => PrintdealProduct::offeredFor(
-            (string) $this->input('product'),
-        ));
+        return [
+            function (Validator $validator): void {
+                $offerings = $this->offerings();
+
+                foreach ($this->input('items', []) as $index => $item) {
+                    $offering = $offerings->get($item['offering_id'] ?? '');
+
+                    if ($offering === null) {
+                        continue; // The controller reports these as unavailable.
+                    }
+
+                    $config = config("print.products.{$offering->app_product}");
+                    $photoCount = count($item['photos'] ?? []);
+
+                    if ($config !== null && ($photoCount < $config['min_photos'] || $photoCount > $config['max_photos'])) {
+                        $validator->errors()->add(
+                            "items.{$index}.photos",
+                            "This product needs between {$config['min_photos']} and {$config['max_photos']} photos.",
+                        );
+                    }
+
+                    $options = collect($item['options'] ?? []);
+
+                    foreach ($offering->user_options ?? [] as $userOption) {
+                        $chosen = $options->get($userOption['attribute']);
+
+                        if (! in_array($chosen, $userOption['values'] ?? [], true)) {
+                            $validator->errors()->add(
+                                "items.{$index}.options.{$userOption['attribute']}",
+                                "Choose a valid {$userOption['attribute']}.",
+                            );
+                        }
+                    }
+
+                    $known = collect($offering->user_options ?? [])->pluck('attribute');
+
+                    foreach ($options->keys() as $key) {
+                        if (! $known->contains($key)) {
+                            $validator->errors()->add(
+                                "items.{$index}.options.{$key}",
+                                'Unknown option for this product.',
+                            );
+                        }
+                    }
+                }
+            },
+        ];
+    }
+
+    /**
+     * The requested offerings, keyed by id. Memoized: the after-rules and
+     * the controller both need them.
+     *
+     * @return Collection<string, PrintdealProduct>
+     */
+    public function offerings(): Collection
+    {
+        return once(fn (): Collection => PrintdealProduct::query()
+            ->whereIn('id', collect($this->input('items', []))->pluck('offering_id')->filter())
+            ->get()
+            ->keyBy('id'));
     }
 
     /**

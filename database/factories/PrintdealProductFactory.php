@@ -38,7 +38,9 @@ class PrintdealProductFactory extends Factory
                 ['attribute' => 'Format', 'value' => 'A4'],
                 ['attribute' => 'Printing Colors', 'value' => '4/4 Full Color'],
             ],
-            'sizes' => $appProduct === 'tshirt' ? ['S', 'M', 'L', 'XL', 'XXL'] : null,
+            'user_options' => $appProduct === 'tshirt'
+                ? [['attribute' => 'Size', 'values' => ['S', 'M', 'L', 'XL', 'XXL']]]
+                : null,
             'fixed_price_minor' => $fixedPriceMinor,
         ]);
     }

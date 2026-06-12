@@ -9,19 +9,17 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A print-product order: photos picked in the app, a product from the config
- * catalog (config/print.php), a Mollie payment, and after payment a Printdeal
- * order. `photos` stores storage paths (never URLs); signed URLs are minted at
- * submission time because they expire.
+ * A print order: one or more products (see PrintOrderItem) shipped to one
+ * address, paid in a single Mollie payment, and after payment submitted to
+ * Printdeal as one order with multiple line items.
  */
 #[Fillable([
-    'user_id', 'product', 'options', 'photos', 'shipping_address',
-    'printdeal_sku', 'printdeal_attributes',
-    'amount_minor', 'currency', 'status', 'mollie_payment_id',
-    'printdeal_order_id', 'printdeal_order_number', 'printdeal_item_id',
-    'printdeal_status', 'pdf_path',
+    'user_id', 'shipping_address', 'amount_minor', 'currency', 'status',
+    'mollie_payment_id', 'printdeal_order_id', 'printdeal_order_number',
+    'printdeal_status',
 ])]
 class PrintOrder extends Model
 {
@@ -34,10 +32,7 @@ class PrintOrder extends Model
     protected function casts(): array
     {
         return [
-            'options' => 'array',
-            'photos' => 'array',
             'shipping_address' => 'array',
-            'printdeal_attributes' => 'array',
             'amount_minor' => 'integer',
             'status' => PrintOrderStatus::class,
         ];
@@ -49,5 +44,13 @@ class PrintOrder extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return HasMany<PrintOrderItem, $this>
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(PrintOrderItem::class);
     }
 }

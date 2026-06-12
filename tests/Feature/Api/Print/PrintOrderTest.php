@@ -28,7 +28,20 @@ function makePrintablePhoto(User $owner): array
     return [$post, $media];
 }
 
-function fakeMollieCheckout(): void
+function shippingAddress(): array
+{
+    return [
+        'firstName' => 'Michael',
+        'lastName' => 'Blijleven',
+        'street' => 'Hoofdstraat',
+        'houseNumber' => '1',
+        'postalCode' => '1234AB',
+        'city' => 'Amsterdam',
+        'country' => 'NL',
+    ];
+}
+
+function fakeMollieCheckout(string $expectedValue = '24.95'): void
 {
     $client = Mockery::mock(MollieApiClient::class);
     $payments = Mockery::mock(PaymentEndpoint::class);
@@ -40,8 +53,8 @@ function fakeMollieCheckout(): void
 
     $payments->shouldReceive('create')
         ->once()
-        ->withArgs(function (array $args): bool {
-            return $args['amount']['value'] === '24.95'
+        ->withArgs(function (array $args) use ($expectedValue): bool {
+            return $args['amount']['value'] === $expectedValue
                 && $args['metadata']['kind'] === 'print_order'
                 && str_contains($args['webhookUrl'], '/api/webhooks/print/mollie');
         })
@@ -52,43 +65,49 @@ function fakeMollieCheckout(): void
 
 beforeEach(function () {
     $this->albumOffering = PrintdealProduct::factory()->offered('album', 2495)->create();
-    PrintdealProduct::factory()->offered('tshirt', 1995)->create();
+    $this->tshirtOffering = PrintdealProduct::factory()->offered('tshirt', 1995)->create();
 });
 
-it('creates a pending order with a Mollie checkout for own photos', function () {
+it('creates a multi-item order with one Mollie checkout for the total', function () {
     $user = User::factory()->create();
-    [$post, $media] = makePrintablePhoto($user);
+    [$albumPost, $albumMedia] = makePrintablePhoto($user);
+    [$tshirtPost, $tshirtMedia] = makePrintablePhoto($user);
 
-    fakeMollieCheckout();
+    fakeMollieCheckout('44.90');
     Sanctum::actingAs($user);
 
     $response = $this->postJson('/api/print/orders', [
-        'product' => 'album',
-        'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
-        'shipping_address' => [
-            'firstName' => 'Michael',
-            'lastName' => 'Blijleven',
-            'street' => 'Hoofdstraat',
-            'houseNumber' => '1',
-            'postalCode' => '1234AB',
-            'city' => 'Amsterdam',
-            'country' => 'NL',
+        'items' => [
+            [
+                'offering_id' => $this->albumOffering->id,
+                'photos' => [['post_id' => $albumPost->id, 'media_id' => $albumMedia->id]],
+            ],
+            [
+                'offering_id' => $this->tshirtOffering->id,
+                'photos' => [['post_id' => $tshirtPost->id, 'media_id' => $tshirtMedia->id]],
+                'options' => ['Size' => 'M'],
+            ],
         ],
+        'shipping_address' => shippingAddress(),
         'redirect_url' => 'https://innerr.test/print/return',
     ])
         ->assertCreated()
         ->assertJsonPath('checkout_url', 'https://mollie.test/checkout/print')
         ->assertJsonPath('data.status', 'pending_payment')
-        ->assertJsonPath('data.amount_minor', 2495);
+        ->assertJsonPath('data.amount_minor', 4490)
+        ->assertJsonCount(2, 'data.items')
+        ->assertJsonPath('data.items.1.options.Size', 'M');
 
-    $order = PrintOrder::query()->findOrFail($response->json('data.id'));
+    $order = PrintOrder::query()->with('items')->findOrFail($response->json('data.id'));
 
     expect($order->mollie_payment_id)->toBe('tr_print123')
-        ->and($order->photos[0]['path'])->toBe($media->path)
         ->and($order->status)->toBe(PrintOrderStatus::PendingPayment)
+        ->and($order->items)->toHaveCount(2)
         // Snapshot from the offering, so later admin edits can't change it.
-        ->and($order->printdeal_sku)->toBe($this->albumOffering->sku)
-        ->and($order->printdeal_attributes)->toBe($this->albumOffering->order_attributes);
+        ->and($order->items[0]->printdeal_sku)->toBe($this->albumOffering->sku)
+        ->and($order->items[0]->printdeal_attributes)->toBe($this->albumOffering->order_attributes)
+        ->and($order->items[0]->photos[0]['path'])->toBe($albumMedia->path)
+        ->and($order->items[1]->amount_minor)->toBe(1995);
 });
 
 it('allows printing a circle member photo the user can view', function () {
@@ -104,17 +123,11 @@ it('allows printing a circle member photo the user can view', function () {
     Sanctum::actingAs($viewer);
 
     $this->postJson('/api/print/orders', [
-        'product' => 'album',
-        'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
-        'shipping_address' => [
-            'firstName' => 'Oma',
-            'lastName' => 'Jansen',
-            'street' => 'Dorpsweg',
-            'houseNumber' => '12',
-            'postalCode' => '5678CD',
-            'city' => 'Utrecht',
-            'country' => 'NL',
-        ],
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
         'redirect_url' => 'https://innerr.test/print/return',
     ])->assertCreated();
 });
@@ -126,67 +139,71 @@ it('rejects photos from posts the user cannot view', function () {
     Sanctum::actingAs(User::factory()->create());
 
     $this->postJson('/api/print/orders', [
-        'product' => 'album',
-        'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
-        'shipping_address' => [
-            'firstName' => 'A',
-            'lastName' => 'B',
-            'street' => 'C',
-            'houseNumber' => '1',
-            'postalCode' => '1234AB',
-            'city' => 'X',
-            'country' => 'NL',
-        ],
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
         'redirect_url' => 'https://innerr.test/print/return',
     ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors('photos');
+        ->assertJsonValidationErrors('items');
 
     expect(PrintOrder::query()->count())->toBe(0);
 });
 
-it('rejects video media and requires a t-shirt size', function () {
+it('validates user options against the offering', function () {
     $user = User::factory()->create();
-    $post = Post::factory()->create(['user_id' => $user->id, 'media_type' => 'video']);
-    $video = PostMedia::create([
-        'post_id' => $post->id,
-        'sort_order' => 0,
-        'path' => "users/{$user->id}/posts/clip.mp4",
-        'type' => 'video',
-        'format' => 'mp4',
-        'status' => MediaStatus::Ready,
-    ]);
+    [$post, $media] = makePrintablePhoto($user);
 
     Sanctum::actingAs($user);
 
-    $address = [
-        'firstName' => 'A',
-        'lastName' => 'B',
-        'street' => 'C',
-        'houseNumber' => '1',
-        'postalCode' => '1234AB',
-        'city' => 'X',
-        'country' => 'NL',
+    $payload = fn (array $options) => [
+        'items' => [[
+            'offering_id' => $this->tshirtOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+            'options' => $options,
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
     ];
 
-    $this->postJson('/api/print/orders', [
-        'product' => 'album',
-        'photos' => [['post_id' => $post->id, 'media_id' => $video->id]],
-        'shipping_address' => $address,
-        'redirect_url' => 'https://innerr.test/print/return',
-    ])->assertJsonValidationErrors('photos');
+    // Missing size.
+    $this->postJson('/api/print/orders', $payload([]))
+        ->assertJsonValidationErrors('items.0.options.Size');
 
-    [$photoPost, $photo] = makePrintablePhoto($user);
+    // Size outside the allowed values.
+    $this->postJson('/api/print/orders', $payload(['Size' => 'XXXL']))
+        ->assertJsonValidationErrors('items.0.options.Size');
 
-    $this->postJson('/api/print/orders', [
-        'product' => 'tshirt',
-        'photos' => [['post_id' => $photoPost->id, 'media_id' => $photo->id]],
-        'shipping_address' => $address,
-        'redirect_url' => 'https://innerr.test/print/return',
-    ])->assertJsonValidationErrors('options.size');
+    // Option the offering doesn't know.
+    $this->postJson('/api/print/orders', $payload(['Size' => 'M', 'Color' => 'Red']))
+        ->assertJsonValidationErrors('items.0.options.Color');
 });
 
-it('refuses products without an orderable offering', function () {
+it('enforces the photo limits of each app product', function () {
+    $user = User::factory()->create();
+    [$post1, $media1] = makePrintablePhoto($user);
+    [$post2, $media2] = makePrintablePhoto($user);
+
+    Sanctum::actingAs($user);
+
+    // A t-shirt takes exactly one photo.
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->tshirtOffering->id,
+            'photos' => [
+                ['post_id' => $post1->id, 'media_id' => $media1->id],
+                ['post_id' => $post2->id, 'media_id' => $media2->id],
+            ],
+            'options' => ['Size' => 'M'],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertJsonValidationErrors('items.0.photos');
+});
+
+it('refuses orders with an offering that is not orderable', function () {
     $this->albumOffering->update(['enabled' => false]);
 
     $user = User::factory()->create();
@@ -195,35 +212,30 @@ it('refuses products without an orderable offering', function () {
     Sanctum::actingAs($user);
 
     $this->postJson('/api/print/orders', [
-        'product' => 'album',
-        'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
-        'shipping_address' => [
-            'firstName' => 'A',
-            'lastName' => 'B',
-            'street' => 'C',
-            'houseNumber' => '1',
-            'postalCode' => '1234AB',
-            'city' => 'X',
-            'country' => 'NL',
-        ],
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
         'redirect_url' => 'https://innerr.test/print/return',
     ])
         ->assertUnprocessable()
         ->assertJsonPath('error_code', 'product_unavailable');
 });
 
-it('lists only the user own orders and hides others', function () {
+it('lists only the user own orders with their items and hides others', function () {
     $user = User::factory()->create();
     $other = User::factory()->create();
-    $mine = PrintOrder::factory()->for($user)->create();
-    $theirs = PrintOrder::factory()->for($other)->create();
+    $mine = PrintOrder::factory()->withItem()->for($user)->create();
+    $theirs = PrintOrder::factory()->withItem()->for($other)->create();
 
     Sanctum::actingAs($user);
 
     $this->getJson('/api/print/orders')
         ->assertOk()
         ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.id', $mine->id);
+        ->assertJsonPath('data.0.id', $mine->id)
+        ->assertJsonCount(1, 'data.0.items');
 
     $this->getJson("/api/print/orders/{$mine->id}")->assertOk();
     $this->getJson("/api/print/orders/{$theirs->id}")->assertNotFound();

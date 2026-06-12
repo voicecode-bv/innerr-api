@@ -9,42 +9,36 @@ use Illuminate\Http\JsonResponse;
 class PrintProductController extends Controller
 {
     /**
-     * The print-shop catalog as the app renders it. Photo-count limits come
-     * from config/print.php (they are tied to the artwork layout); prices,
-     * sizes, and availability come from the admin-managed offerings in the
-     * `printdeal_products` table. An app product without an orderable
-     * offering is shown as "coming soon".
+     * The print-shop catalog: every enabled offering, so one app product
+     * (e.g. t-shirt) can appear in multiple variants (basic, premium). Photo
+     * limits come from config/print.php (tied to the artwork layout); name,
+     * price, and user options come from the offering.
      */
     public function __invoke(): JsonResponse
     {
+        $products = config('print.products');
+
         $offerings = PrintdealProduct::query()
             ->offered()
-            ->orderByDesc('updated_at')
+            ->orderBy('app_product')
+            ->orderBy('created_at')
             ->get()
-            ->unique('app_product')
-            ->keyBy('app_product');
-
-        $products = collect(config('print.products'))
-            ->map(function (array $product, string $id) use ($offerings): array {
-                $offering = $offerings->get($id);
-                $priceMinor = $offering?->sellingPriceMinor();
-
-                return [
-                    'id' => $id,
-                    'price_minor' => $priceMinor,
-                    'currency' => $offering?->currency ?? 'EUR',
-                    'min_photos' => $product['min_photos'],
-                    'max_photos' => $product['max_photos'],
-                    'sizes' => $offering?->sizes,
-                    'available' => $offering !== null
-                        && $priceMinor !== null
-                        && $offering->isOrderable(),
-                ];
-            })
+            ->filter(fn (PrintdealProduct $offering): bool => isset($products[$offering->app_product]))
+            ->map(fn (PrintdealProduct $offering): array => [
+                'id' => $offering->id,
+                'app_product' => $offering->app_product,
+                'name' => $offering->name,
+                'price_minor' => $offering->sellingPriceMinor(),
+                'currency' => $offering->currency,
+                'min_photos' => $products[$offering->app_product]['min_photos'],
+                'max_photos' => $products[$offering->app_product]['max_photos'],
+                'user_options' => $offering->user_options ?? [],
+                'available' => $offering->isOrderable(),
+            ])
             ->values();
 
         return new JsonResponse([
-            'data' => $products,
+            'data' => $offerings,
             'shipping_countries' => config('print.shipping_countries'),
             'return_url' => config('print.return_url'),
         ]);

@@ -2,7 +2,7 @@
 
 namespace App\Services\Printdeal;
 
-use App\Models\PrintOrder;
+use App\Models\PrintOrderItem;
 use App\Support\MediaUrl;
 use Intervention\Image\Laravel\Facades\Image;
 use RuntimeException;
@@ -23,18 +23,18 @@ class PrintArtworkGenerator
 
     private const MM_PER_INCH = 25.4;
 
-    public function generate(PrintOrder $order): string
+    public function generate(PrintOrderItem $item): string
     {
-        $spec = config("print.products.{$order->product}.pdf");
+        $spec = config("print.products.{$item->app_product}.pdf");
 
         if ($spec === null) {
-            throw new RuntimeException("Unknown print product '{$order->product}'.");
+            throw new RuntimeException("Unknown print product '{$item->app_product}'.");
         }
 
-        $photos = $order->photos;
+        $photos = $item->photos;
 
         if ($photos === []) {
-            throw new RuntimeException("Print order {$order->id} has no photos.");
+            throw new RuntimeException("Print order item {$item->id} has no photos.");
         }
 
         // Full-bleed page box: trim size extended by the bleed on every edge.

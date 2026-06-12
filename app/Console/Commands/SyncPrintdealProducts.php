@@ -168,12 +168,21 @@ class SyncPrintdealProducts extends Command
                     'billingAddress' => ['country' => config('print.billing_address.country', 'NL')],
                 ];
 
-                if (! empty($offering->sizes)) {
-                    // Grouped product: price one piece of the first size.
-                    $payload['variants'] = [[
-                        ['attribute' => 'Size', 'value' => $offering->sizes[0]],
-                        ['attribute' => 'Quantity', 'value' => 1],
-                    ]];
+                $userOptions = $offering->user_options ?? [];
+
+                if ($userOptions !== []) {
+                    // Grouped product: price one piece with the first value
+                    // of every user option (size, color, ...).
+                    $variant = collect($userOptions)
+                        ->map(fn (array $option): array => [
+                            'attribute' => $option['attribute'],
+                            'value' => $option['values'][0] ?? '',
+                        ])
+                        ->values()
+                        ->all();
+                    $variant[] = ['attribute' => 'Quantity', 'value' => 1];
+
+                    $payload['variants'] = [$variant];
                 } else {
                     $payload['quantities'] = [1];
                 }

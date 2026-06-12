@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PrintOrder;
+use App\Models\PrintOrderItem;
 
 beforeEach(function () {
     config()->set('services.printdeal.webhook_token', 'secret-token');
@@ -30,6 +31,26 @@ it('updates the printdeal status of a known order', function () {
     ])->assertOk();
 
     expect($order->fresh()->printdeal_status)->toBe('InProduction');
+});
+
+it('updates the matching line item when the event names an orderline', function () {
+    $order = PrintOrder::factory()->submitted()->create();
+    $item = PrintOrderItem::factory()->for($order, 'order')->create([
+        'printdeal_item_id' => 'pd-item-1',
+    ]);
+    $untouched = PrintOrderItem::factory()->for($order, 'order')->create([
+        'printdeal_item_id' => 'pd-item-2',
+    ]);
+
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'orderId' => $order->printdeal_order_id,
+        'orderlineId' => 'pd-item-1',
+        'status' => 'Shipped',
+    ])->assertOk();
+
+    expect($item->fresh()->printdeal_status)->toBe('Shipped')
+        ->and($untouched->fresh()->printdeal_status)->toBeNull()
+        ->and($order->fresh()->printdeal_status)->toBe('Shipped');
 });
 
 it('acknowledges unknown orders and unrecognizable payloads', function () {

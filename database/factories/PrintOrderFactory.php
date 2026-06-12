@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\PrintOrderStatus;
 use App\Models\PrintOrder;
+use App\Models\PrintOrderItem;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -21,15 +22,6 @@ class PrintOrderFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'product' => 'album',
-            'options' => null,
-            'photos' => [
-                [
-                    'post_id' => $this->faker->uuid(),
-                    'media_id' => $this->faker->uuid(),
-                    'path' => 'users/'.$this->faker->uuid().'/photo.jpg',
-                ],
-            ],
             'shipping_address' => [
                 'firstName' => $this->faker->firstName(),
                 'lastName' => $this->faker->lastName(),
@@ -39,15 +31,16 @@ class PrintOrderFactory extends Factory
                 'city' => $this->faker->city(),
                 'country' => 'NL',
             ],
-            'printdeal_sku' => $this->faker->uuid(),
-            'printdeal_attributes' => [
-                ['attribute' => 'Format', 'value' => 'A4'],
-                ['attribute' => 'Printing Colors', 'value' => '4/4 Full Color'],
-            ],
             'amount_minor' => 2495,
             'currency' => 'EUR',
             'status' => PrintOrderStatus::PendingPayment,
         ];
+    }
+
+    /** One album line item, mirroring how the controller creates orders. */
+    public function withItem(): static
+    {
+        return $this->has(PrintOrderItem::factory(), 'items');
     }
 
     public function paid(): static
@@ -64,7 +57,6 @@ class PrintOrderFactory extends Factory
             'status' => PrintOrderStatus::Submitted,
             'printdeal_order_id' => $this->faker->uuid(),
             'printdeal_order_number' => 'DDB'.$this->faker->numerify('##########'),
-            'printdeal_item_id' => $this->faker->uuid(),
         ]);
     }
 }

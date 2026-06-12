@@ -18,8 +18,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 #[Fillable([
     'sku', 'name', 'synced_at', 'delisted_at', 'enabled', 'app_product',
-    'order_attributes', 'sizes', 'attribute_schema', 'fixed_price_minor',
-    'margin_percent', 'purchase_price_minor', 'currency',
+    'order_attributes', 'user_options', 'attribute_schema',
+    'fixed_price_minor', 'margin_percent', 'purchase_price_minor', 'currency',
 ])]
 class PrintdealProduct extends Model
 {
@@ -37,7 +37,7 @@ class PrintdealProduct extends Model
             'delisted_at' => 'datetime',
             'enabled' => 'boolean',
             'order_attributes' => 'array',
-            'sizes' => 'array',
+            'user_options' => 'array',
             'attribute_schema' => 'array',
             'fixed_price_minor' => 'integer',
             'margin_percent' => 'float',
@@ -57,16 +57,6 @@ class PrintdealProduct extends Model
             ->where('enabled', true)
             ->whereNotNull('app_product')
             ->whereNull('delisted_at');
-    }
-
-    /** The offering that currently backs the given app product, if any. */
-    public static function offeredFor(string $appProduct): ?self
-    {
-        return self::query()
-            ->offered()
-            ->where('app_product', $appProduct)
-            ->orderByDesc('updated_at')
-            ->first();
     }
 
     /**
