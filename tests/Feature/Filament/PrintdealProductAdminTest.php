@@ -49,6 +49,28 @@ it('searches products by name and sku, case-insensitively', function () {
         ->assertCanNotSeeTableRecords([$mugs]);
 });
 
+it('suggests schema attributes and values inside the repeater fields', function () {
+    // Schema present: no fetch happens, and the repeater fields must offer
+    // the names/values of the page's product (inside a repeater $record is
+    // the item record, not the product, which used to leave these empty).
+    $product = PrintdealProduct::factory()->create([
+        'attribute_schema' => [
+            ['attribute' => 'Packing', 'values' => ['Sealed On Cardboard', 'Box With Printed Sleeve']],
+            ['attribute' => 'quantity', 'values' => ['1', '2']],
+        ],
+        'order_attributes' => [
+            ['attribute' => 'Packing', 'value' => 'Sealed On Cardboard'],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->assertSuccessful()
+        // Attribute-name suggestion plus the allowed values of 'Packing'.
+        ->assertSee('Box With Printed Sleeve')
+        // The system-managed quantity attribute is never suggested.
+        ->assertDontSee('value="quantity"', false);
+});
+
 it('fetches the attribute schema from the API when opening an unsynced product', function () {
     $product = PrintdealProduct::factory()->create(['sku' => 'sku-mugs']);
 

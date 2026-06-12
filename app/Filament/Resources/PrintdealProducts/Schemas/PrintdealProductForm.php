@@ -9,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
@@ -18,6 +19,8 @@ class PrintdealProductForm
 {
     /**
      * Attribute names from the synced schema, for the datalist suggestions.
+     * The quantity attribute is system-managed (appended to every price and
+     * order call), so it never belongs in the admin's attribute lists.
      *
      * @return array<int, string>
      */
@@ -25,6 +28,8 @@ class PrintdealProductForm
     {
         return collect($record?->attribute_schema ?? [])
             ->pluck('attribute')
+            ->reject(fn (string $attribute): bool => strtolower($attribute) === 'quantity')
+            ->values()
             ->all();
     }
 
@@ -96,12 +101,15 @@ class PrintdealProductForm
                         Repeater::make('order_attributes')
                             ->label('Order attributes')
                             ->schema([
+                                // Inside a repeater $record is the (absent)
+                                // item record, so the suggestions resolve the
+                                // page's product via $livewire instead.
                                 TextInput::make('attribute')
                                     ->required()
-                                    ->datalist(fn (?PrintdealProduct $record): array => self::schemaAttributeNames($record)),
+                                    ->datalist(fn (EditRecord $livewire): array => self::schemaAttributeNames($livewire->getRecord())),
                                 TextInput::make('value')
                                     ->required()
-                                    ->datalist(fn (Get $get, ?PrintdealProduct $record): array => self::schemaValuesFor($record, $get('attribute'))),
+                                    ->datalist(fn (Get $get, EditRecord $livewire): array => self::schemaValuesFor($livewire->getRecord(), $get('attribute'))),
                             ])
                             ->columns(2)
                             ->columnSpanFull()
@@ -109,13 +117,16 @@ class PrintdealProductForm
                         Repeater::make('user_options')
                             ->label('User options')
                             ->schema([
+                                // Inside a repeater $record is the (absent)
+                                // item record, so the suggestions resolve the
+                                // page's product via $livewire instead.
                                 TextInput::make('attribute')
                                     ->required()
-                                    ->datalist(fn (?PrintdealProduct $record): array => self::schemaAttributeNames($record)),
+                                    ->datalist(fn (EditRecord $livewire): array => self::schemaAttributeNames($livewire->getRecord())),
                                 TagsInput::make('values')
                                     ->required()
                                     ->placeholder('S, M, L, ...')
-                                    ->suggestions(fn (Get $get, ?PrintdealProduct $record): array => self::schemaValuesFor($record, $get('attribute'))),
+                                    ->suggestions(fn (Get $get, EditRecord $livewire): array => self::schemaValuesFor($livewire->getRecord(), $get('attribute'))),
                             ])
                             ->columns(2)
                             ->columnSpanFull()
