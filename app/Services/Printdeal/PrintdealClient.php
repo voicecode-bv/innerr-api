@@ -49,6 +49,23 @@ class PrintdealClient
     }
 
     /**
+     * Validate a (partial) attribute selection. With an empty selection the
+     * response's `remainingOptions` enumerates every attribute and its
+     * allowed values, which makes this a fallback product-schema source when
+     * the details endpoint has no data for a sku.
+     *
+     * @param  array<int, array{attribute: string, value: mixed}>  $attributes
+     * @return array<string, mixed>
+     */
+    public function validateSelection(string $sku, array $attributes): array
+    {
+        return $this->request()
+            ->post("/products/{$sku}/validate", $attributes)
+            ->throw()
+            ->json();
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */

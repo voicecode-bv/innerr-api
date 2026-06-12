@@ -60,15 +60,42 @@ it('resolves a local printdeal_products id to its sku', function () {
         ->assertSuccessful();
 });
 
+it('falls back to the validate endpoint when details return 404', function () {
+    Http::fake([
+        'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
+        'api.printdeal.test/products/sku-tshirt/validate' => Http::response([
+            'remainingOptions' => [
+                ['attribute' => 'Gender Types', 'values' => ['Unisex', 'Men']],
+                ['attribute' => 'Size', 'values' => ['S', 'M', 'L']],
+            ],
+            'selectionStatus' => 'partiallyResolved',
+            'violatedAttributes' => [],
+        ]),
+        'api.printdeal.test/products/sku-tshirt' => Http::response([
+            'statusCode' => 404, 'message' => 'Product not found',
+        ], 404),
+    ]);
+    Http::preventStrayRequests();
+
+    $this->artisan('printdeal:product', ['sku' => 'sku-tshirt'])
+        ->expectsOutputToContain('schema below comes from the validate')
+        ->expectsOutputToContain('Gender Types')
+        ->expectsOutputToContain('- Unisex')
+        ->assertSuccessful();
+});
+
 it('explains a 404 instead of dumping a stack trace', function () {
     Http::fake([
         'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
         'api.printdeal.test/products/unknown-sku' => Http::response([
             'statusCode' => 404, 'message' => 'Product not found',
         ], 404),
+        'api.printdeal.test/products/unknown-sku/validate' => Http::response([
+            'statusCode' => 404, 'message' => 'Product not found',
+        ], 404),
     ]);
 
     $this->artisan('printdeal:product', ['sku' => 'unknown-sku'])
-        ->expectsOutputToContain('Printdeal does not know a product with sku unknown-sku.')
+        ->expectsOutputToContain('Printdeal does not know a product with sku unknown-sku')
         ->assertFailed();
 });

@@ -22,10 +22,10 @@ class ShowPrintdealProduct extends Command
             $product = $printdeal->product($sku);
         } catch (RequestException $e) {
             if ($e->response->status() === 404) {
-                $this->error("Printdeal does not know a product with sku {$sku}.");
-                $this->line('Use the SKU column from the admin (shown under the product name), not the edit-page URL id, and make sure the catalog sync has run.');
-
-                return self::FAILURE;
+                // The v3 beta serves some catalog skus on the validate
+                // endpoint while their details endpoint 404s; an empty
+                // selection makes validate enumerate the full schema.
+                return $this->showViaValidate($printdeal, $sku);
             }
 
             throw $e;
@@ -59,6 +59,43 @@ class ShowPrintdealProduct extends Command
         if ($quantities !== []) {
             $this->newLine();
             $this->line('Orderable quantities: '.implode(', ', array_slice($quantities, 0, 15)));
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Fallback schema source: validate an empty selection and print the
+     * `remainingOptions`, which list every attribute with its allowed values.
+     */
+    private function showViaValidate(PrintdealClient $printdeal, string $sku): int
+    {
+        try {
+            $validation = $printdeal->validateSelection($sku, []);
+        } catch (RequestException $e) {
+            if (in_array($e->response->status(), [400, 404], true)) {
+                $this->error("Printdeal does not know a product with sku {$sku} (details and validate both failed).");
+                $this->line('Use the SKU column from the admin (shown under the product name), not the edit-page URL id, and make sure the catalog sync has run.');
+
+                return self::FAILURE;
+            }
+
+            throw $e;
+        }
+
+        $this->info($sku);
+        $this->newLine();
+        $this->line('Details endpoint had no data; schema below comes from the validate');
+        $this->line('endpoint. Copy the exact names and one allowed value each into the');
+        $this->line('admin form; size-like attributes go in the Sizes field instead:');
+
+        foreach ($validation['remainingOptions'] ?? [] as $option) {
+            $this->newLine();
+            $this->line("  <options=bold>{$option['attribute']}</>");
+
+            foreach ($option['values'] ?? [] as $value) {
+                $this->line("    - {$value}");
+            }
         }
 
         return self::SUCCESS;
