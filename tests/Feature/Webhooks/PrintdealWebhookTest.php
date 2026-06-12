@@ -1,0 +1,44 @@
+<?php
+
+use App\Models\PrintOrder;
+
+beforeEach(function () {
+    config()->set('services.printdeal.webhook_token', 'secret-token');
+});
+
+it('rejects a wrong webhook token', function () {
+    $this->postJson('/api/webhooks/print/printdeal/wrong-token', [
+        'orderId' => 'whatever',
+        'status' => 'InProduction',
+    ])->assertForbidden();
+});
+
+it('rejects webhooks entirely when no token is configured', function () {
+    config()->set('services.printdeal.webhook_token', null);
+
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'orderId' => 'whatever',
+    ])->assertForbidden();
+});
+
+it('updates the printdeal status of a known order', function () {
+    $order = PrintOrder::factory()->submitted()->create();
+
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'orderId' => $order->printdeal_order_id,
+        'status' => 'InProduction',
+    ])->assertOk();
+
+    expect($order->fresh()->printdeal_status)->toBe('InProduction');
+});
+
+it('acknowledges unknown orders and unrecognizable payloads', function () {
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'orderId' => 'not-ours',
+        'status' => 'Shipped',
+    ])->assertOk();
+
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'something' => 'else',
+    ])->assertOk();
+});

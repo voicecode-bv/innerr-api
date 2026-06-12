@@ -34,6 +34,8 @@ use App\Http\Controllers\Api\PersonController;
 use App\Http\Controllers\Api\PersonParentController;
 use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\Print\PrintOrderController;
+use App\Http\Controllers\Api\Print\PrintProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceKeyController;
 use App\Http\Controllers\Api\Subscriptions\AppleVerifyController;
@@ -51,6 +53,8 @@ use App\Http\Controllers\Api\Webhooks\AppleWebhookController;
 use App\Http\Controllers\Api\Webhooks\FileFluxWebhookController;
 use App\Http\Controllers\Api\Webhooks\GoogleWebhookController;
 use App\Http\Controllers\Api\Webhooks\MollieWebhookController;
+use App\Http\Controllers\Api\Webhooks\PrintdealWebhookController;
+use App\Http\Controllers\Api\Webhooks\PrintMollieWebhookController;
 use App\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
 
@@ -111,6 +115,13 @@ Route::prefix('webhooks/subscriptions')->middleware('throttle:120,1')->group(fun
 Route::prefix('webhooks/media')->middleware('throttle:120,1')->group(function () {
     Route::post('fileflux', FileFluxWebhookController::class)
         ->name('api.webhooks.media.fileflux');
+});
+
+Route::prefix('webhooks/print')->middleware('throttle:120,1')->group(function () {
+    Route::post('mollie', PrintMollieWebhookController::class)
+        ->name('api.webhooks.print.mollie');
+    Route::post('printdeal/{token}', PrintdealWebhookController::class)
+        ->name('api.webhooks.print.printdeal');
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -263,4 +274,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/subscription/web/cancel', MollieCancelController::class)
         ->middleware('throttle:10,1')
         ->name('api.subscription.web.cancel');
+
+    Route::get('/print/products', PrintProductController::class)->name('api.print.products');
+    Route::get('/print/orders', [PrintOrderController::class, 'index'])->name('api.print.orders.index');
+    Route::post('/print/orders', [PrintOrderController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('api.print.orders.store');
+    Route::get('/print/orders/{printOrder}', [PrintOrderController::class, 'show'])
+        ->name('api.print.orders.show');
 });

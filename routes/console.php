@@ -18,3 +18,8 @@ Schedule::command('storage:reconcile-user-usage')
 Schedule::command('uploads:gc-sessions')->hourly();
 
 Schedule::command('media:reconcile-fileflux-jobs')->everyFiveMinutes();
+
+Schedule::command('printdeal:sync-products')
+    ->dailyAt('04:00')
+    ->onOneServer()
+    ->withoutOverlapping();

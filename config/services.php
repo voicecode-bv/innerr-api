@@ -143,4 +143,25 @@ return [
         'token_key' => env('BUNNY_CDN_TOKEN_KEY'),
     ],
 
+    /*
+     * Printdeal (drukwerkdeal.nl) print-on-demand API v3. Credentials come
+     * from the API Credentials page on the platform. JWTs from /login are
+     * valid for 72 hours; PrintdealClient caches one for 70.
+     * The product catalog (SKUs, attributes, selling prices) lives in
+     * config/print.php.
+     */
+    'printdeal' => [
+        'base_url' => env('PRINTDEAL_BASE_URL', 'https://api.printdeal.com/v3'),
+        'api_key' => env('PRINTDEAL_API_KEY'),
+        'secret' => env('PRINTDEAL_SECRET'),
+
+        // Keep true until the catalog mapping is verified against the live
+        // account; test orders are accepted but never produced or billed.
+        'test_orders' => env('PRINTDEAL_TEST_ORDERS', true),
+
+        // Shared secret embedded in the webhook URL path, since Printdeal v3
+        // does not sign webhook payloads.
+        'webhook_token' => env('PRINTDEAL_WEBHOOK_TOKEN'),
+    ],
+
 ];
