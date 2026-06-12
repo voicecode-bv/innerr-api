@@ -71,10 +71,44 @@ class PrintdealProduct extends Model
         }
 
         if ($this->purchase_price_minor !== null && $this->margin_percent !== null) {
-            return (int) ceil($this->purchase_price_minor * (1 + $this->margin_percent / 100));
+            // Round to a fraction of a cent first: float artifacts would
+            // otherwise push exact outcomes (3000 * 1.10) up a whole cent.
+            return (int) ceil(round($this->purchase_price_minor * (1 + $this->margin_percent / 100), 4));
         }
 
         return null;
+    }
+
+    /**
+     * Validate a customer's option choices against the configured user
+     * options: every option must be chosen, every value must be allowed,
+     * and unknown options are rejected. Shared by the order request and the
+     * price-quote endpoint.
+     *
+     * @param  array<string, string>  $options
+     * @return array<string, string> attribute => problem description
+     */
+    public function optionErrors(array $options): array
+    {
+        $errors = [];
+
+        foreach ($this->user_options ?? [] as $userOption) {
+            $chosen = $options[$userOption['attribute']] ?? null;
+
+            if (! in_array($chosen, $userOption['values'] ?? [], true)) {
+                $errors[$userOption['attribute']] = "Choose a valid {$userOption['attribute']}.";
+            }
+        }
+
+        $known = collect($this->user_options ?? [])->pluck('attribute');
+
+        foreach (array_keys($options) as $key) {
+            if (! $known->contains($key)) {
+                $errors[$key] = 'Unknown option for this product.';
+            }
+        }
+
+        return $errors;
     }
 
     /** Ready to be ordered: offered, with order attributes and a price. */

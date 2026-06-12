@@ -75,28 +75,11 @@ class StorePrintOrderRequest extends FormRequest
                         );
                     }
 
-                    $options = collect($item['options'] ?? []);
-
-                    foreach ($offering->user_options ?? [] as $userOption) {
-                        $chosen = $options->get($userOption['attribute']);
-
-                        if (! in_array($chosen, $userOption['values'] ?? [], true)) {
-                            $validator->errors()->add(
-                                "items.{$index}.options.{$userOption['attribute']}",
-                                "Choose a valid {$userOption['attribute']}.",
-                            );
-                        }
-                    }
-
-                    $known = collect($offering->user_options ?? [])->pluck('attribute');
-
-                    foreach ($options->keys() as $key) {
-                        if (! $known->contains($key)) {
-                            $validator->errors()->add(
-                                "items.{$index}.options.{$key}",
-                                'Unknown option for this product.',
-                            );
-                        }
+                    foreach ($offering->optionErrors($item['options'] ?? []) as $attribute => $message) {
+                        $validator->errors()->add(
+                            "items.{$index}.options.{$attribute}",
+                            $message,
+                        );
                     }
                 }
             },

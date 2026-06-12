@@ -9,6 +9,7 @@ use App\Http\Requests\StorePrintOrderRequest;
 use App\Models\PostMedia;
 use App\Models\PrintdealProduct;
 use App\Models\PrintOrder;
+use App\Services\Printdeal\PrintOfferingPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,31 +44,39 @@ class PrintOrderController extends Controller
      * stays `pending_payment` until the Mollie webhook confirms; only then
      * does the SubmitPrintOrder job place it at Printdeal.
      */
-    public function store(StorePrintOrderRequest $request, MollieApiClient $mollie): JsonResponse
-    {
+    public function store(
+        StorePrintOrderRequest $request,
+        MollieApiClient $mollie,
+        PrintOfferingPricing $pricing,
+    ): JsonResponse {
         $user = $request->user();
         $offerings = $request->offerings();
         $requestedItems = $request->validated('items');
 
-        foreach ($requestedItems as $item) {
-            $offering = $offerings->get($item['offering_id']);
+        // Price every line for its exact option combination (a 1000-piece
+        // puzzle costs more than a 96-piece one); refusing beats charging a
+        // wrong amount when no price can be determined.
+        $itemAmounts = [];
 
-            if ($offering === null || ! $offering->isOrderable()) {
+        foreach ($requestedItems as $index => $item) {
+            $offering = $offerings->get($item['offering_id']);
+            $amount = $offering !== null && $offering->isOrderable()
+                ? $pricing->sellingPriceMinor($offering, $item['options'] ?? [])
+                : null;
+
+            if ($amount === null) {
                 return new JsonResponse([
                     'message' => 'One of the products is not available anymore.',
                     'error_code' => 'product_unavailable',
                 ], 422);
             }
+
+            $itemAmounts[$index] = $amount;
         }
 
-        $totalMinor = $requestedItems !== []
-            ? array_sum(array_map(
-                fn (array $item): int => $offerings->get($item['offering_id'])->sellingPriceMinor(),
-                $requestedItems,
-            ))
-            : 0;
+        $totalMinor = array_sum($itemAmounts);
 
-        $order = DB::transaction(function () use ($request, $user, $offerings, $requestedItems, $totalMinor): PrintOrder {
+        $order = DB::transaction(function () use ($request, $user, $offerings, $requestedItems, $itemAmounts, $totalMinor): PrintOrder {
             $order = PrintOrder::query()->create([
                 'user_id' => $user->id,
                 'shipping_address' => $request->shippingAddress(),
@@ -76,7 +85,7 @@ class PrintOrderController extends Controller
                 'status' => PrintOrderStatus::PendingPayment,
             ]);
 
-            foreach ($requestedItems as $item) {
+            foreach ($requestedItems as $index => $item) {
                 /** @var PrintdealProduct $offering */
                 $offering = $offerings->get($item['offering_id']);
 
@@ -90,7 +99,7 @@ class PrintOrderController extends Controller
                     'printdeal_attributes' => $offering->order_attributes,
                     'options' => ($item['options'] ?? []) !== [] ? $item['options'] : null,
                     'photos' => $this->resolvePhotos($request, $item['photos']),
-                    'amount_minor' => $offering->sellingPriceMinor(),
+                    'amount_minor' => $itemAmounts[$index],
                 ]);
             }
 

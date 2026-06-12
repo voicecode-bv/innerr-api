@@ -110,6 +110,50 @@ it('creates a multi-item order with one Mollie checkout for the total', function
         ->and($order->items[1]->amount_minor)->toBe(1995);
 });
 
+it('prices margin-based items live for their chosen options', function () {
+    config()->set('services.printdeal', [
+        'base_url' => 'https://api.printdeal.test',
+        'webhook_base_url' => 'https://webhook.printdeal.test',
+        'api_key' => 'key',
+        'secret' => 'secret',
+        'test_orders' => true,
+        'webhook_token' => null,
+    ]);
+
+    $puzzle = PrintdealProduct::factory()->offered('puzzle')->create([
+        'fixed_price_minor' => null,
+        'margin_percent' => 10,
+        'purchase_price_minor' => 2220,
+        'user_options' => [
+            ['attribute' => 'Print Area', 'values' => ['28 x 19 cm (35 pcs)', '68 x 44 cm (1000 pcs)']],
+        ],
+    ]);
+
+    Http::fake([
+        'api.printdeal.test/products/*' => Http::response(['price' => 30.0]),
+    ]);
+
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+
+    // ceil(3000 * 1.10) = 3300, not the 2442 the synced base price would give.
+    fakeMollieCheckout('33.00');
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $puzzle->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+            'options' => ['Print Area' => '68 x 44 cm (1000 pcs)'],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.amount_minor', 3300)
+        ->assertJsonPath('data.items.0.amount_minor', 3300);
+});
+
 it('allows printing a circle member photo the user can view', function () {
     $owner = User::factory()->create();
     $viewer = User::factory()->create();

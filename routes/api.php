@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\PhotoMapController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\Print\PrintOrderController;
 use App\Http\Controllers\Api\Print\PrintProductController;
+use App\Http\Controllers\Api\Print\PrintQuoteController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceKeyController;
 use App\Http\Controllers\Api\Subscriptions\AppleVerifyController;
@@ -276,6 +277,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('api.subscription.web.cancel');
 
     Route::get('/print/products', PrintProductController::class)->name('api.print.products');
+    Route::post('/print/quote', PrintQuoteController::class)
+        ->middleware('throttle:30,1')
+        ->name('api.print.quote');
     Route::get('/print/orders', [PrintOrderController::class, 'index'])->name('api.print.orders.index');
     Route::post('/print/orders', [PrintOrderController::class, 'store'])
         ->middleware('throttle:10,1')
