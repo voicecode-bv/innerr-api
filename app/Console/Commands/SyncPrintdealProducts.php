@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\RefreshPrintdealPurchasePrice;
 use App\Models\PrintdealProduct;
 use App\Services\Printdeal\PrintdealClient;
 use App\Services\Printdeal\PrintdealProductSync;
@@ -26,14 +27,14 @@ class SyncPrintdealProducts extends Command
             ->update(['delisted_at' => now()]);
 
         $schemas = $this->refreshAttributeSchemas($sync);
-        $repriced = $this->refreshPurchasePrices($sync);
+        $queued = $this->queuePurchasePriceRefreshes();
 
         $this->info(sprintf(
-            'Synced %d products (%d delisted), refreshed %d attribute schemas and %d purchase prices.',
+            'Synced %d products (%d delisted), refreshed %d attribute schemas, queued %d price refreshes.',
             count($seenSkus),
             $delisted,
             $schemas,
-            $repriced,
+            $queued,
         ));
 
         return self::SUCCESS;
@@ -102,13 +103,13 @@ class SyncPrintdealProducts extends Command
     }
 
     /**
-     * Refresh the purchase price for every offered product that has its
-     * order attributes configured.
+     * Queue a price refresh per offered product. Pricing means one Printdeal
+     * call per option combination; fanned out as one job per product each
+     * job stays within the queue timeout, where doing it all inside this
+     * (possibly queued) command did not.
      */
-    private function refreshPurchasePrices(PrintdealProductSync $sync): int
+    private function queuePurchasePriceRefreshes(): int
     {
-        $refreshed = 0;
-
         $offerings = PrintdealProduct::query()
             ->offered()
             ->where(fn ($query) => $query
@@ -117,18 +118,9 @@ class SyncPrintdealProducts extends Command
             ->get();
 
         foreach ($offerings as $offering) {
-            try {
-                if ($sync->refreshPurchasePrice($offering)) {
-                    $refreshed++;
-                }
-            } catch (\Throwable $e) {
-                // One product failing to price must not abort the whole sync.
-                Log::warning("Printdeal price refresh failed for {$offering->sku}", [
-                    'message' => $e->getMessage(),
-                ]);
-            }
+            RefreshPrintdealPurchasePrice::dispatch($offering);
         }
 
-        return $refreshed;
+        return $offerings->count();
     }
 }
