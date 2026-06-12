@@ -19,7 +19,16 @@ class PrintdealProductsTable
                 TextColumn::make('name')
                     ->label('Product')
                     ->state(fn (PrintdealProduct $record): string => $record->displayName())
-                    ->searchable(query: fn ($query, string $search) => $query->where('name', 'like', "%{$search}%"))
+                    // `name` is a json column, which Postgres refuses to LIKE
+                    // directly; cast and lowercase both sides so the search
+                    // also stays case-insensitive across drivers.
+                    ->searchable(query: function ($query, string $search) {
+                        $term = '%'.mb_strtolower($search).'%';
+
+                        return $query->where(fn ($query) => $query
+                            ->whereRaw('LOWER(CAST(name AS TEXT)) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(sku) LIKE ?', [$term]));
+                    })
                     ->description(fn (PrintdealProduct $record): string => $record->sku),
                 IconColumn::make('enabled')->boolean(),
                 TextColumn::make('app_product')

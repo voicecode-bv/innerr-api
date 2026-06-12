@@ -21,6 +21,25 @@ it('lists synced products', function () {
         ->assertSee($product->sku);
 });
 
+it('searches products by name and sku, case-insensitively', function () {
+    $mugs = PrintdealProduct::factory()->create([
+        'sku' => 'sku-mugs-uuid',
+        'name' => ['en-EN' => 'mugs'],
+    ]);
+    $posters = PrintdealProduct::factory()->create([
+        'sku' => 'sku-posters-uuid',
+        'name' => ['en-EN' => 'posters'],
+    ]);
+
+    Livewire::test(ListPrintdealProducts::class)
+        ->searchTable('Mugs')
+        ->assertCanSeeTableRecords([$mugs])
+        ->assertCanNotSeeTableRecords([$posters])
+        ->searchTable('SKU-POSTERS')
+        ->assertCanSeeTableRecords([$posters])
+        ->assertCanNotSeeTableRecords([$mugs]);
+});
+
 it('configures an offering through the edit page', function () {
     $product = PrintdealProduct::factory()->create();
 
