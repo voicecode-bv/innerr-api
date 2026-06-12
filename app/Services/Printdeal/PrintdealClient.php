@@ -4,22 +4,21 @@ namespace App\Services\Printdeal;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Thin client for the Printdeal API v3 (drukwerkdeal.nl).
+ * Thin client for the Printdeal API v2 (drukwerkdeal.nl).
  *
- * Authentication is JWT-based: POST /login with the api key + secret returns
- * a token that stays valid for 72 hours and cannot be refreshed. We cache it
- * for 70 hours and re-login once on a 401 in case it was revoked early.
+ * Authentication is header-based: every request carries the credentials as
+ * `User-ID` and `API-Secret` headers, and the API version travels in the
+ * `Accept` header. There is no login round-trip or token to cache.
  */
 class PrintdealClient
 {
-    private const TOKEN_CACHE_KEY = 'printdeal:jwt';
+    private const ACCEPT_HEADER = 'application/vnd.printdeal-api.v2';
 
     /**
-     * @var array{base_url: string, api_key: ?string, secret: ?string, test_orders: bool, webhook_token: ?string}
+     * @var array{base_url: string, webhook_base_url: string, api_key: ?string, secret: ?string, test_orders: bool, webhook_token: ?string}
      */
     private array $config;
 
@@ -29,61 +28,66 @@ class PrintdealClient
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * The orderable catalog. In v2 every "category" is the unit you order:
+     * its sku is what /products/{sku}/attributes and order lines expect.
+     *
+     * @return array<int, array{name: string, sku: string, combinationsModifiedAt?: string}>
      */
-    public function products(int $limit = 400, int $offset = 0): array
+    public function categories(): array
     {
-        $response = $this->request()
-            ->get('/products', ['limit' => $limit, 'offset' => $offset])
-            ->throw();
-
-        return $response->json('results', []);
+        return $this->request()->get('/products/categories')->throw()->json() ?? [];
     }
 
     /**
+     * Attribute schema for a product: an object keyed by attribute name whose
+     * value is either a list of allowed values or a range object
+     * ({minimum, maximum, increment, unitOfMeasure}). The `externals` key
+     * holds free-input attributes with their validation rules.
+     *
      * @return array<string, mixed>
      */
-    public function product(string $sku): array
+    public function attributes(string $sku): array
     {
-        return $this->request()->get("/products/{$sku}")->throw()->json();
+        return $this->request()->get("/products/{$sku}/attributes")->throw()->json() ?? [];
     }
 
     /**
-     * Validate a (partial) attribute selection. With an empty selection the
-     * response's `remainingOptions` enumerates every attribute and its
-     * allowed values, which makes this a fallback product-schema source when
-     * the details endpoint has no data for a sku.
+     * Validate a complete attribute selection (quantity included as the
+     * `quantity` attribute) and retrieve its price. Invalid combinations
+     * come back as a 400.
      *
      * @param  array<int, array{attribute: string, value: mixed}>  $attributes
-     * @return array<string, mixed>
+     * @return array{price?: float, promisedArrivalDate?: ?string}
      */
-    public function validateSelection(string $sku, array $attributes): array
+    public function validateAndPrice(string $sku, array $attributes): array
     {
         return $this->request()
-            ->post("/products/{$sku}/validate", $attributes)
+            ->post("/products/{$sku}", ['attributes' => $attributes])
             ->throw()
             ->json();
     }
 
     /**
+     * Place an order. The response only carries the order's uuid; number,
+     * status, and orderline ids come from a follow-up order() call.
+     *
      * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    public function prices(string $sku, array $payload): array
-    {
-        return $this->request()
-            ->post("/products/{$sku}/prices", $payload)
-            ->throw()
-            ->json();
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
+     * @return array{uuid?: string}
      */
     public function createOrder(array $payload): array
     {
-        return $this->request()->post('/order', $payload)->throw()->json();
+        return $this->request()->post('/orders', $payload)->throw()->json();
+    }
+
+    /**
+     * Order details (number, status, lines with their ids and statuses) by
+     * numeric id or uuid.
+     *
+     * @return array<string, mixed>
+     */
+    public function order(string $idOrUuid): array
+    {
+        return $this->request()->get("/orders/{$idOrUuid}")->throw()->json();
     }
 
     public function testOrdersEnabled(): bool
@@ -93,17 +97,14 @@ class PrintdealClient
 
     /**
      * Subscribe a URL to Printdeal webhook events. Lives on a separate host
-     * (webhook.api.printdeal.com) but shares the same JWT.
+     * (webhook.api.printdeal.com) but uses the same credential headers.
      *
      * @param  array<int, string>  $events
      * @return array<string, mixed>
      */
     public function createWebhookSubscription(string $url, array $events, string $description): array
     {
-        return Http::baseUrl($this->config['webhook_base_url'])
-            ->withToken($this->token())
-            ->acceptJson()
-            ->connectTimeout(5)
+        return $this->authenticated(Http::baseUrl($this->config['webhook_base_url']))
             ->timeout(15)
             ->post('/webhooks', [
                 'description' => $description,
@@ -114,48 +115,25 @@ class PrintdealClient
             ->json() ?? [];
     }
 
-    /**
-     * Authenticated request builder. On a 401 the cached token is dropped and
-     * the request retried once with a fresh login, covering early revocation
-     * within the 72-hour window.
-     */
     private function request(): PendingRequest
     {
-        return Http::baseUrl($this->config['base_url'])
-            ->withToken($this->token())
-            ->acceptJson()
-            ->connectTimeout(5)
+        return $this->authenticated(Http::baseUrl($this->config['base_url']))
             ->timeout(30)
             ->retry(2, 1000, function (\Exception $exception): bool {
-                if (! $exception instanceof RequestException) {
-                    return true;
-                }
-
-                if ($exception->response->status() === 401) {
-                    Cache::forget(self::TOKEN_CACHE_KEY);
-
-                    return true;
-                }
-
                 // Client errors (validation etc.) won't improve on retry.
-                return $exception->response->serverError();
+                return ! $exception instanceof RequestException
+                    || $exception->response->serverError();
             }, throw: false);
     }
 
-    private function token(): string
+    private function authenticated(PendingRequest $request): PendingRequest
     {
-        return Cache::remember(self::TOKEN_CACHE_KEY, now()->addHours(70), function (): string {
-            $response = Http::baseUrl($this->config['base_url'])
-                ->acceptJson()
-                ->connectTimeout(5)
-                ->timeout(15)
-                ->post('/login', [
-                    'apiKey' => $this->config['api_key'],
-                    'secret' => $this->config['secret'],
-                ])
-                ->throw();
-
-            return $response->json('token');
-        });
+        return $request
+            ->withHeaders([
+                'User-ID' => (string) $this->config['api_key'],
+                'API-Secret' => (string) $this->config['secret'],
+                'Accept' => self::ACCEPT_HEADER,
+            ])
+            ->connectTimeout(5);
     }
 }

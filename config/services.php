@@ -144,16 +144,16 @@ return [
     ],
 
     /*
-     * Printdeal (drukwerkdeal.nl) print-on-demand API v3. Credentials come
-     * from the API Credentials page on the platform. JWTs from /login are
-     * valid for 72 hours; PrintdealClient caches one for 70.
+     * Printdeal (drukwerkdeal.nl) print-on-demand API v2. Credentials come
+     * from the API Credentials page on the platform and are sent as the
+     * `User-ID` (api_key) and `API-Secret` (secret) headers on every request.
      * The product catalog (SKUs, attributes, selling prices) lives in
      * config/print.php.
      */
     'printdeal' => [
-        'base_url' => env('PRINTDEAL_BASE_URL', 'https://api.printdeal.com/v3'),
-        // Webhook subscriptions live on a separate host (same JWT auth).
-        'webhook_base_url' => env('PRINTDEAL_WEBHOOK_BASE_URL', 'https://webhook.api.printdeal.com/v3'),
+        'base_url' => env('PRINTDEAL_BASE_URL', 'https://api.printdeal.com/api'),
+        // Webhook subscriptions live on a separate host (same credentials).
+        'webhook_base_url' => env('PRINTDEAL_WEBHOOK_BASE_URL', 'https://webhook.api.printdeal.com'),
         'api_key' => env('PRINTDEAL_API_KEY'),
         'secret' => env('PRINTDEAL_SECRET'),
 
@@ -161,7 +161,7 @@ return [
         // account; test orders are accepted but never produced or billed.
         'test_orders' => env('PRINTDEAL_TEST_ORDERS', true),
 
-        // Shared secret embedded in the webhook URL path, since Printdeal v3
+        // Shared secret embedded in the webhook URL path, since Printdeal
         // does not sign webhook payloads.
         'webhook_token' => env('PRINTDEAL_WEBHOOK_TOKEN'),
     ],

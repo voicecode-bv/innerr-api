@@ -15,8 +15,8 @@ class SubscribePrintdealWebhook extends Command
 {
     /**
      * One-time setup (rerun after rotating PRINTDEAL_WEBHOOK_TOKEN or moving
-     * hosts). The v3 webhook API does not sign payloads, so the URL embeds
-     * the shared token that PrintdealWebhookController verifies.
+     * hosts). The Printdeal webhook API does not sign payloads, so the URL
+     * embeds the shared token that PrintdealWebhookController verifies.
      */
     public function handle(PrintdealClient $printdeal): int
     {

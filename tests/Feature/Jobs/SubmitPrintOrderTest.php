@@ -26,16 +26,18 @@ function storePrintTestPhoto(string $path): void
 function fakePrintdeal(): void
 {
     Http::fake([
-        'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
-        'api.printdeal.test/order' => Http::response([
-            'id' => 'pd-order-uuid',
+        // Creation only returns the uuid; the job follows up with a details
+        // fetch for the number, status, and orderline ids.
+        'api.printdeal.test/orders/pd-order-uuid' => Http::response([
+            'id' => 1234567,
             'number' => 'DDB2026001234',
-            'status' => 'Open',
-            'items' => [
-                ['id' => 'pd-item-1', 'number' => 'DDB2026001234-1', 'file' => true],
-                ['id' => 'pd-item-2', 'number' => 'DDB2026001234-2', 'file' => true],
+            'status' => 'in-progress',
+            'lines' => [
+                ['id' => 111, 'status' => 'in-progress'],
+                ['id' => 222, 'status' => 'in-progress'],
             ],
-        ], 201),
+        ]),
+        'api.printdeal.test/orders' => Http::response(['uuid' => 'pd-order-uuid'], 201),
     ]);
     Http::preventStrayRequests();
 }
@@ -68,7 +70,7 @@ beforeEach(function () {
     config()->set('print.billing_address.city', 'Amsterdam');
 });
 
-it('generates artwork per item and places one multi-item Printdeal order', function () {
+it('generates artwork per item and places one multi-line Printdeal order', function () {
     fakePrintdeal();
 
     $order = PrintOrder::factory()->paid()->create();
@@ -96,35 +98,63 @@ it('generates artwork per item and places one multi-item Printdeal order', funct
     expect($order->status)->toBe(PrintOrderStatus::Submitted)
         ->and($order->printdeal_order_id)->toBe('pd-order-uuid')
         ->and($order->printdeal_order_number)->toBe('DDB2026001234')
-        ->and($album->printdeal_item_id)->toBe('pd-item-1')
-        ->and($tshirt->printdeal_item_id)->toBe('pd-item-2')
+        ->and($order->printdeal_status)->toBe('in-progress')
+        ->and($album->printdeal_item_id)->toBe('111')
+        ->and($tshirt->printdeal_item_id)->toBe('222')
         ->and($album->pdf_path)->toBe("print-orders/{$order->id}/{$album->id}.pdf")
         ->and(Storage::disk()->get($album->pdf_path))->toStartWith('%PDF')
         ->and(Storage::disk()->get($tshirt->pdf_path))->toStartWith('%PDF');
 
-    Http::assertSent(function ($request) use ($order): bool {
-        if (! str_ends_with($request->url(), '/order')) {
+    Http::assertSent(function ($request) use ($order, $album): bool {
+        if ($request->method() !== 'POST') {
             return true;
         }
 
-        $items = $request['items'];
-        $variant = collect($items[1]['variants'][0])->keyBy('attribute');
+        $lines = $request['orderLines'];
+        $tshirtAttributes = collect($lines[1]['attributes'])->keyBy('attribute');
+        $shipping = $order->shipping_address;
 
         return $request['testOrder'] === true
-            && $request['paymentMethod'] === 'onAccount'
-            && $request['platform'] === 'Own'
             && $request['reference'] === "innerr-{$order->id}"
-            && count($items) === 2
-            // Album: plain product, quantity on the address.
-            && $items[0]['sku'] === 'sku-album-uuid'
-            && $items[0]['shippingAddresses'][0]['quantity'] === 1
-            && str_contains($items[0]['files'][0]['url'], '.pdf')
-            // T-shirt: grouped product, options + quantity as a variant.
-            && $items[1]['sku'] === 'sku-tshirt-uuid'
-            && $variant['Size']['value'] === 'M'
-            && $variant['Quantity']['value'] === '1'
-            && ! array_key_exists('quantity', $items[1]['shippingAddresses'][0]);
+            && $request['deliveryMethod'] === 1
+            && $request['invoiceAddress']['email'] === 'facturen@innerr.app'
+            && $request['invoiceAddress']['housenumber'] === '1'
+            && $request['invoiceAddress']['zipcode'] === '1234AB'
+            // Stored addresses keep the app's houseNumber/postalCode naming
+            // and are translated to the v2 field names on the way out.
+            && $request['deliveryAddress']['housenumber'] === $shipping['houseNumber']
+            && $request['deliveryAddress']['zipcode'] === $shipping['postalCode']
+            && ! array_key_exists('houseNumber', $request['deliveryAddress'])
+            && count($lines) === 2
+            // Album: configured attributes plus quantity as an attribute.
+            && $lines[0]['sku'] === 'sku-album-uuid'
+            && $lines[0]['externalId'] === $album->id
+            && collect($lines[0]['attributes'])->keyBy('attribute')['quantity']['value'] === '1'
+            && str_contains($lines[0]['files'][0]['url'], '.pdf')
+            // T-shirt: user options travel as plain attributes in v2.
+            && $lines[1]['sku'] === 'sku-tshirt-uuid'
+            && $tshirtAttributes['Size']['value'] === 'M'
+            && $tshirtAttributes['quantity']['value'] === '1';
     });
+});
+
+it('places the order even when the details fetch fails', function () {
+    Http::fake([
+        'api.printdeal.test/orders/pd-order-uuid' => Http::response(['message' => 'oops'], 500),
+        'api.printdeal.test/orders' => Http::response(['uuid' => 'pd-order-uuid'], 201),
+    ]);
+    Http::preventStrayRequests();
+
+    $order = PrintOrder::factory()->withItem()->paid()->create();
+    storePrintTestPhoto($order->items()->first()->photos[0]['path']);
+
+    runSubmit($order);
+
+    // The order is placed and never re-submitted; only number/status/line
+    // ids are missing until a webhook or manual refresh fills them in.
+    expect($order->fresh()->status)->toBe(PrintOrderStatus::Submitted)
+        ->and($order->fresh()->printdeal_order_id)->toBe('pd-order-uuid')
+        ->and($order->fresh()->printdeal_order_number)->toBeNull();
 });
 
 it('does nothing for orders that are not in the paid state', function () {

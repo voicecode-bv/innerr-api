@@ -19,62 +19,10 @@ class ShowPrintdealProduct extends Command
         $sku = $this->resolveSku((string) $this->argument('sku'));
 
         try {
-            $product = $printdeal->product($sku);
-        } catch (RequestException $e) {
-            if ($e->response->status() === 404) {
-                // The v3 beta serves some catalog skus on the validate
-                // endpoint while their details endpoint 404s; an empty
-                // selection makes validate enumerate the full schema.
-                return $this->showViaValidate($printdeal, $sku);
-            }
-
-            throw $e;
-        }
-
-        $name = $product['name']['nl-NL']
-            ?? $product['name']['en-EN']
-            ?? $sku;
-
-        $this->info($name);
-        $this->newLine();
-        $this->line('Attributes (copy the exact names and one allowed value each into');
-        $this->line('the admin form; size-like attributes go in the Sizes field instead):');
-
-        foreach ($product['attributes'] ?? [] as $attribute) {
-            $label = $attribute['nameTranslations']['en-EN'] ?? $attribute['name'];
-            $this->newLine();
-            $this->line("  <options=bold>{$attribute['name']}</> ({$label})");
-
-            foreach ($attribute['values'] ?? [] as $value) {
-                $valueLabel = $value['nameTranslations']['en-EN'] ?? '';
-                $suffix = $valueLabel !== '' && $valueLabel !== $value['name']
-                    ? " ({$valueLabel})"
-                    : '';
-                $this->line("    - {$value['name']}{$suffix}");
-            }
-        }
-
-        $quantities = $product['quantities'] ?? [];
-
-        if ($quantities !== []) {
-            $this->newLine();
-            $this->line('Orderable quantities: '.implode(', ', array_slice($quantities, 0, 15)));
-        }
-
-        return self::SUCCESS;
-    }
-
-    /**
-     * Fallback schema source: validate an empty selection and print the
-     * `remainingOptions`, which list every attribute with its allowed values.
-     */
-    private function showViaValidate(PrintdealClient $printdeal, string $sku): int
-    {
-        try {
-            $validation = $printdeal->validateSelection($sku, []);
+            $attributes = $printdeal->attributes($sku);
         } catch (RequestException $e) {
             if (in_array($e->response->status(), [400, 404], true)) {
-                $this->error("Printdeal does not know a product with sku {$sku} (details and validate both failed).");
+                $this->error("Printdeal does not know a product with sku {$sku}.");
                 $this->line('Use the SKU column from the admin (shown under the product name), not the edit-page URL id, and make sure the catalog sync has run.');
 
                 return self::FAILURE;
@@ -85,17 +33,44 @@ class ShowPrintdealProduct extends Command
 
         $this->info($sku);
         $this->newLine();
-        $this->line('Details endpoint had no data; schema below comes from the validate');
-        $this->line('endpoint. Copy the exact names and one allowed value each into the');
-        $this->line('admin form; size-like attributes go in the Sizes field instead:');
+        $this->line('Attributes (copy the exact names and one allowed value each into');
+        $this->line('the admin form; size-like attributes go in the Sizes field instead):');
 
-        foreach ($validation['remainingOptions'] ?? [] as $option) {
-            $this->newLine();
-            $this->line("  <options=bold>{$option['attribute']}</>");
-
-            foreach ($option['values'] ?? [] as $value) {
-                $this->line("    - {$value}");
+        foreach ($attributes as $attribute => $values) {
+            if ($attribute === 'externals') {
+                continue;
             }
+
+            $this->newLine();
+            $this->line("  <options=bold>{$attribute}</>");
+
+            if (is_array($values) && array_is_list($values)) {
+                foreach ($values as $value) {
+                    $this->line("    - {$value}");
+                }
+
+                continue;
+            }
+
+            // Range attribute: free numeric input within bounds.
+            if (is_array($values)) {
+                $unit = $values['unitOfMeasure'] ?? '';
+                $this->line(sprintf(
+                    '    range %s to %s, steps of %s %s',
+                    $values['minimum'] ?? '?',
+                    $values['maximum'] ?? '?',
+                    $values['increment'] ?? '?',
+                    $unit,
+                ));
+            }
+        }
+
+        $externals = $attributes['externals'] ?? [];
+
+        if (is_array($externals) && $externals !== []) {
+            $this->newLine();
+            $this->line('Free-input attributes (externals, see the API docs for their rules):');
+            $this->line('  '.implode(', ', array_keys($externals)));
         }
 
         return self::SUCCESS;
@@ -108,8 +83,9 @@ class ShowPrintdealProduct extends Command
      */
     private function resolveSku(string $input): string
     {
-        // The id column is a real uuid type; anything else would make the
-        // lookup itself error out on Postgres.
+        // In v2 the catalog skus are uuids themselves, so a uuid that matches
+        // a local row id resolves to that row's sku; anything else is passed
+        // through as-is.
         if (! Str::isUuid($input)) {
             return $input;
         }

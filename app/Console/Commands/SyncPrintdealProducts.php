@@ -3,19 +3,17 @@
 namespace App\Console\Commands;
 
 use App\Models\PrintdealProduct;
+use App\Services\Printdeal\PrintdealAttributes;
 use App\Services\Printdeal\PrintdealClient;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('printdeal:sync-products')]
 #[Description('Mirror the Printdeal catalog into printdeal_products and refresh purchase prices for offered products')]
 class SyncPrintdealProducts extends Command
 {
-    private const PAGE_SIZE = 400;
-
     public function handle(PrintdealClient $printdeal): int
     {
         $seenSkus = $this->syncCatalog($printdeal);
@@ -42,36 +40,32 @@ class SyncPrintdealProducts extends Command
     }
 
     /**
-     * Page through the full catalog and upsert every product.
+     * Upsert every orderable product. In v2 the categories endpoint is the
+     * catalog: each category carries the sku that orders and attribute
+     * lookups use, with a single (English) display name.
      *
      * @return array<int, string> all skus seen in the catalog
      */
     private function syncCatalog(PrintdealClient $printdeal): array
     {
         $seenSkus = [];
-        $offset = 0;
 
-        do {
-            $results = $printdeal->products(self::PAGE_SIZE, $offset);
+        foreach ($printdeal->categories() as $product) {
+            $sku = $product['sku'] ?? null;
 
-            foreach ($results as $product) {
-                $sku = $product['sku'] ?? null;
-
-                if (! is_string($sku) || $sku === '') {
-                    continue;
-                }
-
-                $seenSkus[] = $sku;
-
-                PrintdealProduct::query()->updateOrCreate(['sku' => $sku], [
-                    'name' => $product['name'] ?? [],
-                    'synced_at' => now(),
-                    'delisted_at' => null,
-                ]);
+            if (! is_string($sku) || $sku === '') {
+                continue;
             }
 
-            $offset += self::PAGE_SIZE;
-        } while (count($results) === self::PAGE_SIZE);
+            $seenSkus[] = $sku;
+
+            PrintdealProduct::query()->updateOrCreate(['sku' => $sku], [
+                // The name column predates v2 and stores a locale map.
+                'name' => ['en-EN' => (string) ($product['name'] ?? $sku)],
+                'synced_at' => now(),
+                'delisted_at' => null,
+            ]);
+        }
 
         return $seenSkus;
     }
@@ -110,46 +104,33 @@ class SyncPrintdealProducts extends Command
     }
 
     /**
-     * Normalized to [{attribute, values: [...]}]. The v3 beta's details
-     * endpoint 404s for some catalog skus; validating an empty selection
-     * returns the same schema via `remainingOptions`.
+     * Normalized to [{attribute, values: [...]}]. The v2 response is keyed by
+     * attribute name; a value is either a list of allowed values or a range
+     * object (free numeric input), which gets an empty values list here. The
+     * `externals` key holds validation rules, not an attribute, and is
+     * skipped.
      *
      * @return array<int, array{attribute: string, values: array<int, string>}>
      */
     private function fetchAttributeSchema(PrintdealClient $printdeal, string $sku): array
     {
-        try {
-            $details = $printdeal->product($sku);
-
-            return collect($details['attributes'] ?? [])
-                ->map(fn (array $attribute): array => [
-                    'attribute' => $attribute['name'],
-                    'values' => collect($attribute['values'] ?? [])->pluck('name')->values()->all(),
-                ])
-                ->values()
-                ->all();
-        } catch (RequestException $e) {
-            if ($e->response->status() !== 404) {
-                throw $e;
-            }
-        }
-
-        $validation = $printdeal->validateSelection($sku, []);
-
-        return collect($validation['remainingOptions'] ?? [])
-            ->map(fn (array $option): array => [
-                'attribute' => (string) $option['attribute'],
-                'values' => array_values($option['values'] ?? []),
+        return collect($printdeal->attributes($sku))
+            ->except('externals')
+            ->map(fn ($values, string $attribute): array => [
+                'attribute' => $attribute,
+                'values' => is_array($values) && array_is_list($values)
+                    ? array_map(strval(...), $values)
+                    : [],
             ])
             ->values()
             ->all();
     }
 
     /**
-     * Refresh the purchase price (gross, single piece) for every offered
-     * product that has its order attributes configured. The price request
-     * mirrors what an actual order would submit, so the margin is applied to
-     * the real cost.
+     * Refresh the purchase price (single piece) for every offered product
+     * that has its order attributes configured. The price request mirrors
+     * what an actual order would submit, so the margin is applied to the
+     * real cost.
      */
     private function refreshPurchasePrices(PrintdealClient $printdeal): int
     {
@@ -162,42 +143,28 @@ class SyncPrintdealProducts extends Command
 
         foreach ($offerings as $offering) {
             try {
-                $payload = [
-                    'attributes' => $offering->order_attributes,
-                    'deliveryType' => 'Normal',
-                    'billingAddress' => ['country' => config('print.billing_address.country', 'NL')],
-                ];
+                // Grouped products: price one piece with the first value of
+                // every user option (size, color, ...).
+                $variantAttributes = collect($offering->user_options ?? [])
+                    ->map(fn (array $option): array => [
+                        'attribute' => $option['attribute'],
+                        'value' => $option['values'][0] ?? '',
+                    ])
+                    ->all();
 
-                $userOptions = $offering->user_options ?? [];
+                $response = $printdeal->validateAndPrice(
+                    $offering->sku,
+                    PrintdealAttributes::withQuantity([...$offering->order_attributes, ...$variantAttributes], 1),
+                );
 
-                if ($userOptions !== []) {
-                    // Grouped product: price one piece with the first value
-                    // of every user option (size, color, ...).
-                    $variant = collect($userOptions)
-                        ->map(fn (array $option): array => [
-                            'attribute' => $option['attribute'],
-                            'value' => $option['values'][0] ?? '',
-                        ])
-                        ->values()
-                        ->all();
-                    $variant[] = ['attribute' => 'Quantity', 'value' => 1];
+                $price = $response['price'] ?? null;
 
-                    $payload['variants'] = [$variant];
-                } else {
-                    $payload['quantities'] = [1];
-                }
-
-                $response = $printdeal->prices($offering->sku, $payload);
-                $gross = $response['prices'][0]['price']['grossAmount']
-                    ?? $response['variants'][0]['prices'][0]['price']['grossAmount']
-                    ?? null;
-
-                if (! is_numeric($gross)) {
+                if (! is_numeric($price)) {
                     continue;
                 }
 
                 $offering->update([
-                    'purchase_price_minor' => (int) round((float) $gross * 100),
+                    'purchase_price_minor' => (int) round((float) $price * 100),
                 ]);
                 $refreshed++;
             } catch (\Throwable $e) {

@@ -6,6 +6,7 @@ use App\Enums\PrintOrderStatus;
 use App\Models\PrintOrder;
 use App\Models\PrintOrderItem;
 use App\Services\Printdeal\PrintArtworkGenerator;
+use App\Services\Printdeal\PrintdealAttributes;
 use App\Services\Printdeal\PrintdealClient;
 use App\Support\MediaUrl;
 use Illuminate\Bus\Queueable;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * After a paid Mollie payment: generate a print-ready PDF per line item,
  * store them, and place the whole order at Printdeal as one order with
- * multiple line items. Split from the webhook request so a slow PDF render
+ * multiple order lines. Split from the webhook request so a slow PDF render
  * or a Printdeal outage never blocks the webhook response, and retries get
  * the full backoff treatment.
  */
@@ -52,7 +53,7 @@ class SubmitPrintOrder implements ShouldQueue
         }
 
         $disk = MediaUrl::disk();
-        $payloadItems = [];
+        $orderLines = [];
 
         foreach ($order->items as $item) {
             // Reuse PDFs from a previous attempt that failed after rendering.
@@ -64,74 +65,125 @@ class SubmitPrintOrder implements ShouldQueue
                 $item->update(['pdf_path' => $pdfPath]);
             }
 
-            $payloadItems[] = $this->buildItemPayload($order, $item, MediaUrl::sign($pdfPath));
+            $orderLines[] = $this->buildOrderLine($item, MediaUrl::sign($pdfPath));
         }
 
         $response = $printdeal->createOrder([
-            'items' => $payloadItems,
-            'billingAddress' => array_filter(
-                config('print.billing_address'),
-                fn ($value) => $value !== null && $value !== '',
-            ),
+            'orderLines' => $orderLines,
+            'invoiceAddress' => $this->invoiceAddress(),
+            'deliveryAddress' => $this->deliveryAddress($order->shipping_address),
+            'deliveryMethod' => (int) config('print.delivery_method', 1),
             'reference' => "innerr-{$order->id}",
-            'paymentMethod' => 'onAccount',
-            'platform' => 'Own',
             'testOrder' => $printdeal->testOrdersEnabled(),
         ]);
 
-        // Response items follow the request order, so they pair up by index.
-        foreach (array_values($response['items'] ?? []) as $index => $responseItem) {
+        $order->update([
+            'status' => PrintOrderStatus::Submitted,
+            'printdeal_order_id' => $response['uuid'] ?? null,
+        ]);
+
+        // The create response only carries the uuid; number, status, and the
+        // orderline ids (needed to match status webhooks to items) come from
+        // the order details. Best effort: the order is already placed, so a
+        // failing lookup must not fail the job and re-place it.
+        if (isset($response['uuid'])) {
+            $this->storeOrderDetails($printdeal, $order, $response['uuid']);
+        }
+    }
+
+    private function storeOrderDetails(PrintdealClient $printdeal, PrintOrder $order, string $uuid): void
+    {
+        try {
+            $details = $printdeal->order($uuid);
+        } catch (\Throwable $e) {
+            Log::warning("SubmitPrintOrder: could not fetch Printdeal order details for {$uuid}", [
+                'message' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        // Response lines follow the request order, so they pair up by index.
+        foreach (array_values($details['lines'] ?? []) as $index => $line) {
             $order->items[$index]?->update([
-                'printdeal_item_id' => $responseItem['id'] ?? null,
+                'printdeal_item_id' => isset($line['id']) ? (string) $line['id'] : null,
+                'printdeal_status' => $line['status'] ?? null,
             ]);
         }
 
         $order->update([
-            'status' => PrintOrderStatus::Submitted,
-            'printdeal_order_id' => $response['id'] ?? null,
-            'printdeal_order_number' => $response['number'] ?? null,
-            'printdeal_status' => $response['status'] ?? null,
+            'printdeal_order_number' => $details['number'] ?? null,
+            'printdeal_status' => $details['status'] ?? null,
         ]);
     }
 
     /**
      * Built from the snapshot taken at order creation (sku, attributes,
      * options), never from live admin config: the user paid for exactly this.
-     * Items with user options are grouped products: the options travel as a
-     * variant that also carries the quantity.
+     * User options (size, color, ...) and the quantity are plain attributes
+     * in v2; every item is a single piece.
      *
      * @return array<string, mixed>
      */
-    private function buildItemPayload(PrintOrder $order, PrintOrderItem $item, string $artworkUrl): array
+    private function buildOrderLine(PrintOrderItem $item, string $artworkUrl): array
     {
-        $shippingAddress = $order->shipping_address;
+        $attributes = $item->printdeal_attributes;
 
-        $payload = [
-            'sku' => $item->printdeal_sku,
-            'attributes' => $item->printdeal_attributes,
-            'files' => [['url' => $artworkUrl]],
-        ];
-
-        $options = $item->options ?? [];
-
-        if ($options !== []) {
-            $variant = collect($options)
-                ->map(fn (string $value, string $attribute): array => [
-                    'attribute' => $attribute,
-                    'value' => $value,
-                ])
-                ->values()
-                ->all();
-            $variant[] = ['attribute' => 'Quantity', 'value' => '1'];
-
-            $payload['variants'] = [$variant];
-        } else {
-            $shippingAddress['quantity'] = 1;
+        foreach ($item->options ?? [] as $attribute => $value) {
+            $attributes[] = ['attribute' => $attribute, 'value' => $value];
         }
 
-        $payload['shippingAddresses'] = [$shippingAddress];
+        return [
+            'sku' => $item->printdeal_sku,
+            'attributes' => PrintdealAttributes::withQuantity($attributes, 1),
+            'files' => [['url' => $artworkUrl]],
+            'externalId' => $item->id,
+        ];
+    }
 
-        return $payload;
+    /**
+     * Billing address from config, translated to the v2 field names:
+     * Printdeal invoices us ('on account'), the user already paid via Mollie.
+     *
+     * @return array<string, string>
+     */
+    private function invoiceAddress(): array
+    {
+        return $this->toV2Address(config('print.billing_address'));
+    }
+
+    /**
+     * @param  array<string, ?string>  $address
+     * @return array<string, string>
+     */
+    private function deliveryAddress(array $address): array
+    {
+        return $this->toV2Address($address);
+    }
+
+    /**
+     * The stored snapshots and config keep the houseNumber/postalCode naming
+     * from the app's API contract; v2 expects housenumber/zipcode.
+     *
+     * @param  array<string, ?string>  $address
+     * @return array<string, string>
+     */
+    private function toV2Address(array $address): array
+    {
+        $translated = [
+            'company' => $address['company'] ?? null,
+            'firstName' => $address['firstName'] ?? null,
+            'lastName' => $address['lastName'] ?? null,
+            'email' => $address['email'] ?? null,
+            'street' => $address['street'] ?? null,
+            'housenumber' => $address['houseNumber'] ?? null,
+            'housenumberAddition' => $address['houseNumberAddition'] ?? null,
+            'zipcode' => $address['postalCode'] ?? null,
+            'city' => $address['city'] ?? null,
+            'country' => $address['country'] ?? null,
+        ];
+
+        return array_filter($translated, fn (?string $value): bool => $value !== null && $value !== '');
     }
 
     public function failed(?\Throwable $exception): void

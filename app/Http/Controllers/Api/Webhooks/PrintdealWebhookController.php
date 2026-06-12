@@ -9,9 +9,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Printdeal v3 webhooks (order.created, orderline.status.updated). The v3
- * beta does not sign payloads, so the subscription URL embeds a shared
- * secret as a path segment; requests with a wrong token are rejected.
+ * Printdeal v2 webhooks (order.created, orderline.status.updated). Printdeal
+ * does not sign payloads, so the subscription URL embeds a shared secret as
+ * a path segment; requests with a wrong token are rejected.
  */
 class PrintdealWebhookController extends Controller
 {
@@ -23,18 +23,25 @@ class PrintdealWebhookController extends Controller
 
         $payload = $request->all();
 
-        // The beta docs don't pin the payload schema, so accept the order id
+        // The docs don't pin the payload schema, so accept the order id
         // and status under the names seen in practice and log the rest.
-        $orderId = $payload['orderId']
+        // Ids may be the order uuid or the numeric v2 id, hence the
+        // string-normalization and the two-column match below.
+        $orderId = $this->scalarToString(
+            $payload['orderId']
             ?? $payload['order_id']
-            ?? ($payload['order']['id'] ?? null);
+            ?? $payload['orderUuid']
+            ?? ($payload['order']['id'] ?? null),
+        );
         $status = $payload['status']
             ?? ($payload['orderline']['status'] ?? null);
-        $orderlineId = $payload['orderlineId']
+        $orderlineId = $this->scalarToString(
+            $payload['orderlineId']
             ?? $payload['orderline_id']
-            ?? ($payload['orderline']['id'] ?? null);
+            ?? ($payload['orderline']['id'] ?? null),
+        );
 
-        if (! is_string($orderId) || $orderId === '') {
+        if ($orderId === null) {
             Log::info('Printdeal webhook without recognizable order id.', ['payload' => $payload]);
 
             return new JsonResponse(['message' => 'Ignored.'], 200);
@@ -42,6 +49,7 @@ class PrintdealWebhookController extends Controller
 
         $order = PrintOrder::query()
             ->where('printdeal_order_id', $orderId)
+            ->orWhere('printdeal_order_number', $orderId)
             ->first();
 
         if ($order === null) {
@@ -53,7 +61,7 @@ class PrintdealWebhookController extends Controller
         if (is_string($status) && $status !== '') {
             // Track the line's own status when the event names one; the
             // order-level status always reflects the latest event.
-            if (is_string($orderlineId) && $orderlineId !== '') {
+            if ($orderlineId !== null) {
                 $order->items()
                     ->where('printdeal_item_id', $orderlineId)
                     ->update(['printdeal_status' => $status]);
@@ -63,5 +71,18 @@ class PrintdealWebhookController extends Controller
         }
 
         return new JsonResponse(['message' => 'Accepted.'], 200);
+    }
+
+    private function scalarToString(mixed $value): ?string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        return null;
     }
 }

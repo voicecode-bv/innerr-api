@@ -70,6 +70,9 @@ return [
     // single shipping country per order, so this also bounds the address form.
     'shipping_countries' => ['NL', 'BE'],
 
+    // Printdeal v2 delivery method id sent with every order (1 = standard).
+    'delivery_method' => env('PRINTDEAL_DELIVERY_METHOD', 1),
+
     // Where Mollie sends the user after paying. The app passes this along as
     // the payment's redirect URL; order status itself always comes from the
     // API, so this page only needs to say "all done, return to the app".

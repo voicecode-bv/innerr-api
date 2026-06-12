@@ -18,7 +18,6 @@ beforeEach(function () {
 
 it('subscribes the tokenized webhook url', function () {
     Http::fake([
-        'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
         'webhook.printdeal.test/webhooks' => Http::response(['uuid' => 'wh-1'], 201),
     ]);
     Http::preventStrayRequests();
@@ -33,13 +32,15 @@ it('subscribes the tokenized webhook url', function () {
         }
 
         return $request['events'] === ['orderline.status.updated']
-            && $request['url'] === 'https://api.innerr.test/api/webhooks/print/printdeal/secret-token';
+            && $request['url'] === 'https://api.innerr.test/api/webhooks/print/printdeal/secret-token'
+            && $request->hasHeader('User-ID', 'key')
+            && $request->hasHeader('API-Secret', 'secret')
+            && $request->hasHeader('Accept', 'application/vnd.printdeal-api.v2');
     });
 });
 
 it('treats an existing subscription as success', function () {
     Http::fake([
-        'api.printdeal.test/login' => Http::response(['token' => 'jwt-token']),
         'webhook.printdeal.test/webhooks' => Http::response(['message' => 'exists'], 409),
     ]);
 
