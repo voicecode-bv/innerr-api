@@ -71,6 +71,42 @@ it('suggests schema attributes and values inside the repeater fields', function 
         ->assertDontSee('value="quantity"', false);
 });
 
+it('prefills the order attributes from the schema, completing single-value ones', function () {
+    $product = PrintdealProduct::factory()->create([
+        'attribute_schema' => [
+            ['attribute' => 'Printing Process', 'values' => ['Sublimation']],
+            ['attribute' => 'Print Area', 'values' => ['25 x 17.5 cm (96 pcs)', '54 x 40 cm (500 pcs)']],
+            ['attribute' => 'quantity', 'values' => ['1', '2']],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        // The repeater keys its rows by generated uuid; compare values only.
+        ->assertSet('data.order_attributes', fn (array $state): bool => array_values($state) === [
+            // Only one allowed value: chosen automatically.
+            ['attribute' => 'Printing Process', 'value' => 'Sublimation'],
+            // A real choice: row ready, value left to the admin.
+            ['attribute' => 'Print Area', 'value' => ''],
+        ]);
+});
+
+it('leaves configured order attributes untouched when opening', function () {
+    $product = PrintdealProduct::factory()->create([
+        'attribute_schema' => [
+            ['attribute' => 'Printing Process', 'values' => ['Sublimation']],
+            ['attribute' => 'Packing', 'values' => ['Sealed On Cardboard', 'Box With Printed Sleeve']],
+        ],
+        'order_attributes' => [
+            ['attribute' => 'Packing', 'value' => 'Box With Printed Sleeve'],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->assertSet('data.order_attributes', fn (array $state): bool => array_values($state) === [
+            ['attribute' => 'Packing', 'value' => 'Box With Printed Sleeve'],
+        ]);
+});
+
 it('fetches the attribute schema from the API when opening an unsynced product', function () {
     $product = PrintdealProduct::factory()->create(['sku' => 'sku-mugs']);
 

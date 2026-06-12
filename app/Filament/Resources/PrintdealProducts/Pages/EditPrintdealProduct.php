@@ -25,29 +25,44 @@ class EditPrintdealProduct extends EditRecord
     /**
      * Fetch the attribute schema on first visit, so the order-attributes
      * form can suggest names and values without a map-save-sync roundtrip.
+     * With the schema in hand, an unconfigured product gets its attribute
+     * rows prefilled: one row per attribute, single-value attributes filled
+     * in. Only the actual choices (packing, print area, ...) remain manual,
+     * because those decide which product variant we sell at which cost.
      */
-    protected function afterFill(): void
+    protected function mutateFormDataBeforeFill(array $data): array
     {
         /** @var PrintdealProduct $record */
         $record = $this->getRecord();
 
-        if (! empty($record->attribute_schema) || $record->delisted_at !== null) {
-            return;
+        if (empty($record->attribute_schema) && $record->delisted_at === null) {
+            try {
+                app(PrintdealProductSync::class)->refreshAttributeSchema($record);
+            } catch (\Throwable $e) {
+                Log::warning("Printdeal schema fetch failed for {$record->sku}", [
+                    'message' => $e->getMessage(),
+                ]);
+
+                Notification::make()
+                    ->warning()
+                    ->title('Could not fetch the attribute schema from Printdeal')
+                    ->body('The form works, but without name/value suggestions. Check the API credentials or try again later.')
+                    ->send();
+            }
         }
 
-        try {
-            app(PrintdealProductSync::class)->refreshAttributeSchema($record);
-        } catch (\Throwable $e) {
-            Log::warning("Printdeal schema fetch failed for {$record->sku}", [
-                'message' => $e->getMessage(),
-            ]);
-
-            Notification::make()
-                ->warning()
-                ->title('Could not fetch the attribute schema from Printdeal')
-                ->body('The form works, but without name/value suggestions. Check the API credentials or try again later.')
-                ->send();
+        if (empty($data['order_attributes']) && ! empty($record->attribute_schema)) {
+            $data['order_attributes'] = collect($record->attribute_schema)
+                ->reject(fn (array $entry): bool => strtolower($entry['attribute']) === 'quantity')
+                ->map(fn (array $entry): array => [
+                    'attribute' => $entry['attribute'],
+                    'value' => count($entry['values'] ?? []) === 1 ? $entry['values'][0] : '',
+                ])
+                ->values()
+                ->all();
         }
+
+        return $data;
     }
 
     /**
