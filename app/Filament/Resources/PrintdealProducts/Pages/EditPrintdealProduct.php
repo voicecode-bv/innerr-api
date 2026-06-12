@@ -3,13 +3,13 @@
 namespace App\Filament\Resources\PrintdealProducts\Pages;
 
 use App\Filament\Resources\PrintdealProducts\PrintdealProductResource;
+use App\Jobs\RefreshPrintdealPurchasePrice;
 use App\Models\PrintdealProduct;
 use App\Services\Printdeal\PrintdealProductSync;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Number;
 use Illuminate\Validation\ValidationException;
 
 class EditPrintdealProduct extends EditRecord
@@ -127,31 +127,26 @@ class EditPrintdealProduct extends EditRecord
     }
 
     /**
-     * Refresh the purchase price right away once order attributes are
-     * configured, instead of waiting for the next catalog sync.
+     * Refresh the purchase price on the queue once attributes are
+     * configured. Pricing every option combination takes dozens of Printdeal
+     * calls; inline that blows the web request timeout (which silently
+     * swallowed the refresh on production).
      */
     protected function afterSave(): void
     {
         /** @var PrintdealProduct $record */
         $record = $this->getRecord();
 
-        try {
-            if (app(PrintdealProductSync::class)->refreshPurchasePrice($record)) {
-                Notification::make()
-                    ->success()
-                    ->title('Purchase price refreshed: '.Number::currency($record->purchase_price_minor / 100, 'EUR', 'nl'))
-                    ->send();
-            }
-        } catch (\Throwable $e) {
-            Log::warning("Printdeal price refresh failed for {$record->sku}", [
-                'message' => $e->getMessage(),
-            ]);
-
-            Notification::make()
-                ->warning()
-                ->title('Could not fetch the purchase price from Printdeal')
-                ->body('Check that the order attributes form a valid combination, or run "Sync catalog" later.')
-                ->send();
+        if (empty($record->order_attributes) && empty($record->user_options)) {
+            return;
         }
+
+        RefreshPrintdealPurchasePrice::dispatch($record);
+
+        Notification::make()
+            ->info()
+            ->title('Purchase price refresh started')
+            ->body('Every option combination is being priced in the background; reload in a moment to see the lowest one as the base price.')
+            ->send();
     }
 }

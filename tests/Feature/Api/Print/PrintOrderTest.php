@@ -110,6 +110,38 @@ it('creates a multi-item order with one Mollie checkout for the total', function
         ->and($order->items[1]->amount_minor)->toBe(1995);
 });
 
+it('accepts the same offering twice with different options and photos', function () {
+    $user = User::factory()->create();
+    [$post1, $media1] = makePrintablePhoto($user);
+    [$post2, $media2] = makePrintablePhoto($user);
+
+    // Two t-shirts in different sizes: 2 x 1995.
+    fakeMollieCheckout('39.90');
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [
+            [
+                'offering_id' => $this->tshirtOffering->id,
+                'photos' => [['post_id' => $post1->id, 'media_id' => $media1->id]],
+                'options' => ['Size' => 'M'],
+            ],
+            [
+                'offering_id' => $this->tshirtOffering->id,
+                'photos' => [['post_id' => $post2->id, 'media_id' => $media2->id]],
+                'options' => ['Size' => 'XL'],
+            ],
+        ],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.amount_minor', 3990)
+        ->assertJsonCount(2, 'data.items')
+        ->assertJsonPath('data.items.0.options.Size', 'M')
+        ->assertJsonPath('data.items.1.options.Size', 'XL');
+});
+
 it('prices margin-based items live for their chosen options', function () {
     config()->set('services.printdeal', [
         'base_url' => 'https://api.printdeal.test',

@@ -22,7 +22,9 @@ class StorePrintOrderRequest extends FormRequest
     {
         return [
             'items' => ['required', 'array', 'min:1', 'max:10'],
-            'items.*.offering_id' => ['required', 'uuid', 'distinct'],
+            // Deliberately not distinct: the same offering may appear twice
+            // (two puzzles in different sizes, two mugs with other photos).
+            'items.*.offering_id' => ['required', 'uuid'],
             'items.*.photos' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.photos.*.post_id' => ['required', 'uuid'],
             'items.*.photos.*.media_id' => ['required', 'uuid'],

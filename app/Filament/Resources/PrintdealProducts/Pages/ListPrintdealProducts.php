@@ -17,14 +17,17 @@ class ListPrintdealProducts extends ListRecords
         return [
             // Manual sync next to the daily schedule, so a fresh mapping can
             // be priced immediately instead of waiting for tonight's run.
+            // Queued: pricing all option combinations takes far longer than
+            // a web request allows.
             Action::make('sync')
                 ->label('Sync catalog')
                 ->icon('heroicon-o-arrow-path')
                 ->action(function (): void {
-                    Artisan::call('printdeal:sync-products');
+                    Artisan::queue('printdeal:sync-products');
 
                     Notification::make()
-                        ->title(trim(Artisan::output()))
+                        ->title('Catalog sync started in the background')
+                        ->body('Products, schemas, and prices refresh in a moment.')
                         ->success()
                         ->send();
                 }),
