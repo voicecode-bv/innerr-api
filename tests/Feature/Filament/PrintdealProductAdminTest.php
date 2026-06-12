@@ -4,10 +4,19 @@ use App\Filament\Resources\PrintdealProducts\Pages\EditPrintdealProduct;
 use App\Filament\Resources\PrintdealProducts\Pages\ListPrintdealProducts;
 use App\Models\PrintdealProduct;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 beforeEach(function () {
     $this->actingAs(User::factory()->admin()->create());
+
+    config()->set('services.printdeal', [
+        'base_url' => 'https://api.printdeal.test',
+        'api_key' => 'key',
+        'secret' => 'secret',
+        'test_orders' => true,
+        'webhook_token' => null,
+    ]);
 });
 
 it('lists synced products', function () {
@@ -40,8 +49,57 @@ it('searches products by name and sku, case-insensitively', function () {
         ->assertCanNotSeeTableRecords([$mugs]);
 });
 
-it('configures an offering through the edit page', function () {
+it('fetches the attribute schema from the API when opening an unsynced product', function () {
+    $product = PrintdealProduct::factory()->create(['sku' => 'sku-mugs']);
+
+    Http::fake([
+        'api.printdeal.test/products/sku-mugs/attributes' => Http::response([
+            'format' => ['A4', 'A5'],
+            'externals' => ['width' => []],
+        ]),
+    ]);
+    Http::preventStrayRequests();
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->assertSuccessful();
+
+    expect($product->fresh()->attribute_schema)->toBe([
+        ['attribute' => 'format', 'values' => ['A4', 'A5']],
+    ]);
+});
+
+it('keeps the edit page usable when the schema fetch fails', function () {
     $product = PrintdealProduct::factory()->create();
+
+    Http::fake([
+        'api.printdeal.test/products/*/attributes' => Http::response(['message' => 'not found'], 404),
+    ]);
+    Http::preventStrayRequests();
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->assertSuccessful()
+        ->assertNotified();
+
+    expect($product->fresh()->attribute_schema)->toBeNull();
+});
+
+it('configures an offering through the edit page and refreshes the purchase price', function () {
+    $product = PrintdealProduct::factory()->create(['sku' => 'sku-tshirt']);
+
+    Http::fake([
+        // Order matters: the generic products/* pattern below would also
+        // match the attributes path.
+        'api.printdeal.test/products/sku-tshirt/attributes' => Http::response([
+            'Style' => ['Basic'],
+            'Size' => ['S', 'M'],
+        ]),
+        // POST /products/{sku}: validate the selection and price one piece.
+        'api.printdeal.test/products/sku-tshirt' => Http::response([
+            'price' => 12.5,
+            'promisedArrivalDate' => '2026-07-01',
+        ]),
+    ]);
+    Http::preventStrayRequests();
 
     Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
         ->fillForm([
@@ -68,5 +126,20 @@ it('configures an offering through the edit page', function () {
         ->and($product->user_options)->toBe([
             ['attribute' => 'Size', 'values' => ['S', 'M']],
         ])
-        ->and($product->margin_percent)->toBe(40.0);
+        ->and($product->margin_percent)->toBe(40.0)
+        ->and($product->purchase_price_minor)->toBe(1250);
+
+    // The price call mirrors an order line: configured attributes plus the
+    // first value of every user option and a single piece as the quantity.
+    Http::assertSent(function ($request): bool {
+        if ($request->method() !== 'POST') {
+            return true;
+        }
+
+        $attributes = collect($request['attributes'])->keyBy('attribute');
+
+        return $attributes['Style']['value'] === 'Basic'
+            && $attributes['Size']['value'] === 'S'
+            && $attributes['quantity']['value'] === '1';
+    });
 });

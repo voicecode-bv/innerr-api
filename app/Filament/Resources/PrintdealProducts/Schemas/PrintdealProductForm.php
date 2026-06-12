@@ -90,7 +90,7 @@ class PrintdealProductForm
                         Placeholder::make('schema_status')
                             ->label('Attribute schema')
                             ->content(fn (PrintdealProduct $record): string => empty($record->attribute_schema)
-                                ? 'Not synced yet. Map or enable this product, save, and run "Sync catalog"; the fields below then suggest the valid attribute names and values.'
+                                ? 'Not available: the automatic fetch when opening this page failed. Reload the page or run "Sync catalog" to get name/value suggestions in the fields below.'
                                 : count($record->attribute_schema).' attributes known; the fields below suggest their names and allowed values.')
                             ->columnSpanFull(),
                         Repeater::make('order_attributes')
