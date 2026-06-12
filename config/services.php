@@ -152,6 +152,8 @@ return [
      */
     'printdeal' => [
         'base_url' => env('PRINTDEAL_BASE_URL', 'https://api.printdeal.com/v3'),
+        // Webhook subscriptions live on a separate host (same JWT auth).
+        'webhook_base_url' => env('PRINTDEAL_WEBHOOK_BASE_URL', 'https://webhook.api.printdeal.com/v3'),
         'api_key' => env('PRINTDEAL_API_KEY'),
         'secret' => env('PRINTDEAL_SECRET'),
 

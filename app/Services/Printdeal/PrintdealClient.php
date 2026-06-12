@@ -75,6 +75,29 @@ class PrintdealClient
     }
 
     /**
+     * Subscribe a URL to Printdeal webhook events. Lives on a separate host
+     * (webhook.api.printdeal.com) but shares the same JWT.
+     *
+     * @param  array<int, string>  $events
+     * @return array<string, mixed>
+     */
+    public function createWebhookSubscription(string $url, array $events, string $description): array
+    {
+        return Http::baseUrl($this->config['webhook_base_url'])
+            ->withToken($this->token())
+            ->acceptJson()
+            ->connectTimeout(5)
+            ->timeout(15)
+            ->post('/webhooks', [
+                'description' => $description,
+                'url' => $url,
+                'events' => $events,
+            ])
+            ->throw()
+            ->json() ?? [];
+    }
+
+    /**
      * Authenticated request builder. On a 401 the cached token is dropped and
      * the request retried once with a fresh login, covering early revocation
      * within the 72-hour window.
