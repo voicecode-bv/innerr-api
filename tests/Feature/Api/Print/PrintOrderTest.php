@@ -110,6 +110,42 @@ it('creates a multi-item order with one Mollie checkout for the total', function
         ->and($order->items[1]->amount_minor)->toBe(1995);
 });
 
+it('assigns a sequential human-friendly order number alongside the uuid', function () {
+    $user = User::factory()->create();
+    [$post1, $media1] = makePrintablePhoto($user);
+    [$post2, $media2] = makePrintablePhoto($user);
+
+    Sanctum::actingAs($user);
+
+    fakeMollieCheckout('24.95');
+    $first = $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post1->id, 'media_id' => $media1->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    fakeMollieCheckout('24.95');
+    $second = $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post2->id, 'media_id' => $media2->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    $firstNumber = $first->json('data.number');
+    $secondNumber = $second->json('data.number');
+
+    // Sequence-backed, so deterministic values are unsafe; assert the shape.
+    expect($firstNumber)->toBeInt()->toBeGreaterThanOrEqual(1001)
+        ->and($secondNumber)->toBeGreaterThan($firstNumber)
+        ->and($first->json('data.id'))->not->toBe($firstNumber);
+});
+
 it('accepts the same offering twice with different options and photos', function () {
     $user = User::factory()->create();
     [$post1, $media1] = makePrintablePhoto($user);

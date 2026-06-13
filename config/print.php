@@ -58,6 +58,15 @@ return [
             'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1],
         ],
 
+        'canvas' => [
+            'min_photos' => 1,
+            'max_photos' => 1,
+            // Single landscape canvas print. The generous bleed covers the
+            // wrap around the frame edges; verify against the mapped
+            // product's real dimensions before going live.
+            'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1],
+        ],
+
     ],
 
     /*

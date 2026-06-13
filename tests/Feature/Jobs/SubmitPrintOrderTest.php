@@ -115,7 +115,7 @@ it('generates artwork per item and places one multi-line Printdeal order', funct
         $shipping = $order->shipping_address;
 
         return $request['testOrder'] === true
-            && $request['reference'] === "innerr-{$order->id}"
+            && $request['reference'] === "innerr-{$order->number}"
             && $request['deliveryMethod'] === 1
             && $request['invoiceAddress']['email'] === 'facturen@innerr.app'
             && $request['invoiceAddress']['housenumber'] === '1'

@@ -73,7 +73,7 @@ class SubmitPrintOrder implements ShouldQueue
             'invoiceAddress' => $this->invoiceAddress(),
             'deliveryAddress' => $this->deliveryAddress($order->shipping_address),
             'deliveryMethod' => (int) config('print.delivery_method', 1),
-            'reference' => "innerr-{$order->id}",
+            'reference' => "innerr-{$order->number}",
             'testOrder' => $printdeal->testOrdersEnabled(),
         ]);
 

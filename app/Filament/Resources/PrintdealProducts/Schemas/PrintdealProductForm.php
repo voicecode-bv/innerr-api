@@ -101,9 +101,18 @@ class PrintdealProductForm
                                 'mug' => 'Mug',
                                 'tshirt' => 'T-shirt',
                                 'puzzle' => 'Photo puzzle',
+                                'canvas' => 'Photo canvas',
                             ])
                             ->native(false)
                             ->helperText('Which product family this belongs to in the app; it decides the artwork layout and photo limits. Multiple enabled products per family all show up in the shop.'),
+                        TextInput::make('name.nl-NL')
+                            ->label('Name (Dutch)')
+                            ->placeholder(fn (PrintdealProduct $record): string => $record->name['en-EN'] ?? '')
+                            ->helperText('Shown in the app for Dutch users; empty falls back to the English Printdeal name.'),
+                        TextInput::make('name.fr-FR')
+                            ->label('Name (French)')
+                            ->placeholder(fn (PrintdealProduct $record): string => $record->name['en-EN'] ?? '')
+                            ->helperText('Shown in the app for French users; empty falls back to the English Printdeal name.'),
                         Placeholder::make('schema_status')
                             ->label('Attribute schema')
                             ->content(fn (PrintdealProduct $record): string => empty($record->attribute_schema)

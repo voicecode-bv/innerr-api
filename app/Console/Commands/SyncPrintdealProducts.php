@@ -51,6 +51,9 @@ class SyncPrintdealProducts extends Command
     {
         $seenSkus = [];
 
+        $existingNames = PrintdealProduct::query()
+            ->pluck('name', 'sku');
+
         foreach ($printdeal->categories() as $product) {
             $sku = $product['sku'] ?? null;
 
@@ -61,8 +64,12 @@ class SyncPrintdealProducts extends Command
             $seenSkus[] = $sku;
 
             PrintdealProduct::query()->updateOrCreate(['sku' => $sku], [
-                // The name column predates v2 and stores a locale map.
-                'name' => ['en-EN' => (string) ($product['name'] ?? $sku)],
+                // Printdeal only speaks English; admin-entered translations
+                // (nl-NL, fr-FR) in the locale map must survive every sync.
+                'name' => [
+                    ...$existingNames[$sku] ?? [],
+                    'en-EN' => (string) ($product['name'] ?? $sku),
+                ],
                 'synced_at' => now(),
                 'delisted_at' => null,
             ]);

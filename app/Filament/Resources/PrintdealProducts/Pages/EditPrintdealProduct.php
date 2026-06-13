@@ -101,6 +101,14 @@ class EditPrintdealProduct extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // The form only exposes the nl/fr name translations; the synced
+        // English name must survive the save, and cleared translations fall
+        // back to English instead of persisting as empty strings.
+        $data['name'] = array_filter(
+            [...$this->getRecord()->name ?? [], ...$data['name'] ?? []],
+            fn (?string $value): bool => $value !== null && $value !== '',
+        );
+
         $userChoices = collect($data['user_options'] ?? [])
             ->pluck('attribute')
             ->map(strtolower(...));

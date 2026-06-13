@@ -44,6 +44,23 @@ it('mirrors the catalog and flags delisted products', function () {
         ->and(PrintdealProduct::query()->where('sku', 'sku-new')->first()->name['en-EN'])->toBe('mugs');
 });
 
+it('keeps admin-entered name translations during sync', function () {
+    $product = PrintdealProduct::factory()->create([
+        'sku' => 'sku-1',
+        'name' => ['en-EN' => 'old name', 'nl-NL' => 'Fotopuzzel', 'fr-FR' => 'Puzzle photo'],
+    ]);
+
+    fakeCatalog([['sku' => 'sku-1', 'name' => 'Jigsaw Puzzles']]);
+
+    $this->artisan('printdeal:sync-products')->assertSuccessful();
+
+    expect($product->fresh()->name)->toBe([
+        'en-EN' => 'Jigsaw Puzzles',
+        'nl-NL' => 'Fotopuzzel',
+        'fr-FR' => 'Puzzle photo',
+    ]);
+});
+
 it('re-lists a product that returns to the catalog', function () {
     $product = PrintdealProduct::factory()->delisted()->create(['sku' => 'sku-1']);
 

@@ -112,7 +112,7 @@ class PrintOrderController extends Controller
                     'currency' => $order->currency,
                     'value' => number_format($totalMinor / 100, 2, '.', ''),
                 ],
-                'description' => "innerr print order {$order->id}",
+                'description' => "innerr print order #{$order->number}",
                 'redirectUrl' => $request->validated('redirect_url'),
                 'webhookUrl' => URL::route('api.webhooks.print.mollie'),
                 'metadata' => [
@@ -184,6 +184,7 @@ class PrintOrderController extends Controller
     {
         return [
             'id' => $order->id,
+            'number' => $order->number,
             'amount_minor' => $order->amount_minor,
             'currency' => $order->currency,
             'status' => $order->status->value,

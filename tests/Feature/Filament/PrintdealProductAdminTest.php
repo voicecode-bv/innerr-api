@@ -71,6 +71,34 @@ it('suggests schema attributes and values inside the repeater fields', function 
         ->assertDontSee('value="quantity"', false);
 });
 
+it('saves name translations without losing the synced English name', function () {
+    Http::fake(['api.printdeal.test/products/*' => Http::response(['price' => 10.0])]);
+
+    $product = PrintdealProduct::factory()->offered('puzzle')->create([
+        'name' => ['en-EN' => 'Jigsaw Puzzles'],
+        // Matches the factory's order attributes: the selects validate
+        // against the schema, so configured rows must exist in it.
+        'attribute_schema' => [
+            ['attribute' => 'Format', 'values' => ['A4']],
+            ['attribute' => 'Printing Colors', 'values' => ['4/4 Full Color']],
+        ],
+    ]);
+
+    Livewire::test(EditPrintdealProduct::class, ['record' => $product->id])
+        ->fillForm([
+            'name.nl-NL' => 'Fotopuzzel',
+            'name.fr-FR' => 'Puzzle photo',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($product->fresh()->name)->toBe([
+        'en-EN' => 'Jigsaw Puzzles',
+        'nl-NL' => 'Fotopuzzel',
+        'fr-FR' => 'Puzzle photo',
+    ]);
+});
+
 it('persists an edited order attribute value', function () {
     Http::fake(['api.printdeal.test/products/*' => Http::response(['price' => 10.0])]);
 
