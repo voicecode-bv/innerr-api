@@ -41,6 +41,21 @@ class PrintArtworkGenerator
         $pageWidth = $spec['width'] + 2 * $spec['bleed'];
         $pageHeight = $spec['height'] + 2 * $spec['bleed'];
 
+        // Products that can be produced either way (canvas, puzzle) follow the
+        // photo: a portrait photo must never end up on a landscape page. The
+        // physical size is unchanged — only width and height swap — and the
+        // whole document keeps one page size, so the orientation is decided
+        // once from the first photo.
+        $photoLandscape = $this->photoIsLandscape($photos[0]['path']);
+
+        if (
+            ($spec['orientation'] ?? 'fixed') === 'auto'
+            && $photoLandscape !== null
+            && $photoLandscape !== ($pageWidth >= $pageHeight)
+        ) {
+            [$pageWidth, $pageHeight] = [$pageHeight, $pageWidth];
+        }
+
         $pageCount = $spec['pages'] === 'per-photo'
             ? count($photos)
             : (int) $spec['pages'];
@@ -104,5 +119,29 @@ class PrintArtworkGenerator
         }
 
         return $target;
+    }
+
+    /**
+     * Whether the stored photo is landscape (wider than tall). Returns null
+     * when the dimensions can't be read, so the caller keeps the product's
+     * natural orientation rather than flipping on a bad read. The print
+     * rendition's pixels are already EXIF-oriented, so the raw dimensions
+     * match how the photo is displayed.
+     */
+    private function photoIsLandscape(string $path): ?bool
+    {
+        $disk = MediaUrl::disk();
+
+        if (! $disk->exists($path)) {
+            throw new RuntimeException("Print photo not found on disk: {$path}");
+        }
+
+        $info = @getimagesizefromstring((string) $disk->get($path));
+
+        if ($info === false || ($info[0] ?? 0) === 0 || ($info[1] ?? 0) === 0) {
+            return null;
+        }
+
+        return $info[0] >= $info[1];
     }
 }

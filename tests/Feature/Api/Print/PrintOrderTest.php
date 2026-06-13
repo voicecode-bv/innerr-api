@@ -352,3 +352,42 @@ it('lists only the user own orders with their items and hides others', function 
     $this->getJson("/api/print/orders/{$mine->id}")->assertOk();
     $this->getJson("/api/print/orders/{$theirs->id}")->assertNotFound();
 });
+
+it('saves the shipping address on the user when opted in', function () {
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+
+    fakeMollieCheckout('24.95');
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'save_address' => true,
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    expect($user->refresh()->shipping_address)->toBe(shippingAddress());
+});
+
+it('does not save the shipping address without opt-in', function () {
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+
+    fakeMollieCheckout('24.95');
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    expect($user->refresh()->shipping_address)->toBeNull();
+});

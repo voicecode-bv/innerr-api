@@ -56,6 +56,49 @@ it('lists every enabled offering, including multiple per app product', function 
         ->and($response->json('return_url'))->toBeString();
 });
 
+it('includes the artwork format and orientation policy per product', function () {
+    $album = PrintdealProduct::factory()->offered('album', 2495)->create();
+    $canvas = PrintdealProduct::factory()->offered('canvas', 3995)->create();
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $data = collect($this->getJson('/api/print/products')->json('data'));
+
+    expect($data->firstWhere('id', $album->id)['format'])->toBe([
+        'width' => 210,
+        'height' => 210,
+        'orientation' => 'fixed',
+    ])
+        ->and($data->firstWhere('id', $canvas->id)['format'])->toBe([
+            'width' => 400,
+            'height' => 300,
+            'orientation' => 'auto',
+        ]);
+});
+
+it('returns the saved address for prefilling, or null when none is stored', function () {
+    PrintdealProduct::factory()->offered('album', 2495)->create();
+
+    Sanctum::actingAs(User::factory()->create());
+    $this->getJson('/api/print/products')
+        ->assertOk()
+        ->assertJsonPath('saved_address', null);
+
+    $address = [
+        'firstName' => 'Michael',
+        'lastName' => 'Blijleven',
+        'street' => 'Hoofdstraat',
+        'houseNumber' => '1',
+        'postalCode' => '1234AB',
+        'city' => 'Amsterdam',
+        'country' => 'NL',
+    ];
+    Sanctum::actingAs(User::factory()->create(['shipping_address' => $address]));
+    $this->getJson('/api/print/products')
+        ->assertOk()
+        ->assertJsonPath('saved_address', $address);
+});
+
 it('treats offerings whose attributes are all user options as orderable', function () {
     $offering = PrintdealProduct::factory()->offered('puzzle')->create([
         'order_attributes' => null,

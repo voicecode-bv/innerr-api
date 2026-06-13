@@ -18,6 +18,15 @@ return [
     | bleed per edge in mm, and how photos map to pages ('per-photo' or a
     | fixed page count that cycles through the photos).
     |
+    | `orientation` decides how the page relates to the photo's orientation:
+    |   'fixed' — always print at the trim size as written (calendars hang
+    |             portrait, mugs wrap, t-shirt chest prints, square albums);
+    |             a mismatching photo is cover-cropped to fit.
+    |   'auto'  — the product can be produced either way, so the page is
+    |             rotated to match the photo: a portrait photo gets a portrait
+    |             page and a landscape photo a landscape page. The mapped
+    |             Printdeal sku must accept both orientations of the trim size.
+    |
     */
 
     'products' => [
@@ -26,45 +35,47 @@ return [
             'min_photos' => 1,
             'max_photos' => 24,
             // One photo page per month; fewer photos cycle through the year.
-            'pdf' => ['width' => 210, 'height' => 297, 'bleed' => 3, 'pages' => 12],
+            'pdf' => ['width' => 210, 'height' => 297, 'bleed' => 3, 'pages' => 12, 'orientation' => 'fixed'],
         ],
 
         'album' => [
             'min_photos' => 1,
             'max_photos' => 50,
             // One photo per page, as many pages as photos.
-            'pdf' => ['width' => 210, 'height' => 210, 'bleed' => 3, 'pages' => 'per-photo'],
+            'pdf' => ['width' => 210, 'height' => 210, 'bleed' => 3, 'pages' => 'per-photo', 'orientation' => 'fixed'],
         ],
 
         'mug' => [
             'min_photos' => 1,
             'max_photos' => 1,
             // Single wrap-around canvas.
-            'pdf' => ['width' => 200, 'height' => 90, 'bleed' => 3, 'pages' => 1],
+            'pdf' => ['width' => 200, 'height' => 90, 'bleed' => 3, 'pages' => 1, 'orientation' => 'fixed'],
         ],
 
         'tshirt' => [
             'min_photos' => 1,
             'max_photos' => 1,
             // Single print area (roughly A4 chest print).
-            'pdf' => ['width' => 210, 'height' => 297, 'bleed' => 0, 'pages' => 1],
+            'pdf' => ['width' => 210, 'height' => 297, 'bleed' => 0, 'pages' => 1, 'orientation' => 'fixed'],
         ],
 
         'puzzle' => [
             'min_photos' => 1,
             'max_photos' => 1,
-            // Single landscape canvas, sized for a ~500-piece puzzle. Adjust
-            // to the mapped product's real dimensions before going live.
-            'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1],
+            // Single canvas, sized for a ~500-piece puzzle; printed portrait or
+            // landscape to match the photo. Adjust to the mapped product's real
+            // dimensions before going live.
+            'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1, 'orientation' => 'auto'],
         ],
 
         'canvas' => [
             'min_photos' => 1,
             'max_photos' => 1,
-            // Single landscape canvas print. The generous bleed covers the
-            // wrap around the frame edges; verify against the mapped
-            // product's real dimensions before going live.
-            'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1],
+            // Single canvas print, printed portrait or landscape to match the
+            // photo. The generous bleed covers the wrap around the frame edges;
+            // verify against the mapped product's real dimensions before going
+            // live.
+            'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1, 'orientation' => 'auto'],
         ],
 
     ],

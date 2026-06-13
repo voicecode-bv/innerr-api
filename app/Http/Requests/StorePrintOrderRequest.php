@@ -44,6 +44,9 @@ class StorePrintOrderRequest extends FormRequest
             ],
 
             'redirect_url' => ['required', 'url', 'max:2048'],
+
+            // Opt-in: persist this address on the user for the next order.
+            'save_address' => ['sometimes', 'boolean'],
         ];
     }
 

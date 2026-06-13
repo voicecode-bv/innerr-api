@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Print;
 use App\Http\Controllers\Controller;
 use App\Models\PrintdealProduct;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PrintProductController extends Controller
 {
@@ -14,7 +15,7 @@ class PrintProductController extends Controller
      * limits come from config/print.php (tied to the artwork layout); name,
      * price, and user options come from the offering.
      */
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $products = config('print.products');
 
@@ -34,6 +35,13 @@ class PrintProductController extends Controller
                 'max_photos' => $products[$offering->app_product]['max_photos'],
                 'user_options' => $offering->user_options ?? [],
                 'available' => $offering->isOrderable(),
+                // Trim size and orientation policy so the app can render a
+                // mockup that matches the generated artwork exactly.
+                'format' => [
+                    'width' => $products[$offering->app_product]['pdf']['width'],
+                    'height' => $products[$offering->app_product]['pdf']['height'],
+                    'orientation' => $products[$offering->app_product]['pdf']['orientation'] ?? 'fixed',
+                ],
             ])
             ->values();
 
@@ -41,6 +49,8 @@ class PrintProductController extends Controller
             'data' => $offerings,
             'shipping_countries' => config('print.shipping_countries'),
             'return_url' => config('print.return_url'),
+            // The user's saved address (if any) so checkout can prefill it.
+            'saved_address' => $request->user()?->shipping_address,
         ]);
     }
 }

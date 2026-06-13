@@ -106,6 +106,12 @@ class PrintOrderController extends Controller
             return $order;
         });
 
+        // Remember the address for next time, but only on opt-in. Stored as the
+        // same snapshot shape the order keeps, so checkout can prefill it.
+        if ($request->boolean('save_address')) {
+            $user->update(['shipping_address' => $request->shippingAddress()]);
+        }
+
         try {
             $payment = $mollie->payments->create([
                 'amount' => [
