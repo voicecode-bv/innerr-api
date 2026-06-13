@@ -85,7 +85,7 @@ return [
     // Where Mollie sends the user after paying. The app passes this along as
     // the payment's redirect URL; order status itself always comes from the
     // API, so this page only needs to say "all done, return to the app".
-    'return_url' => env('PRINT_RETURN_URL', 'https://innerr.app'),
+    'return_url' => env('PRINT_RETURN_URL', 'https://innerr.app/orders'),
 
     // Billing address on every Printdeal order: Printdeal invoices us
     // ('onAccount'), the user already paid us via Mollie.
