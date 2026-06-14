@@ -57,6 +57,21 @@ class PrintdealProductForm
         return array_combine($values, $values);
     }
 
+    /**
+     * The attribute names the customer chooses from (user options), used to
+     * point the artwork sizing at the size and frame options.
+     *
+     * @return array<int, string>
+     */
+    protected static function userOptionAttributeNames(?PrintdealProduct $record): array
+    {
+        return collect($record?->user_options ?? [])
+            ->pluck('attribute')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -156,6 +171,60 @@ class PrintdealProductForm
                             ->columns(2)
                             ->columnSpanFull()
                             ->helperText('Attributes the customer picks in the app (size, puzzle format, packing, ...) with the values they can choose from. The price follows the choice automatically: the app quotes each combination live at Printdeal and applies the margin.'),
+                    ])
+                    ->columns(2),
+
+                Section::make('Artwork dimensions')
+                    ->description('The PDF page size in millimetres for products whose size depends on the customer\'s choice (puzzle, canvas). Leave empty to use the built-in size from config/print.php.')
+                    ->schema([
+                        Select::make('artwork.size_attribute')
+                            ->label('Size option')
+                            ->options(fn (EditRecord $livewire): array => self::asOptions(self::userOptionAttributeNames($livewire->getRecord())))
+                            ->native(false)
+                            ->helperText('Which user option carries the size. Leave empty for a single fixed size (then add one row below without a value).')
+                            ->columnSpanFull(),
+                        Repeater::make('artwork.sizes')
+                            ->label('Sizes (mm)')
+                            ->schema([
+                                TextInput::make('value')
+                                    ->label('When the size option is')
+                                    ->placeholder('90 x 60 cm')
+                                    ->helperText('Must match the option value exactly. Leave empty for a single fixed size.'),
+                                TextInput::make('width')
+                                    ->label('Width (mm)')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1),
+                                TextInput::make('height')
+                                    ->label('Height (mm)')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1),
+                            ])
+                            ->columns(3)
+                            ->columnSpanFull()
+                            ->helperText('Type the final PDF size per option value. For a puzzle, include the 6 mm margin yourself (90 x 60 cm becomes 906 x 606). For a canvas, enter the base size; the frame below is added on top.'),
+                        Select::make('artwork.frame_attribute')
+                            ->label('Frame option (canvas)')
+                            ->options(fn (EditRecord $livewire): array => self::asOptions(self::userOptionAttributeNames($livewire->getRecord())))
+                            ->native(false)
+                            ->helperText('Optional. The chosen frame adds twice its depth to every edge.')
+                            ->columnSpanFull(),
+                        Repeater::make('artwork.frames')
+                            ->label('Frame depths (mm)')
+                            ->schema([
+                                TextInput::make('value')
+                                    ->label('When the frame is')
+                                    ->placeholder('2 cm'),
+                                TextInput::make('depth')
+                                    ->label('Depth (mm)')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0)
+                                    ->helperText('2 cm is 20 mm and adds 40 mm to width and height; 4,5 cm is 45 mm and adds 90 mm.'),
+                            ])
+                            ->columns(2)
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
 

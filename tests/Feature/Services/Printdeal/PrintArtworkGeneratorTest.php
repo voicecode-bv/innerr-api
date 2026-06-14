@@ -86,6 +86,25 @@ it('converts a puzzle to PDF/X-1a (CMYK) before returning it', function () {
     expect(artworkFor('puzzle', 'photos/puzzle.jpg'))->toBe('CONVERTED-PDFX');
 });
 
+it('renders at the artwork dimensions snapshotted on the order item', function () {
+    storeSizedPhoto('photos/square.jpg', 50, 50);
+
+    $item = PrintOrderItem::factory()->make([
+        'app_product' => 'canvas',
+        'artwork_width_mm' => 240,
+        'artwork_height_mm' => 240,
+        'photos' => [['post_id' => 'p1', 'media_id' => 'm1', 'path' => 'photos/square.jpg']],
+    ]);
+
+    [$width, $height] = mediaBoxSize(app(PrintArtworkGenerator::class)->generate($item));
+
+    // 240 mm at 72 pt/inch is about 680 pt; both edges match the snapshot.
+    $expected = 240 / 25.4 * 72;
+
+    expect($width)->toBeGreaterThan($expected - 2)->toBeLessThan($expected + 2)
+        ->and($height)->toBeGreaterThan($expected - 2)->toBeLessThan($expected + 2);
+});
+
 it('does not run the PDF/X conversion for products that do not need it', function () {
     storeSizedPhoto('photos/canvas.jpg', 60, 40);
 

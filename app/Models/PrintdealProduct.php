@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 #[Fillable([
     'sku', 'name', 'synced_at', 'delisted_at', 'enabled', 'app_product',
-    'order_attributes', 'user_options', 'attribute_schema',
+    'order_attributes', 'user_options', 'attribute_schema', 'artwork',
     'fixed_price_minor', 'margin_percent', 'purchase_price_minor', 'currency',
 ])]
 class PrintdealProduct extends Model
@@ -39,6 +39,7 @@ class PrintdealProduct extends Model
             'order_attributes' => 'array',
             'user_options' => 'array',
             'attribute_schema' => 'array',
+            'artwork' => 'array',
             'fixed_price_minor' => 'integer',
             'margin_percent' => 'float',
             'purchase_price_minor' => 'integer',
@@ -77,6 +78,53 @@ class PrintdealProduct extends Model
         }
 
         return null;
+    }
+
+    /**
+     * The print PDF size (mm) for a chosen option combination, or null when no
+     * artwork sizing is configured (the generator then falls back to
+     * config/print.php). The size option's value maps directly to the final
+     * width/height the admin entered; a frame option (canvas) wraps around
+     * every edge and so adds twice its depth to each dimension.
+     *
+     * @param  array<string, string>  $options
+     * @return array{width: int, height: int}|null
+     */
+    public function artworkDimensions(array $options): ?array
+    {
+        $artwork = $this->artwork ?? [];
+        $sizes = $artwork['sizes'] ?? [];
+
+        if ($sizes === []) {
+            return null;
+        }
+
+        $sizeAttribute = $artwork['size_attribute'] ?? null;
+
+        // With a size attribute, match the customer's choice; without one the
+        // product has a single fixed size (the first entry).
+        $size = $sizeAttribute !== null
+            ? collect($sizes)->firstWhere('value', $options[$sizeAttribute] ?? null)
+            : ($sizes[0] ?? null);
+
+        if ($size === null) {
+            return null;
+        }
+
+        $width = (int) $size['width'];
+        $height = (int) $size['height'];
+
+        $frameAttribute = $artwork['frame_attribute'] ?? null;
+        $frame = $frameAttribute !== null
+            ? collect($artwork['frames'] ?? [])->firstWhere('value', $options[$frameAttribute] ?? null)
+            : null;
+
+        if ($frame !== null) {
+            $width += 2 * (int) $frame['depth'];
+            $height += 2 * (int) $frame['depth'];
+        }
+
+        return ['width' => $width, 'height' => $height];
     }
 
     /**

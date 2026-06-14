@@ -16,8 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 #[Fillable([
     'print_order_id', 'app_product', 'name', 'printdeal_sku',
-    'printdeal_attributes', 'options', 'photos', 'amount_minor', 'pdf_path',
-    'printdeal_item_id', 'printdeal_status',
+    'printdeal_attributes', 'options', 'artwork_width_mm', 'artwork_height_mm',
+    'photos', 'amount_minor', 'pdf_path', 'printdeal_item_id', 'printdeal_status',
 ])]
 class PrintOrderItem extends Model
 {
@@ -35,6 +35,8 @@ class PrintOrderItem extends Model
             'options' => 'array',
             'photos' => 'array',
             'amount_minor' => 'integer',
+            'artwork_width_mm' => 'integer',
+            'artwork_height_mm' => 'integer',
         ];
     }
 

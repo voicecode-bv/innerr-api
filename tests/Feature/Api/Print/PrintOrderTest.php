@@ -222,6 +222,42 @@ it('prices margin-based items live for their chosen options', function () {
         ->assertJsonPath('data.items.0.amount_minor', 3300);
 });
 
+it('snapshots the artwork dimensions for the chosen size', function () {
+    $puzzle = PrintdealProduct::factory()->offered('puzzle', 2495)->create([
+        'user_options' => [
+            ['attribute' => 'Formaat', 'values' => ['90 x 60 cm', '50 x 70 cm']],
+        ],
+        'artwork' => [
+            'size_attribute' => 'Formaat',
+            'sizes' => [
+                ['value' => '90 x 60 cm', 'width' => 906, 'height' => 606],
+                ['value' => '50 x 70 cm', 'width' => 506, 'height' => 706],
+            ],
+        ],
+    ]);
+
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+
+    fakeMollieCheckout('24.95');
+    Sanctum::actingAs($user);
+
+    $response = $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $puzzle->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+            'options' => ['Formaat' => '90 x 60 cm'],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    $order = PrintOrder::query()->with('items')->findOrFail($response->json('data.id'));
+
+    expect($order->items[0]->artwork_width_mm)->toBe(906)
+        ->and($order->items[0]->artwork_height_mm)->toBe(606);
+});
+
 it('allows printing a circle member photo the user can view', function () {
     $owner = User::factory()->create();
     $viewer = User::factory()->create();

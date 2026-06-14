@@ -89,15 +89,19 @@ class PrintOrderController extends Controller
                 /** @var PrintdealProduct $offering */
                 $offering = $offerings->get($item['offering_id']);
 
-                // Sku, attributes, name, and price are snapshotted: the admin
-                // can re-map or re-price offerings later without affecting
-                // orders already placed.
+                // Sku, attributes, name, price, and artwork size are
+                // snapshotted: the admin can re-map, re-price, or re-dimension
+                // offerings later without affecting orders already placed.
+                $artworkDimensions = $offering->artworkDimensions($item['options'] ?? []);
+
                 $order->items()->create([
                     'app_product' => $offering->app_product,
                     'name' => $offering->name,
                     'printdeal_sku' => $offering->sku,
                     'printdeal_attributes' => $offering->order_attributes ?? [],
                     'options' => ($item['options'] ?? []) !== [] ? $item['options'] : null,
+                    'artwork_width_mm' => $artworkDimensions['width'] ?? null,
+                    'artwork_height_mm' => $artworkDimensions['height'] ?? null,
                     'photos' => $this->resolvePhotos($request, $item['photos']),
                     'amount_minor' => $itemAmounts[$index],
                 ]);

@@ -69,6 +69,29 @@ it('produces a CMYK PDF/X-1a:2001 document', function () {
         ->not->toContain('/DeviceRGB');
 });
 
+it('does not pass a PDFSETTINGS preset that overrides the PDF/X colour strategy', function () {
+    // The /prepress preset sets ColorConversionStrategy to /LeaveColorUnchanged
+    // and the compatibility level to 1.7, which PDF/X rejects with a
+    // "rangecheck in .putdeviceprops" error on some Ghostscript builds. Guard
+    // the command line so the preset cannot be reintroduced regression-free of
+    // the installed Ghostscript version.
+    Process::fake([
+        '*' => Process::result(output: '%PDF-1.3 fake'),
+    ]);
+
+    config()->set('print.pdfx.icc_profile', resource_path('icc/ISOcoated_v2.icc'));
+
+    rescue(fn () => app(PdfXConverter::class)->toPdfX1a(rgbPdf()));
+
+    Process::assertRan(function ($process) {
+        $command = $process->command;
+
+        return collect($command)->doesntContain(fn ($argument) => str_contains((string) $argument, 'PDFSETTINGS'))
+            && in_array('-sColorConversionStrategy=CMYK', $command, true)
+            && in_array('-dCompatibilityLevel=1.3', $command, true);
+    });
+});
+
 it('throws when the output intent profile is missing', function () {
     config()->set('print.pdfx.icc_profile', '/no/such/profile.icc');
 

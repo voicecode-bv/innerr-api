@@ -89,10 +89,17 @@ class PrintArtworkGenerator
             throw new RuntimeException("Print order item {$item->id} has no photos.");
         }
 
-        // Full-bleed page box: trim size extended by the bleed on every edge.
-        $box = self::fullBleedBoxMm($item->app_product);
-        $pageWidth = $box['width'];
-        $pageHeight = $box['height'];
+        // Page size in mm: the dimensions snapshotted on the order item (the
+        // admin-configured size plus margin for the chosen options) take
+        // precedence; otherwise the full-bleed box from config/print.php.
+        if ($item->artwork_width_mm !== null && $item->artwork_height_mm !== null) {
+            $pageWidth = $item->artwork_width_mm;
+            $pageHeight = $item->artwork_height_mm;
+        } else {
+            $box = self::fullBleedBoxMm($item->app_product);
+            $pageWidth = $box['width'];
+            $pageHeight = $box['height'];
+        }
 
         // Products that can be produced either way (canvas, puzzle) follow the
         // photo: a portrait photo must never end up on a landscape page. The

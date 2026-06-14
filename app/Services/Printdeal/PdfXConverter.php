@@ -39,8 +39,9 @@ class PdfXConverter
         try {
             $result = Process::timeout(self::TIMEOUT)->run([
                 $binary,
-                // PDFX=1 selects the PDF/X-1a variant of the output checker.
-                '-dPDFX=1',
+                // Produce a PDF/X document; this also forces the PDF 1.3
+                // compatibility level the PDF/X-1a:2001 standard requires.
+                '-dPDFX',
                 // SAFER is kept on; the output intent profile is the only file
                 // read from outside the command line, so it is allow-listed.
                 '-dSAFER',
@@ -50,9 +51,15 @@ class PdfXConverter
                 '-sDEVICE=pdfwrite',
                 // PDF/X-1a is a PDF 1.3 standard.
                 '-dCompatibilityLevel=1.3',
-                '-dPDFSETTINGS=/prepress',
+                // Keep the page geometry exactly as generated; the artwork is
+                // already laid out at the trim size and must not be reoriented.
+                '-dAutoRotatePages=/None',
                 // Separate every colour to DeviceCMYK; this also converts the
-                // embedded RGB photos to CMYK.
+                // embedded RGB photos to CMYK. A /prepress preset is
+                // deliberately NOT used: it overrides this strategy with
+                // /LeaveColorUnchanged and the compatibility level with 1.7,
+                // which PDF/X rejects with a "rangecheck in .putdeviceprops"
+                // error on some Ghostscript builds (e.g. 10.02.1).
                 '-sColorConversionStrategy=CMYK',
                 '-sOutputFile='.$output,
                 $definition,
