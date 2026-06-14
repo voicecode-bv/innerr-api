@@ -64,8 +64,9 @@ return [
             'max_photos' => 1,
             // Single canvas, sized for a ~500-piece puzzle; printed portrait or
             // landscape to match the photo. Adjust to the mapped product's real
-            // dimensions before going live.
-            'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1, 'orientation' => 'auto'],
+            // dimensions before going live. The puzzle press expects CMYK
+            // artwork delivered as PDF/X-1a:2001 (see the 'pdfx' block below).
+            'pdf' => ['width' => 380, 'height' => 280, 'bleed' => 3, 'pages' => 1, 'orientation' => 'auto', 'pdf_x1a' => true],
         ],
 
         'canvas' => [
@@ -77,6 +78,36 @@ return [
             // live.
             'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1, 'orientation' => 'auto'],
         ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PDF/X-1a:2001 conversion
+    |--------------------------------------------------------------------------
+    |
+    | Products flagged with `pdf_x1a` (puzzles) must be delivered as a
+    | print-ready PDF/X-1a:2001 file: CMYK only, with the output intent ICC
+    | profile embedded. The conversion runs the generated RGB PDF through
+    | Ghostscript, which separates every colour to the CMYK profile below and
+    | tags the document as PDF/X-1a:2001. Ghostscript must be installed on the
+    | queue worker that runs SubmitPrintOrder.
+    |
+    */
+
+    'pdfx' => [
+
+        // Ghostscript binary. Override per environment if it is not on PATH.
+        'ghostscript_binary' => env('PRINT_GHOSTSCRIPT_BINARY', 'gs'),
+
+        // CMYK output intent profile. Ships ISO Coated v2 (FOGRA39), the
+        // European coated-paper standard that matches Adobe's "Coated FOGRA39"
+        // PDF/X preset. Replace the file (or point the env at another path) if
+        // the printer specifies a different printing condition.
+        'icc_profile' => env('PRINT_PDFX_ICC_PROFILE', resource_path('icc/ISOcoated_v2.icc')),
+
+        // Human-readable identifier recorded in the PDF's output intent.
+        'output_condition' => env('PRINT_PDFX_OUTPUT_CONDITION', 'Coated FOGRA39 (ISO 12647-2:2004)'),
 
     ],
 

@@ -16,12 +16,17 @@ use TCPDF;
  * photos (calendar: 12 months), or one page per photo (album). Photos are
  * cover-cropped to the full bleed box at 300 DPI so the artwork never shows
  * white edges after trimming.
+ *
+ * Products flagged with `pdf_x1a` in config/print.php (puzzles) are converted
+ * to a CMYK PDF/X-1a:2001 file before returning, via {@see PdfXConverter}.
  */
 class PrintArtworkGenerator
 {
     private const DPI = 300;
 
     private const MM_PER_INCH = 25.4;
+
+    public function __construct(private PdfXConverter $pdfXConverter) {}
 
     public function generate(PrintOrderItem $item): string
     {
@@ -82,7 +87,13 @@ class PrintArtworkGenerator
                 $pdf->Image($jpeg, 0, 0, $pageWidth, $pageHeight, 'JPEG');
             }
 
-            return $pdf->Output('artwork.pdf', 'S');
+            $content = $pdf->Output('artwork.pdf', 'S');
+
+            // Some products (puzzles) must be delivered as CMYK PDF/X-1a:2001;
+            // the RGB document above is the input to that conversion.
+            return ($spec['pdf_x1a'] ?? false)
+                ? $this->pdfXConverter->toPdfX1a($content)
+                : $content;
         } finally {
             foreach ($temporaryFiles as $file) {
                 @unlink($file);

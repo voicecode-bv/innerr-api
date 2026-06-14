@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PrintOrderItem;
+use App\Services\Printdeal\PdfXConverter;
 use App\Services\Printdeal\PrintArtworkGenerator;
 use Illuminate\Support\Facades\Storage;
 
@@ -68,4 +69,29 @@ it('leaves a fixed-orientation product portrait regardless of the photo', functi
     [$width, $height] = mediaBoxSize(artworkFor('tshirt', 'photos/landscape.jpg'));
 
     expect($width)->toBeLessThan($height);
+});
+
+it('converts a puzzle to PDF/X-1a (CMYK) before returning it', function () {
+    storeSizedPhoto('photos/puzzle.jpg', 60, 40);
+
+    // The conversion itself is covered by PdfXConverterTest; here we only
+    // assert the generator hands the rendered RGB PDF to it and returns its
+    // result for the flagged product.
+    $this->mock(PdfXConverter::class)
+        ->shouldReceive('toPdfX1a')
+        ->once()
+        ->with(Mockery::on(fn (string $pdf): bool => str_starts_with($pdf, '%PDF')))
+        ->andReturn('CONVERTED-PDFX');
+
+    expect(artworkFor('puzzle', 'photos/puzzle.jpg'))->toBe('CONVERTED-PDFX');
+});
+
+it('does not run the PDF/X conversion for products that do not need it', function () {
+    storeSizedPhoto('photos/canvas.jpg', 60, 40);
+
+    $this->mock(PdfXConverter::class)
+        ->shouldReceive('toPdfX1a')
+        ->never();
+
+    expect(artworkFor('canvas', 'photos/canvas.jpg'))->toStartWith('%PDF');
 });
