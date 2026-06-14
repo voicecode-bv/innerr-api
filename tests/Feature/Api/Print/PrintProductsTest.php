@@ -76,6 +76,21 @@ it('includes the artwork format and orientation policy per product', function ()
         ]);
 });
 
+it('includes the recommended photo resolution for the full-bleed artwork at 300 DPI', function () {
+    $puzzle = PrintdealProduct::factory()->offered('puzzle', 3495)->create();
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $data = collect($this->getJson('/api/print/products')->json('data'));
+
+    // Puzzle full-bleed box is (380 + 2*3) x (280 + 2*3) = 386 x 286 mm,
+    // which at 300 DPI is 4559 x 3378 px (longer edge first).
+    expect($data->firstWhere('id', $puzzle->id)['recommended_photo_px'])->toBe([
+        'width' => 4559,
+        'height' => 3378,
+    ]);
+});
+
 it('returns the saved address for prefilling, or null when none is stored', function () {
     PrintdealProduct::factory()->offered('album', 2495)->create();
 

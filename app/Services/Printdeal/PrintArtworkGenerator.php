@@ -22,11 +22,58 @@ use TCPDF;
  */
 class PrintArtworkGenerator
 {
-    private const DPI = 300;
-
     private const MM_PER_INCH = 25.4;
 
     public function __construct(private PdfXConverter $pdfXConverter) {}
+
+    /**
+     * The full-bleed page size (mm) for a product: trim extended by the bleed
+     * on every edge, the box every photo is cover-cropped to fill.
+     *
+     * @return array{width: float, height: float}|null
+     */
+    public static function fullBleedBoxMm(string $appProduct): ?array
+    {
+        $spec = config("print.products.{$appProduct}.pdf");
+
+        if ($spec === null) {
+            return null;
+        }
+
+        return [
+            'width' => $spec['width'] + 2 * $spec['bleed'],
+            'height' => $spec['height'] + 2 * $spec['bleed'],
+        ];
+    }
+
+    /**
+     * The photo resolution (px) needed to fill a product's full-bleed box at
+     * the configured print DPI without upscaling. Orientation-independent: the
+     * larger value is the longer edge, so it fits both auto-rotated layouts.
+     *
+     * @return array{width: int, height: int}|null
+     */
+    public static function recommendedPhotoPixels(string $appProduct): ?array
+    {
+        $box = self::fullBleedBoxMm($appProduct);
+
+        if ($box === null) {
+            return null;
+        }
+
+        $long = self::pixels(max($box['width'], $box['height']));
+        $short = self::pixels(min($box['width'], $box['height']));
+
+        return ['width' => $long, 'height' => $short];
+    }
+
+    /**
+     * Convert a millimetre length to pixels at the configured print DPI.
+     */
+    private static function pixels(float $mm): int
+    {
+        return (int) round($mm / self::MM_PER_INCH * (int) config('print.dpi', 300));
+    }
 
     public function generate(PrintOrderItem $item): string
     {
@@ -43,8 +90,9 @@ class PrintArtworkGenerator
         }
 
         // Full-bleed page box: trim size extended by the bleed on every edge.
-        $pageWidth = $spec['width'] + 2 * $spec['bleed'];
-        $pageHeight = $spec['height'] + 2 * $spec['bleed'];
+        $box = self::fullBleedBoxMm($item->app_product);
+        $pageWidth = $box['width'];
+        $pageHeight = $box['height'];
 
         // Products that can be produced either way (canvas, puzzle) follow the
         // photo: a portrait photo must never end up on a landscape page. The
@@ -121,8 +169,8 @@ class PrintArtworkGenerator
         try {
             $image = Image::decodePath($source);
             $image->cover(
-                (int) round($pageWidthMm / self::MM_PER_INCH * self::DPI),
-                (int) round($pageHeightMm / self::MM_PER_INCH * self::DPI),
+                self::pixels($pageWidthMm),
+                self::pixels($pageHeightMm),
             );
             $image->save($target, quality: 92);
         } finally {

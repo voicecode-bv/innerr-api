@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Print;
 
 use App\Http\Controllers\Controller;
 use App\Models\PrintdealProduct;
+use App\Services\Printdeal\PrintArtworkGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -42,6 +43,10 @@ class PrintProductController extends Controller
                     'height' => $products[$offering->app_product]['pdf']['height'],
                     'orientation' => $products[$offering->app_product]['pdf']['orientation'] ?? 'fixed',
                 ],
+                // Photo resolution (px) that fills the artwork at print DPI
+                // without upscaling, so the app can warn before a low-res photo
+                // is enlarged. Orientation-independent (longer edge first).
+                'recommended_photo_px' => PrintArtworkGenerator::recommendedPhotoPixels($offering->app_product),
             ])
             ->values();
 

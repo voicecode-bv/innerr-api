@@ -29,6 +29,10 @@ return [
     |
     */
 
+    // Print resolution for the generated artwork. Photos are rendered at this
+    // DPI, and it drives the recommended photo resolution sent to the app.
+    'dpi' => 300,
+
     'products' => [
 
         'calendar' => [
