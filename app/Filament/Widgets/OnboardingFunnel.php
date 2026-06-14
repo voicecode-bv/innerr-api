@@ -44,7 +44,7 @@ class OnboardingFunnel extends StatsOverviewWidget
                 ? round(($previousCount - $count) / $previousCount * 100, 1)
                 : 0.0;
 
-            $stats[] = Stat::make(self::stepLabel($step), (string) $count)
+            $stats[] = Stat::make($step->label(), (string) $count)
                 ->description("{$sharePct}% of signups · {$dropPct}% drop-off")
                 ->color($dropPct > 25 ? 'danger' : ($dropPct > 10 ? 'warning' : 'success'));
 
@@ -60,15 +60,5 @@ class OnboardingFunnel extends StatsOverviewWidget
             ->color('primary');
 
         return $stats;
-    }
-
-    private static function stepLabel(OnboardingStepEnum $step): string
-    {
-        return match ($step) {
-            OnboardingStepEnum::Intro => 'Intro',
-            OnboardingStepEnum::FirstCircle => 'First circle',
-            OnboardingStepEnum::InviteMembers => 'Invite members',
-            OnboardingStepEnum::Notifications => 'Notifications',
-        };
     }
 }

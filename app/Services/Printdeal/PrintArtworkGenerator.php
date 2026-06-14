@@ -47,27 +47,6 @@ class PrintArtworkGenerator
     }
 
     /**
-     * The photo resolution (px) needed to fill a product's full-bleed box at
-     * the configured print DPI without upscaling. Orientation-independent: the
-     * larger value is the longer edge, so it fits both auto-rotated layouts.
-     *
-     * @return array{width: int, height: int}|null
-     */
-    public static function recommendedPhotoPixels(string $appProduct): ?array
-    {
-        $box = self::fullBleedBoxMm($appProduct);
-
-        if ($box === null) {
-            return null;
-        }
-
-        $long = self::pixels(max($box['width'], $box['height']));
-        $short = self::pixels(min($box['width'], $box['height']));
-
-        return ['width' => $long, 'height' => $short];
-    }
-
-    /**
      * Convert a millimetre length to pixels at the configured print DPI.
      */
     private static function pixels(float $mm): int
