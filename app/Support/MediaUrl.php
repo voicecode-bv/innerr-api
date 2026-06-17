@@ -60,6 +60,40 @@ class MediaUrl
     }
 
     /**
+     * A direct, time-limited URL straight to the stored file, deliberately
+     * bypassing the CDN. For server-to-server fetches — a print supplier
+     * downloading the artwork — where edge caching is pointless and the file
+     * is private customer material that should not pass through the public
+     * CDN. The S3 presigned URL is fetchable for the window regardless of the
+     * bucket being private, which the CDN route is not. Falls back to a signed
+     * app route on disks without temporary URLs (local).
+     */
+    public static function temporary(?string $path, \DateTimeInterface $expires): ?string
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        if (preg_match('#/storage/(.+)$#', $path, $matches)) {
+            $path = $matches[1];
+        } elseif (preg_match('#^https?://#', $path)) {
+            return $path;
+        }
+
+        $disk = static::disk();
+
+        if (method_exists($disk, 'temporaryUrl')) {
+            try {
+                return $disk->temporaryUrl($path, $expires);
+            } catch (\RuntimeException) {
+                // Local disk doesn't support temporaryUrl, fall through.
+            }
+        }
+
+        return URL::signedRoute('api.media', ['path' => $path], $expires);
+    }
+
+    /**
      * Sign een HLS master playlist door een korte cache-token uit te geven
      * die het pad-prefix bevat, en de URL naar onze MediaHlsController te
      * laten wijzen. Die controller serveert master + variants met embedded

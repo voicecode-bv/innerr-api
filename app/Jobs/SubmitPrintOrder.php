@@ -38,6 +38,11 @@ class SubmitPrintOrder implements ShouldQueue
     // is never re-dispatched while still running.
     public int $timeout = 80;
 
+    // How long the artwork download URL handed to Printdeal stays valid.
+    // Printdeal fetches the file asynchronously while it builds the order, so
+    // the window is generous; it stays under the SigV4 7-day presign maximum.
+    private const ARTWORK_URL_TTL_DAYS = 6;
+
     public function __construct(
         public PrintOrder $printOrder,
     ) {}
@@ -87,7 +92,10 @@ class SubmitPrintOrder implements ShouldQueue
                 ]);
             }
 
-            $orderLines[] = $this->buildOrderLine($item, MediaUrl::sign($pdfPath));
+            $orderLines[] = $this->buildOrderLine(
+                $item,
+                MediaUrl::temporary($pdfPath, now()->addDays(self::ARTWORK_URL_TTL_DAYS)),
+            );
         }
 
         $response = $printdeal->createOrder([
