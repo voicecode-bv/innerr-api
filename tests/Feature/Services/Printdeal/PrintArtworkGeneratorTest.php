@@ -3,7 +3,9 @@
 use App\Models\PrintOrderItem;
 use App\Services\Printdeal\PdfXConverter;
 use App\Services\Printdeal\PrintArtworkGenerator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Monolog\Handler\TestHandler;
 
 /**
  * Store a solid JPEG of the given pixel size on the fake disk.
@@ -103,6 +105,36 @@ it('renders at the artwork dimensions snapshotted on the order item', function (
 
     expect($width)->toBeGreaterThan($expected - 2)->toBeLessThan($expected + 2)
         ->and($height)->toBeGreaterThan($expected - 2)->toBeLessThan($expected + 2);
+});
+
+it('logs the chosen options and snapshotted dimensions when rendering', function () {
+    // A portrait photo on a portrait page so orientation isn't swapped and the
+    // logged dimensions match the snapshot exactly.
+    storeSizedPhoto('photos/portrait.jpg', 40, 60);
+
+    $handler = new TestHandler;
+    Log::forgetChannel('print');
+    config(['logging.channels.print' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    Log::channel('print')->getLogger()->setHandlers([$handler]);
+
+    $item = PrintOrderItem::factory()->make([
+        'app_product' => 'canvas',
+        'options' => ['frame' => 'oak', 'size' => '40x60'],
+        'artwork_width_mm' => 360,
+        'artwork_height_mm' => 460,
+        'photos' => [['post_id' => 'p1', 'media_id' => 'm1', 'path' => 'photos/portrait.jpg']],
+    ]);
+
+    app(PrintArtworkGenerator::class)->generate($item);
+
+    $record = collect($handler->getRecords())
+        ->first(fn ($r): bool => str_contains($r['message'], 'rendering artwork'));
+
+    expect($record)->not->toBeNull()
+        ->and($record['context']['options'])->toBe(['frame' => 'oak', 'size' => '40x60'])
+        ->and($record['context']['dimension_source'])->toBe('snapshot')
+        ->and($record['context']['page_width_mm'])->toBe(360.0)
+        ->and($record['context']['page_height_mm'])->toBe(460.0);
 });
 
 it('does not run the PDF/X conversion for products that do not need it', function () {

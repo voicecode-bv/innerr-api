@@ -75,10 +75,12 @@ class PrintArtworkGenerator
         if ($item->artwork_width_mm !== null && $item->artwork_height_mm !== null) {
             $pageWidth = $item->artwork_width_mm;
             $pageHeight = $item->artwork_height_mm;
+            $dimensionSource = 'snapshot';
         } else {
             $box = self::fullBleedBoxMm($item->app_product);
             $pageWidth = $box['width'];
             $pageHeight = $box['height'];
+            $dimensionSource = 'config_fallback';
         }
 
         // Products that can be produced either way (canvas, puzzle) follow the
@@ -105,8 +107,10 @@ class PrintArtworkGenerator
         Log::channel('print')->info('PrintArtworkGenerator: rendering artwork.', [
             'item_id' => $item->id,
             'app_product' => $item->app_product,
+            'options' => $item->options,
             'page_width_mm' => round($pageWidth, 2),
             'page_height_mm' => round($pageHeight, 2),
+            'dimension_source' => $dimensionSource,
             'orientation' => $pageWidth >= $pageHeight ? 'landscape' : 'portrait',
             'page_count' => $pageCount,
             'photo_count' => count($photos),

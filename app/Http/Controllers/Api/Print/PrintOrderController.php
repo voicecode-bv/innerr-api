@@ -123,11 +123,23 @@ class PrintOrderController extends Controller
             'order_number' => $order->number,
             'user_id' => $user->id,
             'item_count' => count($requestedItems),
-            'app_products' => collect($requestedItems)
-                ->map(fn (array $item): ?string => $offerings->get($item['offering_id'])?->app_product)
-                ->all(),
             'amount_minor' => $totalMinor,
             'currency' => $order->currency,
+            // Per-item config so two otherwise-identical products (same canvas,
+            // different frame/size) are distinguishable in the log.
+            'items' => collect($requestedItems)->map(function (array $item, int $index) use ($offerings, $itemAmounts): array {
+                $offering = $offerings->get($item['offering_id']);
+                $options = $item['options'] ?? [];
+                $dimensions = $offering?->artworkDimensions($options);
+
+                return [
+                    'app_product' => $offering?->app_product,
+                    'options' => $options !== [] ? $options : null,
+                    'artwork_width_mm' => $dimensions['width'] ?? null,
+                    'artwork_height_mm' => $dimensions['height'] ?? null,
+                    'amount_minor' => $itemAmounts[$index] ?? null,
+                ];
+            })->all(),
         ]);
 
         // Remember the address for next time, but only on opt-in. Stored as the
