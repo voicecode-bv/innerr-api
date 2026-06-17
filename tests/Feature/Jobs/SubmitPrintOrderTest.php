@@ -167,7 +167,7 @@ it('places the order and defers the details fetch to its own job', function () {
     Queue::assertPushed(FetchPrintdealOrderDetails::class);
 });
 
-it('logs the Printdeal payload with the artwork credential redacted', function () {
+it('logs the full Printdeal payload including the artwork download url', function () {
     fakePrintdeal();
 
     $handler = new TestHandler;
@@ -188,9 +188,11 @@ it('logs the Printdeal payload with the artwork credential redacted', function (
     $payload = $record['context']['payload'];
     $url = $payload['orderLines'][0]['files'][0]['url'];
 
+    // Logged in full, with its query string (the temporary credential) intact
+    // and not redacted, so the exact file Printdeal received can be fetched.
     expect($url)
-        ->toContain('<redacted>')
-        ->not->toContain('signature=')
+        ->toContain('.pdf?')
+        ->not->toContain('<redacted>')
         ->and($payload['reference'])->toBe("innerr-{$order->number}");
 });
 
