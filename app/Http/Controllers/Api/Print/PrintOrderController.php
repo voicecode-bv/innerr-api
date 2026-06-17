@@ -56,8 +56,12 @@ class PrintOrderController extends Controller
 
         // Price every line for its exact option combination (a 1000-piece
         // puzzle costs more than a 96-piece one); refusing beats charging a
-        // wrong amount when no price can be determined.
+        // wrong amount when no price can be determined. The artwork size is
+        // resolved here too: a size-configured product whose chosen options
+        // don't map to a size would otherwise be printed at the wrong fallback
+        // box, so refusing beats shipping a wrong-sized, paid product.
         $itemAmounts = [];
+        $itemDimensions = [];
 
         foreach ($requestedItems as $index => $item) {
             $offering = $offerings->get($item['offering_id']);
@@ -79,12 +83,29 @@ class PrintOrderController extends Controller
                 ], 422);
             }
 
+            $dimensions = $offering->artworkDimensions($item['options'] ?? []);
+
+            if ($offering->artworkSizingConfigured() && $dimensions === null) {
+                Log::channel('print')->error('Print order rejected: artwork size could not be resolved.', [
+                    'user_id' => $user->id,
+                    'offering_id' => $item['offering_id'] ?? null,
+                    'app_product' => $offering->app_product,
+                    'options' => $item['options'] ?? [],
+                ]);
+
+                return new JsonResponse([
+                    'message' => 'One of the products is not available anymore.',
+                    'error_code' => 'product_unavailable',
+                ], 422);
+            }
+
             $itemAmounts[$index] = $amount;
+            $itemDimensions[$index] = $dimensions;
         }
 
         $totalMinor = array_sum($itemAmounts);
 
-        $order = DB::transaction(function () use ($request, $user, $offerings, $requestedItems, $itemAmounts, $totalMinor): PrintOrder {
+        $order = DB::transaction(function () use ($request, $user, $offerings, $requestedItems, $itemAmounts, $itemDimensions, $totalMinor): PrintOrder {
             $order = PrintOrder::query()->create([
                 'user_id' => $user->id,
                 'shipping_address' => $request->shippingAddress(),
@@ -100,7 +121,7 @@ class PrintOrderController extends Controller
                 // Sku, attributes, name, price, and artwork size are
                 // snapshotted: the admin can re-map, re-price, or re-dimension
                 // offerings later without affecting orders already placed.
-                $artworkDimensions = $offering->artworkDimensions($item['options'] ?? []);
+                $artworkDimensions = $itemDimensions[$index];
 
                 $order->items()->create([
                     'app_product' => $offering->app_product,
@@ -127,16 +148,15 @@ class PrintOrderController extends Controller
             'currency' => $order->currency,
             // Per-item config so two otherwise-identical products (same canvas,
             // different frame/size) are distinguishable in the log.
-            'items' => collect($requestedItems)->map(function (array $item, int $index) use ($offerings, $itemAmounts): array {
+            'items' => collect($requestedItems)->map(function (array $item, int $index) use ($offerings, $itemAmounts, $itemDimensions): array {
                 $offering = $offerings->get($item['offering_id']);
                 $options = $item['options'] ?? [];
-                $dimensions = $offering?->artworkDimensions($options);
 
                 return [
                     'app_product' => $offering?->app_product,
                     'options' => $options !== [] ? $options : null,
-                    'artwork_width_mm' => $dimensions['width'] ?? null,
-                    'artwork_height_mm' => $dimensions['height'] ?? null,
+                    'artwork_width_mm' => $itemDimensions[$index]['width'] ?? null,
+                    'artwork_height_mm' => $itemDimensions[$index]['height'] ?? null,
                     'amount_minor' => $itemAmounts[$index] ?? null,
                 ];
             })->all(),

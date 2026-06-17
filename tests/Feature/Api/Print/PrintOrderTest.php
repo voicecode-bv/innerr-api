@@ -258,6 +258,42 @@ it('snapshots the artwork dimensions for the chosen size', function () {
         ->and($order->items[0]->artwork_height_mm)->toBe(606);
 });
 
+it('refuses a size-configured product when the chosen options do not resolve to a size', function () {
+    $puzzle = PrintdealProduct::factory()->offered('puzzle', 2495)->create([
+        'user_options' => [
+            ['attribute' => 'Formaat', 'values' => ['90 x 60 cm', '50 x 70 cm']],
+        ],
+        'artwork' => [
+            'size_attribute' => 'Formaat',
+            // '50 x 70 cm' is a valid option but has no size row: a
+            // misconfiguration that must not silently print the fallback box.
+            'sizes' => [
+                ['value' => '90 x 60 cm', 'width' => 906, 'height' => 606],
+            ],
+        ],
+    ]);
+
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $puzzle->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+            'options' => ['Formaat' => '50 x 70 cm'],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonPath('error_code', 'product_unavailable');
+
+    // Refused before any order or payment: nothing persisted.
+    expect(PrintOrder::query()->count())->toBe(0);
+});
+
 it('allows printing a circle member photo the user can view', function () {
     $owner = User::factory()->create();
     $viewer = User::factory()->create();

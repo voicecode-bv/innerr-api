@@ -128,6 +128,21 @@ class PrintdealProduct extends Model
     }
 
     /**
+     * Whether this product is configured for artwork sizing: a size option is
+     * named, or at least one size row exists. When true, a chosen combination
+     * that does not resolve to a size (see {@see artworkDimensions()}) is a
+     * misconfiguration and the order must be refused rather than silently
+     * printed at the config/print.php fallback box.
+     */
+    public function artworkSizingConfigured(): bool
+    {
+        $artwork = $this->artwork ?? [];
+
+        return ($artwork['size_attribute'] ?? null) !== null
+            || ($artwork['sizes'] ?? []) !== [];
+    }
+
+    /**
      * Validate a customer's option choices against the configured user
      * options: every option must be chosen, every value must be allowed,
      * and unknown options are rejected. Shared by the order request and the
