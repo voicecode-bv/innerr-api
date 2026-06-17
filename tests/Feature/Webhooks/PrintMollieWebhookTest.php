@@ -3,10 +3,26 @@
 use App\Enums\PrintOrderStatus;
 use App\Jobs\SubmitPrintOrder;
 use App\Models\PrintOrder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Mollie\Api\Endpoints\PaymentEndpoint;
 use Mollie\Api\MollieApiClient;
 use Mollie\Api\Resources\Payment;
+use Monolog\Handler\TestHandler;
+
+/**
+ * Swap the `print` log channel for a Monolog TestHandler so the test can
+ * assert what was logged, and return the handler to inspect.
+ */
+function fakePrintLogChannel(): TestHandler
+{
+    $handler = new TestHandler;
+    Log::forgetChannel('print');
+    config(['logging.channels.print' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    Log::channel('print')->getLogger()->setHandlers([$handler]);
+
+    return $handler;
+}
 
 function fakeMolliePayment(string $orderId, string $status, ?string $paidAt = null): void
 {
@@ -35,6 +51,18 @@ it('marks the order paid and queues the Printdeal submission', function () {
 
     expect($order->fresh()->status)->toBe(PrintOrderStatus::Paid);
     Queue::assertPushed(SubmitPrintOrder::class, 1);
+});
+
+it('logs the payment to the print channel when the order is paid', function () {
+    Queue::fake();
+    $handler = fakePrintLogChannel();
+    $order = PrintOrder::factory()->create();
+    fakeMolliePayment($order->id, 'paid', now()->toIso8601String());
+
+    $this->postJson('/api/webhooks/print/mollie', ['id' => 'tr_print123'])
+        ->assertOk();
+
+    expect($handler->hasInfoThatContains('Print order paid'))->toBeTrue();
 });
 
 it('cancels the order when the payment fails', function () {

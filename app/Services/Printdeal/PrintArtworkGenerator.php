@@ -4,6 +4,7 @@ namespace App\Services\Printdeal;
 
 use App\Models\PrintOrderItem;
 use App\Support\MediaUrl;
+use Illuminate\Support\Facades\Log;
 use Intervention\Image\Laravel\Facades\Image;
 use RuntimeException;
 use TCPDF;
@@ -99,6 +100,20 @@ class PrintArtworkGenerator
             ? count($photos)
             : (int) $spec['pages'];
 
+        $needsPdfX = (bool) ($spec['pdf_x1a'] ?? false);
+
+        Log::channel('print')->info('PrintArtworkGenerator: rendering artwork.', [
+            'item_id' => $item->id,
+            'app_product' => $item->app_product,
+            'page_width_mm' => round($pageWidth, 2),
+            'page_height_mm' => round($pageHeight, 2),
+            'orientation' => $pageWidth >= $pageHeight ? 'landscape' : 'portrait',
+            'page_count' => $pageCount,
+            'photo_count' => count($photos),
+            'dpi' => (int) config('print.dpi', 300),
+            'pdf_x1a' => $needsPdfX,
+        ]);
+
         $pdf = new TCPDF(
             $pageWidth >= $pageHeight ? 'L' : 'P',
             'mm',
@@ -123,9 +138,15 @@ class PrintArtworkGenerator
 
             $content = $pdf->Output('artwork.pdf', 'S');
 
+            Log::channel('print')->info('PrintArtworkGenerator: RGB PDF rendered.', [
+                'item_id' => $item->id,
+                'app_product' => $item->app_product,
+                'bytes' => strlen($content),
+            ]);
+
             // Some products (puzzles) must be delivered as CMYK PDF/X-1a:2001;
             // the RGB document above is the input to that conversion.
-            return ($spec['pdf_x1a'] ?? false)
+            return $needsPdfX
                 ? $this->pdfXConverter->toPdfX1a($content)
                 : $content;
         } finally {

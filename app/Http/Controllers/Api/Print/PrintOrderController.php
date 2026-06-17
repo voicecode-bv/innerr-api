@@ -13,6 +13,7 @@ use App\Services\Printdeal\PrintOfferingPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Mollie\Api\Exceptions\ApiException;
@@ -65,6 +66,13 @@ class PrintOrderController extends Controller
                 : null;
 
             if ($amount === null) {
+                Log::channel('print')->warning('Print order rejected: product unavailable or unpriceable.', [
+                    'user_id' => $user->id,
+                    'offering_id' => $item['offering_id'] ?? null,
+                    'app_product' => $offering?->app_product,
+                    'options' => $item['options'] ?? [],
+                ]);
+
                 return new JsonResponse([
                     'message' => 'One of the products is not available anymore.',
                     'error_code' => 'product_unavailable',
@@ -110,6 +118,18 @@ class PrintOrderController extends Controller
             return $order;
         });
 
+        Log::channel('print')->info('Print order created.', [
+            'order_id' => $order->id,
+            'order_number' => $order->number,
+            'user_id' => $user->id,
+            'item_count' => count($requestedItems),
+            'app_products' => collect($requestedItems)
+                ->map(fn (array $item): ?string => $offerings->get($item['offering_id'])?->app_product)
+                ->all(),
+            'amount_minor' => $totalMinor,
+            'currency' => $order->currency,
+        ]);
+
         // Remember the address for next time, but only on opt-in. Stored as the
         // same snapshot shape the order keeps, so checkout can prefill it.
         if ($request->boolean('save_address')) {
@@ -134,6 +154,13 @@ class PrintOrderController extends Controller
         } catch (ApiException $e) {
             $order->update(['status' => PrintOrderStatus::Canceled]);
 
+            Log::channel('print')->error('Print order payment could not be started; order canceled.', [
+                'order_id' => $order->id,
+                'order_number' => $order->number,
+                'amount_minor' => $totalMinor,
+                'message' => $e->getMessage(),
+            ]);
+
             return new JsonResponse([
                 'message' => 'Could not start the payment.',
                 'error' => $e->getMessage(),
@@ -141,6 +168,14 @@ class PrintOrderController extends Controller
         }
 
         $order->update(['mollie_payment_id' => $payment->id]);
+
+        Log::channel('print')->info('Print order payment started.', [
+            'order_id' => $order->id,
+            'order_number' => $order->number,
+            'mollie_payment_id' => $payment->id,
+            'amount_minor' => $totalMinor,
+            'currency' => $order->currency,
+        ]);
 
         return new JsonResponse([
             'data' => $this->toPayload($order->load('items')),

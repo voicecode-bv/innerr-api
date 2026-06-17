@@ -52,6 +52,13 @@ class SubmitPrintOrder implements ShouldQueue
             return;
         }
 
+        Log::channel('print')->info('SubmitPrintOrder: started.', [
+            'order_id' => $order->id,
+            'order_number' => $order->number,
+            'item_count' => $order->items->count(),
+            'attempt' => $this->attempts(),
+        ]);
+
         $disk = MediaUrl::disk();
         $orderLines = [];
 
@@ -61,8 +68,23 @@ class SubmitPrintOrder implements ShouldQueue
 
             if ($pdfPath === null || ! $disk->exists($pdfPath)) {
                 $pdfPath = "print-orders/{$order->id}/{$item->id}.pdf";
-                $disk->put($pdfPath, $artwork->generate($item));
+                $pdf = $artwork->generate($item);
+                $disk->put($pdfPath, $pdf);
                 $item->update(['pdf_path' => $pdfPath]);
+
+                Log::channel('print')->info('SubmitPrintOrder: artwork PDF generated.', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'app_product' => $item->app_product,
+                    'pdf_path' => $pdfPath,
+                    'bytes' => strlen($pdf),
+                ]);
+            } else {
+                Log::channel('print')->info('SubmitPrintOrder: reusing artwork PDF from earlier attempt.', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'pdf_path' => $pdfPath,
+                ]);
             }
 
             $orderLines[] = $this->buildOrderLine($item, MediaUrl::sign($pdfPath));
@@ -82,6 +104,14 @@ class SubmitPrintOrder implements ShouldQueue
             'printdeal_order_id' => $response['uuid'] ?? null,
         ]);
 
+        Log::channel('print')->info('SubmitPrintOrder: order placed at Printdeal.', [
+            'order_id' => $order->id,
+            'order_number' => $order->number,
+            'printdeal_order_id' => $response['uuid'] ?? null,
+            'line_count' => count($orderLines),
+            'test_order' => $printdeal->testOrdersEnabled(),
+        ]);
+
         // The create response only carries the uuid; number, status, and the
         // orderline ids (needed to match status webhooks to items) come from
         // the order details. Best effort: the order is already placed, so a
@@ -96,7 +126,8 @@ class SubmitPrintOrder implements ShouldQueue
         try {
             $details = $printdeal->order($uuid);
         } catch (\Throwable $e) {
-            Log::warning("SubmitPrintOrder: could not fetch Printdeal order details for {$uuid}", [
+            Log::channel('print')->warning("SubmitPrintOrder: could not fetch Printdeal order details for {$uuid}", [
+                'order_id' => $order->id,
                 'message' => $e->getMessage(),
             ]);
 
@@ -188,7 +219,9 @@ class SubmitPrintOrder implements ShouldQueue
 
     public function failed(?\Throwable $exception): void
     {
-        Log::error("SubmitPrintOrder: permanently failed for order {$this->printOrder->id}", [
+        Log::channel('print')->error("SubmitPrintOrder: permanently failed for order {$this->printOrder->id}", [
+            'order_id' => $this->printOrder->id,
+            'order_number' => $this->printOrder->number,
             'message' => $exception?->getMessage(),
         ]);
 

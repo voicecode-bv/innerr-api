@@ -2,6 +2,7 @@
 
 namespace App\Services\Printdeal;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -26,6 +27,10 @@ class PdfXConverter
         $outputCondition = (string) config('print.pdfx.output_condition');
 
         if (! is_file($iccProfile)) {
+            Log::channel('print')->error('PdfXConverter: PDF/X output intent profile not found.', [
+                'icc_profile' => $iccProfile,
+            ]);
+
             throw new RuntimeException("PDF/X output intent profile not found: {$iccProfile}");
         }
 
@@ -67,12 +72,27 @@ class PdfXConverter
             ]);
 
             if ($result->failed() || ! is_file($output) || filesize($output) === 0) {
+                $error = trim($result->errorOutput() ?: $result->output());
+
+                Log::channel('print')->error('PdfXConverter: Ghostscript PDF/X-1a conversion failed.', [
+                    'input_bytes' => strlen($pdf),
+                    'exit_code' => $result->exitCode(),
+                    'error' => $error,
+                ]);
+
                 throw new RuntimeException(
-                    'Ghostscript PDF/X-1a conversion failed: '.trim($result->errorOutput() ?: $result->output()),
+                    'Ghostscript PDF/X-1a conversion failed: '.$error,
                 );
             }
 
-            return (string) file_get_contents($output);
+            $converted = (string) file_get_contents($output);
+
+            Log::channel('print')->info('PdfXConverter: converted RGB PDF to CMYK PDF/X-1a:2001.', [
+                'input_bytes' => strlen($pdf),
+                'output_bytes' => strlen($converted),
+            ]);
+
+            return $converted;
         } finally {
             @unlink($input);
             @unlink($definition);

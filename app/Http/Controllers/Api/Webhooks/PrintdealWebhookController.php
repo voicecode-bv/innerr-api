@@ -42,7 +42,7 @@ class PrintdealWebhookController extends Controller
         );
 
         if ($orderId === null) {
-            Log::info('Printdeal webhook without recognizable order id.', ['payload' => $payload]);
+            Log::channel('print')->info('Printdeal webhook without recognizable order id.', ['payload' => $payload]);
 
             return new JsonResponse(['message' => 'Ignored.'], 200);
         }
@@ -53,7 +53,7 @@ class PrintdealWebhookController extends Controller
             ->first();
 
         if ($order === null) {
-            Log::info('Printdeal webhook for unknown order.', ['printdeal_order_id' => $orderId]);
+            Log::channel('print')->info('Printdeal webhook for unknown order.', ['printdeal_order_id' => $orderId]);
 
             return new JsonResponse(['message' => 'Unknown order.'], 200);
         }
@@ -68,6 +68,14 @@ class PrintdealWebhookController extends Controller
             }
 
             $order->update(['printdeal_status' => $status]);
+
+            Log::channel('print')->info('Printdeal status updated.', [
+                'order_id' => $order->id,
+                'order_number' => $order->number,
+                'printdeal_order_id' => $orderId,
+                'printdeal_orderline_id' => $orderlineId,
+                'printdeal_status' => $status,
+            ]);
         }
 
         return new JsonResponse(['message' => 'Accepted.'], 200);

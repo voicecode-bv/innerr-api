@@ -33,7 +33,7 @@ class PrintMollieWebhookController extends Controller
 
         if ($order === null) {
             // Acknowledge so Mollie stops retrying; nothing to do on our side.
-            Log::warning('Print Mollie webhook for unknown order.', ['payment_id' => $paymentId]);
+            Log::channel('print')->warning('Print Mollie webhook for unknown order.', ['payment_id' => $paymentId]);
 
             return new JsonResponse(['message' => 'Unknown order.'], 200);
         }
@@ -47,10 +47,31 @@ class PrintMollieWebhookController extends Controller
                     'mollie_payment_id' => $payment->id,
                 ]);
 
+                Log::channel('print')->info('Print order paid; submission queued.', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->number,
+                    'mollie_payment_id' => $payment->id,
+                ]);
+
                 SubmitPrintOrder::dispatch($order);
             } elseif ($payment->isFailed() || $payment->isCanceled() || $payment->isExpired()) {
                 $order->update(['status' => PrintOrderStatus::Canceled]);
+
+                Log::channel('print')->info('Print order payment not completed; order canceled.', [
+                    'order_id' => $order->id,
+                    'order_number' => $order->number,
+                    'mollie_payment_id' => $payment->id,
+                    'mollie_status' => $payment->status,
+                ]);
             }
+        } else {
+            // Idempotent acknowledgement of a repeated webhook for an order
+            // that already moved past pending_payment.
+            Log::channel('print')->debug('Print Mollie webhook ignored; order already settled.', [
+                'order_id' => $order->id,
+                'order_number' => $order->number,
+                'current_status' => $order->status->value,
+            ]);
         }
 
         return new JsonResponse(['message' => 'Accepted.'], 200);
