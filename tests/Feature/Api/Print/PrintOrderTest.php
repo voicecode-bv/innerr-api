@@ -294,6 +294,101 @@ it('refuses a size-configured product when the chosen options do not resolve to 
     expect(PrintOrder::query()->count())->toBe(0);
 });
 
+it('snapshots the full-resolution original path, not the display rendition', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $media = PostMedia::create([
+        'post_id' => $post->id,
+        'sort_order' => 0,
+        'path' => "users/{$user->id}/posts/photo.jpg",
+        'original_path' => "users/{$user->id}/originals/posts/photo.jpg",
+        'type' => 'image',
+        'format' => 'jpg',
+        'status' => MediaStatus::Ready,
+        'width' => 4000,
+        'height' => 3000,
+    ]);
+
+    fakeMollieCheckout('24.95');
+    Sanctum::actingAs($user);
+
+    $response = $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+
+    $order = PrintOrder::query()->with('items')->findOrFail($response->json('data.id'));
+
+    expect($order->items[0]->photos[0]['path'])->toBe($media->original_path)
+        ->and($order->items[0]->photos[0]['width'])->toBe(4000)
+        ->and($order->items[0]->photos[0]['height'])->toBe(3000);
+});
+
+it('refuses a photo whose resolution is too low for the chosen size', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    // 200x200 px on the album's ~216 mm page is roughly 23 DPI — far below the
+    // 150 DPI floor, so checkout must refuse before charging.
+    $media = PostMedia::create([
+        'post_id' => $post->id,
+        'sort_order' => 0,
+        'path' => "users/{$user->id}/posts/tiny.jpg",
+        'original_path' => "users/{$user->id}/originals/posts/tiny.jpg",
+        'type' => 'image',
+        'format' => 'jpg',
+        'status' => MediaStatus::Ready,
+        'width' => 200,
+        'height' => 200,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('items');
+
+    expect(PrintOrder::query()->count())->toBe(0);
+});
+
+it('allows a photo that meets the resolution floor for the chosen size', function () {
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $media = PostMedia::create([
+        'post_id' => $post->id,
+        'sort_order' => 0,
+        'path' => "users/{$user->id}/posts/big.jpg",
+        'original_path' => "users/{$user->id}/originals/posts/big.jpg",
+        'type' => 'image',
+        'format' => 'jpg',
+        'status' => MediaStatus::Ready,
+        'width' => 4000,
+        'height' => 3000,
+    ]);
+
+    fakeMollieCheckout('24.95');
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.test/print/return',
+    ])->assertCreated();
+});
+
 it('allows printing a circle member photo the user can view', function () {
     $owner = User::factory()->create();
     $viewer = User::factory()->create();

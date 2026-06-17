@@ -55,6 +55,32 @@ class PrintArtworkGenerator
         return (int) round($mm / self::MM_PER_INCH * (int) config('print.dpi', 300));
     }
 
+    /**
+     * The resolution (DPI) a source photo delivers when cover-cropped to fill
+     * a page. The photo is cover-cropped (it fills the box and the overflow is
+     * trimmed), so the binding edge is the one needing the most upscaling.
+     * Orientation is aligned long-edge to long-edge: auto-orientation products
+     * rotate the page to match the photo, and it is the best case for fixed
+     * ones. Returns 0.0 when a dimension is missing so the caller can skip the
+     * check rather than reject on bad data.
+     */
+    public static function effectiveDpi(int $sourceWidthPx, int $sourceHeightPx, float $pageWidthMm, float $pageHeightMm): float
+    {
+        if ($sourceWidthPx <= 0 || $sourceHeightPx <= 0 || $pageWidthMm <= 0 || $pageHeightMm <= 0) {
+            return 0.0;
+        }
+
+        $sourceLong = max($sourceWidthPx, $sourceHeightPx);
+        $sourceShort = min($sourceWidthPx, $sourceHeightPx);
+        $pageLongMm = max($pageWidthMm, $pageHeightMm);
+        $pageShortMm = min($pageWidthMm, $pageHeightMm);
+
+        return min(
+            $sourceLong / ($pageLongMm / self::MM_PER_INCH),
+            $sourceShort / ($pageShortMm / self::MM_PER_INCH),
+        );
+    }
+
     public function generate(PrintOrderItem $item): string
     {
         $spec = config("print.products.{$item->app_product}.pdf");
@@ -88,7 +114,7 @@ class PrintArtworkGenerator
         // physical size is unchanged — only width and height swap — and the
         // whole document keeps one page size, so the orientation is decided
         // once from the first photo.
-        $photoLandscape = $this->photoIsLandscape($photos[0]['path']);
+        $photoLandscape = $this->photoOrientationIsLandscape($photos[0]);
 
         if (
             ($spec['orientation'] ?? 'fixed') === 'auto'
@@ -104,6 +130,13 @@ class PrintArtworkGenerator
 
         $needsPdfX = (bool) ($spec['pdf_x1a'] ?? false);
 
+        $sourceDpi = self::effectiveDpi(
+            (int) ($photos[0]['width'] ?? 0),
+            (int) ($photos[0]['height'] ?? 0),
+            $pageWidth,
+            $pageHeight,
+        );
+
         Log::channel('print')->info('PrintArtworkGenerator: rendering artwork.', [
             'item_id' => $item->id,
             'app_product' => $item->app_product,
@@ -115,6 +148,7 @@ class PrintArtworkGenerator
             'page_count' => $pageCount,
             'photo_count' => count($photos),
             'dpi' => (int) config('print.dpi', 300),
+            'source_dpi' => $sourceDpi > 0 ? round($sourceDpi) : null,
             'pdf_x1a' => $needsPdfX,
         ]);
 
@@ -179,6 +213,10 @@ class PrintArtworkGenerator
 
         try {
             $image = Image::decodePath($source);
+            // Originals keep their EXIF orientation as a flag rather than baked
+            // into the pixels (unlike the display variant), so apply it before
+            // cropping or a portrait photo would be cover-cropped sideways.
+            $image->orient();
             $image->cover(
                 self::pixels($pageWidthMm),
                 self::pixels($pageHeightMm),
@@ -192,11 +230,32 @@ class PrintArtworkGenerator
     }
 
     /**
+     * Whether the first photo is landscape, driving the auto-orientation page
+     * swap. Prefers the snapshotted (EXIF-corrected) dimensions: they describe
+     * the photo as displayed and the printed original shares the same aspect
+     * ratio once oriented, so no file read is needed. Falls back to reading the
+     * file for older snapshots that predate the stored dimensions.
+     *
+     * @param  array{path: string, width?: ?int, height?: ?int}  $photo
+     */
+    private function photoOrientationIsLandscape(array $photo): ?bool
+    {
+        $width = $photo['width'] ?? null;
+        $height = $photo['height'] ?? null;
+
+        if ($width !== null && $height !== null && $width > 0 && $height > 0) {
+            return $width >= $height;
+        }
+
+        return $this->photoIsLandscape($photo['path']);
+    }
+
+    /**
      * Whether the stored photo is landscape (wider than tall). Returns null
      * when the dimensions can't be read, so the caller keeps the product's
-     * natural orientation rather than flipping on a bad read. The print
-     * rendition's pixels are already EXIF-oriented, so the raw dimensions
-     * match how the photo is displayed.
+     * natural orientation rather than flipping on a bad read. Used as a
+     * fallback when the snapshot carries no dimensions; such snapshots point at
+     * the already-EXIF-oriented display rendition, so the raw pixels match.
      */
     private function photoIsLandscape(string $path): ?bool
     {

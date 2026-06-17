@@ -9,6 +9,7 @@ use App\Http\Requests\StorePrintOrderRequest;
 use App\Models\PostMedia;
 use App\Models\PrintdealProduct;
 use App\Models\PrintOrder;
+use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintOfferingPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -131,7 +132,7 @@ class PrintOrderController extends Controller
                     'options' => ($item['options'] ?? []) !== [] ? $item['options'] : null,
                     'artwork_width_mm' => $artworkDimensions['width'] ?? null,
                     'artwork_height_mm' => $artworkDimensions['height'] ?? null,
-                    'photos' => $this->resolvePhotos($request, $item['photos']),
+                    'photos' => $this->resolvePhotos($request, $item['photos'], $artworkDimensions, $offering->app_product),
                     'amount_minor' => $itemAmounts[$index],
                 ]);
             }
@@ -221,9 +222,10 @@ class PrintOrderController extends Controller
      * post, and only ready images can be printed.
      *
      * @param  array<int, array{post_id: string, media_id: string}>  $requested
-     * @return array<int, array{post_id: string, media_id: string, path: string}>
+     * @param  array{width: int, height: int}|null  $artworkDimensions  Resolved page size (mm); null falls back to the config box.
+     * @return array<int, array{post_id: string, media_id: string, path: string, width: ?int, height: ?int}>
      */
-    private function resolvePhotos(StorePrintOrderRequest $request, array $requested): array
+    private function resolvePhotos(StorePrintOrderRequest $request, array $requested, ?array $artworkDimensions, string $appProduct): array
     {
         $media = PostMedia::query()
             ->with('post')
@@ -231,7 +233,12 @@ class PrintOrderController extends Controller
             ->get()
             ->keyBy('id');
 
-        return collect($requested)->map(function (array $photo) use ($request, $media): array {
+        // The page the photo is cover-cropped to fill, mirroring the generator:
+        // the resolved artwork size, else the product's full-bleed config box.
+        $pageBox = $artworkDimensions ?? PrintArtworkGenerator::fullBleedBoxMm($appProduct);
+        $minDpi = (int) config('print.min_dpi', 150);
+
+        return collect($requested)->map(function (array $photo) use ($request, $media, $pageBox, $minDpi, $appProduct): array {
             $item = $media->get($photo['media_id']);
 
             // Why a photo is unprintable, so production logs pinpoint a
@@ -259,10 +266,47 @@ class PrintOrderController extends Controller
                 ]);
             }
 
+            // Refuse a photo that can't meet the print-quality floor for the
+            // chosen size: cover-cropping a too-small original to a large page
+            // upscales it into a visibly soft, paid product.
+            if ($pageBox !== null && $item->width !== null && $item->height !== null) {
+                $sourceDpi = PrintArtworkGenerator::effectiveDpi(
+                    $item->width,
+                    $item->height,
+                    (float) $pageBox['width'],
+                    (float) $pageBox['height'],
+                );
+
+                if ($sourceDpi > 0 && $sourceDpi < $minDpi) {
+                    Log::channel('print')->warning('Print order rejected: photo resolution too low for size.', [
+                        'user_id' => $request->user()->id,
+                        'media_id' => $item->id,
+                        'app_product' => $appProduct,
+                        'source_width' => $item->width,
+                        'source_height' => $item->height,
+                        'page_width_mm' => $pageBox['width'],
+                        'page_height_mm' => $pageBox['height'],
+                        'effective_dpi' => round($sourceDpi),
+                        'min_dpi' => $minDpi,
+                    ]);
+
+                    throw ValidationException::withMessages([
+                        'items' => ['One or more photos are not high enough resolution for the chosen size.'],
+                    ]);
+                }
+            }
+
             return [
                 'post_id' => $item->post_id,
                 'media_id' => $item->id,
-                'path' => $item->path,
+                // Print from the full-resolution original, not the 1920px
+                // display rendition: at 300 DPI that variant only covers
+                // ~16 cm. The dimensions are the EXIF-corrected display size,
+                // which shares the original's aspect ratio and drives the
+                // page-orientation choice without re-reading the file.
+                'path' => $item->original_path ?? $item->path,
+                'width' => $item->width,
+                'height' => $item->height,
             ];
         })->all();
     }

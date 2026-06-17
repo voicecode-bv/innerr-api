@@ -33,6 +33,12 @@ return [
     // DPI, and it drives the recommended photo resolution sent to the app.
     'dpi' => 300,
 
+    // Minimum acceptable resolution (DPI) of the source photo for the chosen
+    // product size. Below this an order is refused at checkout rather than
+    // printing a visibly soft, paid product. 150 DPI is the common print-
+    // quality floor; lower it for large formats viewed from a distance.
+    'min_dpi' => 150,
+
     'products' => [
 
         'calendar' => [

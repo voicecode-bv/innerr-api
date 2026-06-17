@@ -137,6 +137,38 @@ it('logs the chosen options and snapshotted dimensions when rendering', function
         ->and($record['context']['page_height_mm'])->toBe(460.0);
 });
 
+it('orients an auto product from the snapshotted dimensions, not the file pixels', function () {
+    // The stored photo is square (pixel read would be landscape), but the
+    // snapshot says portrait — the printed original shares that aspect, so the
+    // page must follow the snapshot and end up portrait.
+    storeSizedPhoto('photos/square.jpg', 50, 50);
+
+    $item = PrintOrderItem::factory()->make([
+        'app_product' => 'canvas',
+        'photos' => [[
+            'post_id' => 'p1',
+            'media_id' => 'm1',
+            'path' => 'photos/square.jpg',
+            'width' => 40,
+            'height' => 60,
+        ]],
+    ]);
+
+    [$width, $height] = mediaBoxSize(app(PrintArtworkGenerator::class)->generate($item));
+
+    expect($width)->toBeLessThan($height);
+});
+
+it('computes the effective DPI a source delivers for a page, orientation-aligned', function () {
+    // 4000x3000 px on a 600x400 mm page (23.62 x 15.75 in), long-to-long:
+    // min(4000/23.62, 3000/15.75) = min(169, 190) = ~169 DPI. Orientation of
+    // the source must not matter — a portrait source gives the same value.
+    expect(round(PrintArtworkGenerator::effectiveDpi(4000, 3000, 600, 400)))->toBe(169.0)
+        ->and(round(PrintArtworkGenerator::effectiveDpi(3000, 4000, 600, 400)))->toBe(169.0)
+        // Missing dimensions yield 0.0 so the caller skips the check.
+        ->and(PrintArtworkGenerator::effectiveDpi(0, 3000, 600, 400))->toBe(0.0);
+});
+
 it('does not run the PDF/X conversion for products that do not need it', function () {
     storeSizedPhoto('photos/canvas.jpg', 60, 40);
 
