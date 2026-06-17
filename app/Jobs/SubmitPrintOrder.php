@@ -98,14 +98,24 @@ class SubmitPrintOrder implements ShouldQueue
             );
         }
 
-        $response = $printdeal->createOrder([
+        $payload = [
             'orderLines' => $orderLines,
             'invoiceAddress' => $this->invoiceAddress(),
             'deliveryAddress' => $this->deliveryAddress($order->shipping_address),
             'deliveryMethod' => (int) config('print.delivery_method', 1),
             'reference' => "innerr-{$order->number}",
             'testOrder' => $printdeal->testOrdersEnabled(),
+        ];
+
+        // Logged before the call so every attempt records exactly what we send,
+        // even when the request then fails.
+        Log::channel('print')->info('SubmitPrintOrder: submitting order to Printdeal.', [
+            'order_id' => $order->id,
+            'order_number' => $order->number,
+            'payload' => $this->loggablePayload($payload),
         ]);
+
+        $response = $printdeal->createOrder($payload);
 
         $order->update([
             'status' => PrintOrderStatus::Submitted,
@@ -128,6 +138,33 @@ class SubmitPrintOrder implements ShouldQueue
         if (isset($response['uuid'])) {
             FetchPrintdealOrderDetails::dispatch($order)->delay(now()->addSeconds(60));
         }
+    }
+
+    /**
+     * The order payload with the artwork download URLs stripped of their query
+     * string for logging: that query carries the presigned signature, a
+     * credential granting temporary read access to private customer artwork,
+     * which must not land in a log file. The path is kept so the log still
+     * shows which file each line points at.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function loggablePayload(array $payload): array
+    {
+        $payload['orderLines'] = array_map(function (array $line): array {
+            $line['files'] = array_map(function (array $file): array {
+                if (isset($file['url'])) {
+                    $file['url'] = explode('?', (string) $file['url'], 2)[0].'?<redacted>';
+                }
+
+                return $file;
+            }, $line['files'] ?? []);
+
+            return $line;
+        }, $payload['orderLines'] ?? []);
+
+        return $payload;
     }
 
     /**

@@ -8,8 +8,10 @@ use App\Models\PrintOrderItem;
 use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintdealClient;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Monolog\Handler\TestHandler;
 
 /**
  * Store a small generated JPEG on the fake disk and return its path.
@@ -163,6 +165,33 @@ it('places the order and defers the details fetch to its own job', function () {
         ->and($order->fresh()->printdeal_order_number)->toBeNull();
 
     Queue::assertPushed(FetchPrintdealOrderDetails::class);
+});
+
+it('logs the Printdeal payload with the artwork credential redacted', function () {
+    fakePrintdeal();
+
+    $handler = new TestHandler;
+    Log::forgetChannel('print');
+    config(['logging.channels.print' => ['driver' => 'monolog', 'handler' => TestHandler::class]]);
+    Log::channel('print')->getLogger()->setHandlers([$handler]);
+
+    $order = PrintOrder::factory()->withItem()->paid()->create();
+    storePrintTestPhoto($order->items()->first()->photos[0]['path']);
+
+    runSubmit($order);
+
+    $record = collect($handler->getRecords())
+        ->first(fn ($r): bool => str_contains($r['message'], 'submitting order to Printdeal'));
+
+    expect($record)->not->toBeNull();
+
+    $payload = $record['context']['payload'];
+    $url = $payload['orderLines'][0]['files'][0]['url'];
+
+    expect($url)
+        ->toContain('<redacted>')
+        ->not->toContain('signature=')
+        ->and($payload['reference'])->toBe("innerr-{$order->number}");
 });
 
 it('does nothing for orders that are not in the paid state', function () {
