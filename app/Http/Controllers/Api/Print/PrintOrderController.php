@@ -214,13 +214,26 @@ class PrintOrderController extends Controller
         return collect($requested)->map(function (array $photo) use ($request, $media): array {
             $item = $media->get($photo['media_id']);
 
-            if (
-                $item === null
-                || $item->post_id !== $photo['post_id']
-                || $item->type !== 'image'
-                || $item->status !== MediaStatus::Ready
-                || $request->user()->cannot('view', $item->post)
-            ) {
+            // Why a photo is unprintable, so production logs pinpoint a
+            // recurring checkout failure instead of a generic 422.
+            $reason = match (true) {
+                $item === null => 'media_not_found',
+                $item->post_id !== $photo['post_id'] => 'post_mismatch',
+                $item->type !== 'image' => 'not_an_image',
+                $item->status !== MediaStatus::Ready => 'not_ready',
+                $request->user()->cannot('view', $item->post) => 'not_viewable',
+                default => null,
+            };
+
+            if ($reason !== null) {
+                Log::channel('print')->warning('Print order rejected: photo not printable.', [
+                    'user_id' => $request->user()->id,
+                    'post_id' => $photo['post_id'],
+                    'media_id' => $photo['media_id'],
+                    'reason' => $reason,
+                    'media_status' => $item?->status?->value,
+                ]);
+
                 throw ValidationException::withMessages([
                     'items' => ['One or more photos are not available for printing.'],
                 ]);

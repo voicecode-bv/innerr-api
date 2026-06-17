@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\PrintOrderStatus;
+use App\Jobs\FetchPrintdealOrderDetails;
 use App\Jobs\SubmitPrintOrder;
 use App\Models\PrintOrder;
 use App\Models\PrintOrderItem;
 use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintdealClient;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -53,6 +55,10 @@ function runSubmit(PrintOrder $order): void
 beforeEach(function () {
     Storage::fake();
 
+    // The order-details fetch is its own delayed, retrying job now; fake the
+    // queue so it is recorded but not run inline during these tests.
+    Queue::fake();
+
     config()->set('services.printdeal', [
         'base_url' => 'https://api.printdeal.test',
         'webhook_base_url' => 'https://webhook.printdeal.test',
@@ -97,13 +103,13 @@ it('generates artwork per item and places one multi-line Printdeal order', funct
 
     expect($order->status)->toBe(PrintOrderStatus::Submitted)
         ->and($order->printdeal_order_id)->toBe('pd-order-uuid')
-        ->and($order->printdeal_order_number)->toBe('DDB2026001234')
-        ->and($order->printdeal_status)->toBe('in-progress')
-        ->and($album->printdeal_item_id)->toBe('111')
-        ->and($tshirt->printdeal_item_id)->toBe('222')
         ->and($album->pdf_path)->toBe("print-orders/{$order->id}/{$album->id}.pdf")
         ->and(Storage::disk()->get($album->pdf_path))->toStartWith('%PDF')
         ->and(Storage::disk()->get($tshirt->pdf_path))->toStartWith('%PDF');
+
+    // The number, status, and orderline ids are filled in by the follow-up
+    // job, queued for the placed order.
+    Queue::assertPushed(FetchPrintdealOrderDetails::class, fn (FetchPrintdealOrderDetails $job): bool => $job->printOrder->is($order));
 
     Http::assertSent(function ($request) use ($order, $album): bool {
         if ($request->method() !== 'POST') {
@@ -138,9 +144,8 @@ it('generates artwork per item and places one multi-line Printdeal order', funct
     });
 });
 
-it('places the order even when the details fetch fails', function () {
+it('places the order and defers the details fetch to its own job', function () {
     Http::fake([
-        'api.printdeal.test/orders/pd-order-uuid' => Http::response(['message' => 'oops'], 500),
         'api.printdeal.test/orders' => Http::response(['uuid' => 'pd-order-uuid'], 201),
     ]);
     Http::preventStrayRequests();
@@ -150,11 +155,14 @@ it('places the order even when the details fetch fails', function () {
 
     runSubmit($order);
 
-    // The order is placed and never re-submitted; only number/status/line
-    // ids are missing until a webhook or manual refresh fills them in.
+    // The order is placed immediately; the number/status/line ids are left to
+    // the deferred job (Printdeal builds the order asynchronously), so they
+    // are still empty right after submission.
     expect($order->fresh()->status)->toBe(PrintOrderStatus::Submitted)
         ->and($order->fresh()->printdeal_order_id)->toBe('pd-order-uuid')
         ->and($order->fresh()->printdeal_order_number)->toBeNull();
+
+    Queue::assertPushed(FetchPrintdealOrderDetails::class);
 });
 
 it('does nothing for orders that are not in the paid state', function () {

@@ -114,38 +114,12 @@ class SubmitPrintOrder implements ShouldQueue
 
         // The create response only carries the uuid; number, status, and the
         // orderline ids (needed to match status webhooks to items) come from
-        // the order details. Best effort: the order is already placed, so a
-        // failing lookup must not fail the job and re-place it.
+        // the order details. Printdeal builds the order asynchronously and 404s
+        // until it is ready, so the lookup runs in its own delayed, retrying
+        // job rather than blocking (and possibly re-placing) this one.
         if (isset($response['uuid'])) {
-            $this->storeOrderDetails($printdeal, $order, $response['uuid']);
+            FetchPrintdealOrderDetails::dispatch($order)->delay(now()->addSeconds(60));
         }
-    }
-
-    private function storeOrderDetails(PrintdealClient $printdeal, PrintOrder $order, string $uuid): void
-    {
-        try {
-            $details = $printdeal->order($uuid);
-        } catch (\Throwable $e) {
-            Log::channel('print')->warning("SubmitPrintOrder: could not fetch Printdeal order details for {$uuid}", [
-                'order_id' => $order->id,
-                'message' => $e->getMessage(),
-            ]);
-
-            return;
-        }
-
-        // Response lines follow the request order, so they pair up by index.
-        foreach (array_values($details['lines'] ?? []) as $index => $line) {
-            $order->items[$index]?->update([
-                'printdeal_item_id' => isset($line['id']) ? (string) $line['id'] : null,
-                'printdeal_status' => $line['status'] ?? null,
-            ]);
-        }
-
-        $order->update([
-            'printdeal_order_number' => $details['number'] ?? null,
-            'printdeal_status' => $details['status'] ?? null,
-        ]);
     }
 
     /**
