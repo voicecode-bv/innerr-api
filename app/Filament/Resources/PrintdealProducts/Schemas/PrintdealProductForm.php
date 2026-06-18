@@ -204,6 +204,15 @@ class PrintdealProductForm
                             ->columns(3)
                             ->columnSpanFull()
                             ->helperText('Type the trim (base) size per option value in mm — e.g. 90 x 60 cm becomes 900 x 600. The frame (below) and a 3 mm print bleed per edge are added automatically.'),
+                        Select::make('artwork.popular')
+                            ->label('Most chosen size')
+                            ->options(fn (Get $get): array => collect($get('artwork.sizes') ?? [])
+                                ->pluck('value', 'value')
+                                ->filter()
+                                ->all())
+                            ->native(false)
+                            ->helperText('Highlighted with a "Most chosen" badge in the app. Leave empty for none.')
+                            ->columnSpanFull(),
                         Select::make('artwork.frame_attribute')
                             ->label('Frame option (canvas)')
                             ->options(fn (EditRecord $livewire): array => self::asOptions(self::userOptionAttributeNames($livewire->getRecord())))
