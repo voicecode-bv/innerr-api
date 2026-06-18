@@ -66,6 +66,47 @@ it('refreshes an order from the Printdeal API', function () {
         ->and($item->fresh()->printdeal_item_id)->toBe('555');
 });
 
+it('shows a notification instead of erroring when the Printdeal fetch fails', function () {
+    Http::fake([
+        'api.printdeal.test/orders/pd-uuid' => Http::response(['message' => 'still building'], 404),
+    ]);
+    Http::preventStrayRequests();
+
+    $order = PrintOrder::factory()->submitted()->create([
+        'printdeal_order_id' => 'pd-uuid',
+        'printdeal_order_number' => null,
+    ]);
+
+    Livewire::test(ListPrintOrders::class)
+        ->callAction(TestAction::make('refreshFromPrintdeal')->table($order))
+        ->assertNotified();
+
+    expect($order->fresh()->printdeal_order_number)->toBeNull();
+});
+
+it('does not crash on an unexpected Printdeal response shape', function () {
+    // `lines` arriving as a scalar must not blow up the updater.
+    Http::fake([
+        'api.printdeal.test/orders/pd-uuid' => Http::response([
+            'number' => 'DDB2026008888',
+            'status' => 'Confirmed',
+            'lines' => 'unexpected',
+        ]),
+    ]);
+    Http::preventStrayRequests();
+
+    $order = PrintOrder::factory()->submitted()->create([
+        'printdeal_order_id' => 'pd-uuid',
+        'printdeal_order_number' => null,
+    ]);
+    PrintOrderItem::factory()->for($order, 'order')->create();
+
+    Livewire::test(ListPrintOrders::class)
+        ->callAction(TestAction::make('refreshFromPrintdeal')->table($order));
+
+    expect($order->fresh()->printdeal_order_number)->toBe('DDB2026008888');
+});
+
 it('resubmits a failed order that never reached Printdeal', function () {
     Queue::fake();
 

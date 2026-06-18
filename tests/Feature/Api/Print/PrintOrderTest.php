@@ -8,6 +8,7 @@ use App\Models\PostMedia;
 use App\Models\PrintdealProduct;
 use App\Models\PrintOrder;
 use App\Models\User;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\Sanctum;
 use Mollie\Api\Endpoints\PaymentEndpoint;
 use Mollie\Api\MollieApiClient;
@@ -55,10 +56,34 @@ function fakeMollieCheckout(string $expectedValue = '24.95'): void
         ->once()
         ->withArgs(function (array $args) use ($expectedValue): bool {
             return $args['amount']['value'] === $expectedValue
-                && $args['metadata']['kind'] === 'print_order'
-                && str_contains($args['webhookUrl'], '/api/webhooks/print/mollie');
+                && $args['metadata']['kind'] === 'print_order';
         })
         ->andReturn($payment);
+
+    app()->instance(MollieApiClient::class, $client);
+}
+
+/**
+ * Mollie fake that records the payload passed to payments->create, so a test
+ * can assert which fields were sent.
+ */
+function fakeMollieCapture(?array &$captured): void
+{
+    $client = Mockery::mock(MollieApiClient::class);
+    $payments = Mockery::mock(PaymentEndpoint::class);
+    $client->payments = $payments;
+
+    $payment = new Payment($client);
+    $payment->id = 'tr_print123';
+    $payment->_links = (object) ['checkout' => (object) ['href' => 'https://mollie.test/checkout/print']];
+
+    $payments->shouldReceive('create')
+        ->once()
+        ->andReturnUsing(function (array $args) use (&$captured, $payment): Payment {
+            $captured = $args;
+
+            return $payment;
+        });
 
     app()->instance(MollieApiClient::class, $client);
 }

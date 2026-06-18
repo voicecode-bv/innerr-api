@@ -18,6 +18,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class PrintOrderResource extends Resource
@@ -66,18 +67,29 @@ class PrintOrderResource extends Resource
             ->visible(fn (PrintOrder $record): bool => $record->printdeal_order_id !== null)
             ->action(function (PrintOrder $record): void {
                 try {
+                    // GET /orders/{id} — reads the order's current state; it
+                    // never re-places the order (that is POST /orders, only in
+                    // SubmitPrintOrder). The whole body is guarded so any
+                    // failure surfaces as a notification, not a 500.
                     $details = app(PrintdealClient::class)->order($record->printdeal_order_id);
+
+                    app(PrintOrderDetailsUpdater::class)->apply($record, $details);
                 } catch (Throwable $e) {
+                    Log::channel('print')->error('Refresh from Printdeal failed.', [
+                        'order_id' => $record->id,
+                        'printdeal_order_id' => $record->printdeal_order_id,
+                        'message' => $e->getMessage(),
+                        'exception' => $e::class,
+                    ]);
+
                     Notification::make()
                         ->danger()
-                        ->title('Could not fetch from Printdeal')
+                        ->title('Could not refresh from Printdeal')
                         ->body($e->getMessage())
                         ->send();
 
                     return;
                 }
-
-                app(PrintOrderDetailsUpdater::class)->apply($record, $details);
 
                 Notification::make()
                     ->success()

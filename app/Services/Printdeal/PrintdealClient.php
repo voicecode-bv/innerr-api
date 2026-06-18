@@ -87,7 +87,7 @@ class PrintdealClient
      */
     public function order(string $idOrUuid): array
     {
-        return $this->request()->get("/orders/{$idOrUuid}")->throw()->json();
+        return $this->request()->get("/orders/{$idOrUuid}")->throw()->json() ?? [];
     }
 
     /**

@@ -169,21 +169,37 @@ class PrintOrderController extends Controller
             $user->update(['shipping_address' => $request->shippingAddress()]);
         }
 
-        try {
-            $payment = $mollie->payments->create([
-                'amount' => [
-                    'currency' => $order->currency,
-                    'value' => number_format($totalMinor / 100, 2, '.', ''),
-                ],
-                'description' => "innerr print order #{$order->number}",
-                'redirectUrl' => $request->validated('redirect_url'),
-                'webhookUrl' => URL::route('api.webhooks.print.mollie'),
-                'metadata' => [
-                    'kind' => 'print_order',
-                    'print_order_id' => $order->id,
-                    'user_id' => $user->id,
-                ],
+        $payload = [
+            'amount' => [
+                'currency' => $order->currency,
+                'value' => number_format($totalMinor / 100, 2, '.', ''),
+            ],
+            'description' => "innerr print order #{$order->number}",
+            'redirectUrl' => $request->validated('redirect_url'),
+            'metadata' => [
+                'kind' => 'print_order',
+                'print_order_id' => $order->id,
+                'user_id' => $user->id,
+            ],
+        ];
+
+        // Mollie rejects the whole payment when the webhook URL is not publicly
+        // reachable (a local/dev host like *.test or localhost), so omit it
+        // there. Production keeps it; local checkout then works without the
+        // status webhook, polled instead.
+        $webhookUrl = $this->reachableWebhookUrl();
+
+        if ($webhookUrl !== null) {
+            $payload['webhookUrl'] = $webhookUrl;
+        } else {
+            Log::channel('print')->warning('Print order payment created without a webhook URL; host is not publicly reachable.', [
+                'order_id' => $order->id,
+                'webhook_url' => URL::route('api.webhooks.print.mollie'),
             ]);
+        }
+
+        try {
+            $payment = $mollie->payments->create($payload);
         } catch (ApiException $e) {
             $order->update(['status' => PrintOrderStatus::Canceled]);
 
@@ -214,6 +230,23 @@ class PrintOrderController extends Controller
             'data' => $this->toPayload($order->load('items')),
             'checkout_url' => $payment->getCheckoutUrl(),
         ], 201);
+    }
+
+    /**
+     * The Mollie status webhook URL, or null when the host is not publicly
+     * reachable (localhost or a development TLD such as .test/.local). Mollie
+     * rejects payments whose webhook URL it cannot reach, so omitting it keeps
+     * local and preview checkouts working; production domains keep the webhook.
+     */
+    private function reachableWebhookUrl(): ?string
+    {
+        $url = URL::route('api.webhooks.print.mollie');
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            || preg_match('/\.(test|local|localhost|example|invalid)$/', $host) === 1;
+
+        return $isLocal ? null : $url;
     }
 
     /**

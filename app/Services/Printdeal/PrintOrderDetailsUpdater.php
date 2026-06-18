@@ -21,10 +21,16 @@ class PrintOrderDetailsUpdater
     {
         $order->loadMissing('items');
 
-        foreach (array_values($details['lines'] ?? []) as $index => $line) {
+        $lines = $details['lines'] ?? [];
+
+        foreach (array_values(is_array($lines) ? $lines : []) as $index => $line) {
             $item = $order->items[$index] ?? null;
 
-            $item?->update([
+            if ($item === null || ! is_array($line)) {
+                continue;
+            }
+
+            $item->update([
                 'printdeal_item_id' => isset($line['id']) ? (string) $line['id'] : $item->printdeal_item_id,
                 'printdeal_status' => $line['status'] ?? $item->printdeal_status,
             ]);
