@@ -204,8 +204,9 @@ it('prices margin-based items live for their chosen options', function () {
     $user = User::factory()->create();
     [$post, $media] = makePrintablePhoto($user);
 
-    // ceil(3000 * 1.10) = 3300, not the 2442 the synced base price would give.
-    fakeMollieCheckout('33.00');
+    // ceil(3000 * 1.10 * 1.21 VAT) = 3993, not the 2442 the synced base price
+    // would give. The net+margin is 3300; VAT grosses it to the consumer price.
+    fakeMollieCheckout('39.93');
     Sanctum::actingAs($user);
 
     $this->postJson('/api/print/orders', [
@@ -218,8 +219,8 @@ it('prices margin-based items live for their chosen options', function () {
         'redirect_url' => 'https://innerr.test/print/return',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.amount_minor', 3300)
-        ->assertJsonPath('data.items.0.amount_minor', 3300);
+        ->assertJsonPath('data.amount_minor', 3993)
+        ->assertJsonPath('data.items.0.amount_minor', 3993);
 });
 
 it('snapshots the artwork dimensions for the chosen size', function () {

@@ -19,10 +19,11 @@ class PrintOfferingPricing
     public function __construct(private PrintdealClient $printdeal) {}
 
     /**
-     * What the user pays for this configuration: a fixed selling price wins
-     * regardless of options (the merchant absorbs cost differences);
-     * otherwise the margin is applied to the quoted purchase price. Null
-     * when no price can be determined, which blocks the order.
+     * What the user pays for this configuration (incl. VAT): a fixed selling
+     * price wins regardless of options (entered incl. VAT; the merchant
+     * absorbs cost differences); otherwise the margin is applied to the quoted
+     * net purchase price and grossed up by VAT. Null when no price can be
+     * determined, which blocks the order.
      *
      * @param  array<string, string>  $options
      */
@@ -43,8 +44,13 @@ class PrintOfferingPricing
         }
 
         // Round to a fraction of a cent first: float artifacts would
-        // otherwise push exact outcomes (3000 * 1.10) up a whole cent.
-        return (int) ceil(round($purchase * (1 + $offering->margin_percent / 100), 4));
+        // otherwise push exact outcomes (3000 * 1.10) up a whole cent. The
+        // Printdeal quote is ex-VAT, so the net+margin price is grossed up to
+        // the consumer price (see PrintdealProduct::vatMultiplier()).
+        return (int) ceil(round(
+            $purchase * (1 + $offering->margin_percent / 100) * PrintdealProduct::vatMultiplier(),
+            4,
+        ));
     }
 
     /**

@@ -39,6 +39,13 @@ return [
     // quality floor; lower it for large formats viewed from a distance.
     'min_dpi' => 150,
 
+    // VAT (BTW) percentage added on top of the margin to reach the consumer
+    // price. Printdeal's API quotes prices EX VAT but invoices INCL 21% VAT,
+    // so a margin-based selling price must be grossed up by VAT or the order
+    // loses money. The input VAT is reclaimable, so the margin still lands on
+    // the net purchase price. Fixed prices are entered incl. VAT, as-is.
+    'vat_percent' => 21,
+
     'products' => [
 
         'calendar' => [

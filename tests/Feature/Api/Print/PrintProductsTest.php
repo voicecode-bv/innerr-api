@@ -139,7 +139,7 @@ it('treats offerings whose attributes are all user options as orderable', functi
     expect($puzzle['available'])->toBeTrue();
 });
 
-it('computes margin-based prices from the synced purchase price', function () {
+it('computes margin-based prices from the synced purchase price, incl. VAT', function () {
     $offering = PrintdealProduct::factory()->offered('album')->create([
         'fixed_price_minor' => null,
         'margin_percent' => 30,
@@ -151,8 +151,27 @@ it('computes margin-based prices from the synced purchase price', function () {
     $album = collect($this->getJson('/api/print/products')->json('data'))
         ->firstWhere('id', $offering->id);
 
-    expect($album['price_minor'])->toBe(1300)
+    // 1000 net * 1.30 margin = 1300, grossed up by 21% VAT = 1573.
+    expect($album['price_minor'])->toBe(1573)
         ->and($album['available'])->toBeTrue();
+});
+
+it('grosses the margin price up by VAT so the order covers the incl-VAT invoice', function () {
+    // The real-world case: Printdeal quotes EUR 70.50 net, we add 15% margin
+    // and 21% VAT, so the customer pays EUR 98.11 — above the EUR 85.30 the
+    // incl-VAT invoice costs, instead of the loss-making EUR 81.08.
+    $offering = PrintdealProduct::factory()->offered('canvas')->create([
+        'fixed_price_minor' => null,
+        'margin_percent' => 15,
+        'purchase_price_minor' => 7050,
+    ]);
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $canvas = collect($this->getJson('/api/print/products')->json('data'))
+        ->firstWhere('id', $offering->id);
+
+    expect($canvas['price_minor'])->toBe(9811);
 });
 
 it('marks unpriced offerings unavailable and hides disabled or delisted ones', function () {

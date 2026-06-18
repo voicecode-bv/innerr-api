@@ -235,15 +235,15 @@ class PrintdealProductForm
                             ->numeric()
                             ->minValue(0)
                             ->placeholder('2495')
-                            ->helperText('What the user pays, in cents (2495 = EUR 24,95). Takes precedence over the margin and applies to every option combination, so cost differences between options are absorbed by us.'),
+                            ->helperText('What the user pays, in cents incl. VAT (2495 = EUR 24,95). Takes precedence over the margin and applies to every option combination, so cost differences between options are absorbed by us.'),
                         TextInput::make('margin_percent')
                             ->label('Margin %')
                             ->numeric()
                             ->minValue(0)
                             ->suffix('%')
-                            ->helperText('Applied to the live-quoted purchase price of the exact combination the customer picks. Used when no fixed price is set.'),
+                            ->helperText('Applied to the live-quoted net (ex-VAT) purchase price, then VAT is added on top to reach the consumer price. Used when no fixed price is set.'),
                         Placeholder::make('selling_price')
-                            ->label('Base selling price')
+                            ->label('Base selling price (incl. VAT)')
                             ->content(fn (PrintdealProduct $record): string => $record->sellingPriceMinor() !== null
                                 ? Number::currency($record->sellingPriceMinor() / 100, 'EUR', 'nl')
                                     .(empty($record->user_options) ? '' : ' (shown as "from" price; the exact price follows the chosen options)')

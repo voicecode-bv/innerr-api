@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Printdeal\PrintOfferingPricing;
 use Database\Factories\PrintdealProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,9 +62,10 @@ class PrintdealProduct extends Model
     }
 
     /**
-     * What the user pays: a fixed selling price wins; otherwise the synced
-     * purchase price (VAT inclusive) plus the margin percentage. Null when
-     * neither is configured, which makes the product unorderable.
+     * What the user pays (incl. VAT): a fixed selling price wins (entered
+     * incl. VAT); otherwise the net purchase price plus the margin, grossed up
+     * by VAT. Null when neither is configured, which makes the product
+     * unorderable.
      */
     public function sellingPriceMinor(): ?int
     {
@@ -74,10 +76,24 @@ class PrintdealProduct extends Model
         if ($this->purchase_price_minor !== null && $this->margin_percent !== null) {
             // Round to a fraction of a cent first: float artifacts would
             // otherwise push exact outcomes (3000 * 1.10) up a whole cent.
-            return (int) ceil(round($this->purchase_price_minor * (1 + $this->margin_percent / 100), 4));
+            return (int) ceil(round(
+                $this->purchase_price_minor * (1 + $this->margin_percent / 100) * self::vatMultiplier(),
+                4,
+            ));
         }
 
         return null;
+    }
+
+    /**
+     * Multiplier that grosses a net price up to the consumer price. Printdeal
+     * quotes ex-VAT but invoices incl. VAT, so a margin-based price must add
+     * VAT; the input VAT is reclaimable, so the margin still lands on the net
+     * purchase price. Shared with {@see PrintOfferingPricing}.
+     */
+    public static function vatMultiplier(): float
+    {
+        return 1 + (float) config('print.vat_percent', 21) / 100;
     }
 
     /**

@@ -44,8 +44,8 @@ it('quotes the live price for the chosen options with the margin applied', funct
         'options' => ['Print Area' => '68 x 44 cm (1000 pcs)'],
     ])
         ->assertOk()
-        // ceil(3000 * 1.10) = 3300
-        ->assertJsonPath('data.price_minor', 3300)
+        // ceil(3000 * 1.10 * 1.21 VAT) = 3993
+        ->assertJsonPath('data.price_minor', 3993)
         ->assertJsonPath('data.currency', 'EUR');
 
     Http::assertSent(function ($request) use ($offering): bool {
