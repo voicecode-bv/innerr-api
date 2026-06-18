@@ -183,6 +183,39 @@ it('omits the Mollie webhook URL on a local host so checkout still works', funct
         ->and(array_key_exists('webhookUrl', $captured))->toBeFalse();
 });
 
+it('rejects a photo too low resolution for the size with a specific error code', function () {
+    $canvas = PrintdealProduct::factory()->offered('canvas', 3995)->create();
+
+    $user = User::factory()->create();
+    $post = Post::factory()->create(['user_id' => $user->id]);
+    $media = PostMedia::create([
+        'post_id' => $post->id,
+        'sort_order' => 0,
+        'path' => "users/{$user->id}/posts/tiny.jpg",
+        'type' => 'image',
+        'format' => 'jpg',
+        'status' => MediaStatus::Ready,
+        'width' => 200,
+        'height' => 200,
+    ]);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $canvas->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.app/print/return',
+    ])
+        ->assertStatus(422)
+        ->assertJsonPath('error_code', 'photo_resolution_too_low')
+        ->assertJsonPath('errors.items.0', 'One or more photos are not high enough resolution for the chosen size.');
+
+    expect(PrintOrder::query()->count())->toBe(0);
+});
+
 it('assigns a sequential human-friendly order number alongside the uuid', function () {
     $user = User::factory()->create();
     [$post1, $media1] = makePrintablePhoto($user);

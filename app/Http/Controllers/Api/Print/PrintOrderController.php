@@ -11,12 +11,12 @@ use App\Models\PrintdealProduct;
 use App\Models\PrintOrder;
 use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintOfferingPricing;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Validation\ValidationException;
 use Mollie\Api\Exceptions\ApiException;
 use Mollie\Api\MollieApiClient;
 
@@ -250,6 +250,20 @@ class PrintOrderController extends Controller
     }
 
     /**
+     * A 422 for a photo problem, carrying a stable `error_code` (next to the
+     * validation-style message and errors) so the app can show an accurate,
+     * case-specific message instead of a generic one.
+     */
+    private function unprocessablePhotos(string $message, string $code): HttpResponseException
+    {
+        return new HttpResponseException(new JsonResponse([
+            'message' => $message,
+            'errors' => ['items' => [$message]],
+            'error_code' => $code,
+        ], 422));
+    }
+
+    /**
      * Resolve the requested post/media pairs to storage paths, enforcing the
      * same visibility rule as the feed: the user must be allowed to view each
      * post, and only ready images can be printed.
@@ -294,9 +308,10 @@ class PrintOrderController extends Controller
                     'media_status' => $item?->status?->value,
                 ]);
 
-                throw ValidationException::withMessages([
-                    'items' => ['One or more photos are not available for printing.'],
-                ]);
+                throw $this->unprocessablePhotos(
+                    'One or more photos are not available for printing.',
+                    'photo_unavailable',
+                );
             }
 
             // Refuse a photo that can't meet the print-quality floor for the
@@ -323,9 +338,10 @@ class PrintOrderController extends Controller
                         'min_dpi' => $minDpi,
                     ]);
 
-                    throw ValidationException::withMessages([
-                        'items' => ['One or more photos are not high enough resolution for the chosen size.'],
-                    ]);
+                    throw $this->unprocessablePhotos(
+                        'One or more photos are not high enough resolution for the chosen size.',
+                        'photo_resolution_too_low',
+                    );
                 }
             }
 
