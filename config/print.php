@@ -98,8 +98,9 @@ return [
             // Single canvas print, printed portrait or landscape to match the
             // photo. The generous bleed covers the wrap around the frame edges;
             // verify against the mapped product's real dimensions before going
-            // live.
-            'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1, 'orientation' => 'auto'],
+            // live. Printdeal requires CMYK artwork, so the RGB render is
+            // converted to PDF/X-1a:2001 (CMYK) like the puzzle (see 'pdfx').
+            'pdf' => ['width' => 400, 'height' => 300, 'bleed' => 30, 'pages' => 1, 'orientation' => 'auto', 'pdf_x1a' => true],
         ],
 
     ],

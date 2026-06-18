@@ -45,6 +45,13 @@ function artworkFor(string $appProduct, string $path): string
 
 beforeEach(function () {
     Storage::fake();
+
+    // Canvas and puzzle route through the PDF/X (CMYK) converter; pass the RGB
+    // PDF through unchanged by default so tests that only assert page geometry
+    // don't shell out to Ghostscript. Tests that assert conversion re-mock it.
+    $this->mock(PdfXConverter::class, fn ($mock) => $mock
+        ->shouldReceive('toPdfX1a')
+        ->andReturnUsing(fn (string $pdf): string => $pdf));
 });
 
 it('rotates an auto-orientation product to a portrait page for a portrait photo', function () {
@@ -170,11 +177,24 @@ it('computes the effective DPI a source delivers for a page, orientation-aligned
 });
 
 it('does not run the PDF/X conversion for products that do not need it', function () {
-    storeSizedPhoto('photos/canvas.jpg', 60, 40);
+    // The album is RGB-only (no pdf_x1a flag), unlike canvas and puzzle.
+    storeSizedPhoto('photos/album.jpg', 60, 40);
 
     $this->mock(PdfXConverter::class)
         ->shouldReceive('toPdfX1a')
         ->never();
 
-    expect(artworkFor('canvas', 'photos/canvas.jpg'))->toStartWith('%PDF');
+    expect(artworkFor('album', 'photos/album.jpg'))->toStartWith('%PDF');
+});
+
+it('converts a canvas to PDF/X-1a (CMYK) like the puzzle', function () {
+    storeSizedPhoto('photos/canvas.jpg', 60, 40);
+
+    $this->mock(PdfXConverter::class)
+        ->shouldReceive('toPdfX1a')
+        ->once()
+        ->with(Mockery::on(fn (string $pdf): bool => str_starts_with($pdf, '%PDF')))
+        ->andReturn('CONVERTED-CANVAS-PDFX');
+
+    expect(artworkFor('canvas', 'photos/canvas.jpg'))->toBe('CONVERTED-CANVAS-PDFX');
 });
