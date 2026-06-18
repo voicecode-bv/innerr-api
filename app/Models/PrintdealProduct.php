@@ -99,9 +99,11 @@ class PrintdealProduct extends Model
     /**
      * The print PDF size (mm) for a chosen option combination, or null when no
      * artwork sizing is configured (the generator then falls back to
-     * config/print.php). The size option's value maps directly to the final
-     * width/height the admin entered; a frame option (canvas) wraps around
-     * every edge and so adds twice its depth to each dimension.
+     * config/print.php). The admin enters the trim (base) size per option; a
+     * frame option (canvas) wraps around every edge and adds twice its depth,
+     * and the print bleed is added on every edge on top (config
+     * print.artwork_bleed_mm). So a 120×80 cm canvas with a 4.5 cm frame at
+     * 3 mm bleed becomes 1200 + 2·45 + 2·3 = 1296 by 800 + 90 + 6 = 896 mm.
      *
      * @param  array<string, string>  $options
      * @return array{width: int, height: int}|null
@@ -139,6 +141,11 @@ class PrintdealProduct extends Model
             $width += 2 * (int) $frame['depth'];
             $height += 2 * (int) $frame['depth'];
         }
+
+        // Print bleed on every edge, added in code so admins enter trim sizes.
+        $bleed = (int) config('print.artwork_bleed_mm', 3);
+        $width += 2 * $bleed;
+        $height += 2 * $bleed;
 
         return ['width' => $width, 'height' => $height];
     }

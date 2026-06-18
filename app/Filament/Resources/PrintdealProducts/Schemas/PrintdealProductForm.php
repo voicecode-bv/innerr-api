@@ -203,7 +203,7 @@ class PrintdealProductForm
                             ])
                             ->columns(3)
                             ->columnSpanFull()
-                            ->helperText('Type the final PDF size per option value. For a puzzle, include the 6 mm margin yourself (90 x 60 cm becomes 906 x 606). For a canvas, enter the base size; the frame below is added on top.'),
+                            ->helperText('Type the trim (base) size per option value in mm — e.g. 90 x 60 cm becomes 900 x 600. The frame (below) and a 3 mm print bleed per edge are added automatically.'),
                         Select::make('artwork.frame_attribute')
                             ->label('Frame option (canvas)')
                             ->options(fn (EditRecord $livewire): array => self::asOptions(self::userOptionAttributeNames($livewire->getRecord())))

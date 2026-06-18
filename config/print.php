@@ -39,6 +39,12 @@ return [
     // quality floor; lower it for large formats viewed from a distance.
     'min_dpi' => 150,
 
+    // Print bleed (afloop) added to every edge of a configured artwork size,
+    // so the admin enters the trim (base) size and Printdeal trims the bleed
+    // off after printing. 3 mm per edge adds 6 mm to each dimension. Applies on
+    // top of any frame wrap; see PrintdealProduct::artworkDimensions().
+    'artwork_bleed_mm' => 3,
+
     // VAT (BTW) percentage added on top of the margin to reach the consumer
     // price. Printdeal's API quotes prices EX VAT but invoices INCL 21% VAT,
     // so a margin-based selling price must be grossed up by VAT or the order

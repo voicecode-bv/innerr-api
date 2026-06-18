@@ -47,7 +47,12 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerTelescope();
 
-        $this->app->singleton(MollieApiClient::class, function (): MollieApiClient {
+        // Scoped, not singleton: the Mollie client carries per-request state
+        // (e.g. idempotency keys). Under Octane a singleton would persist
+        // across requests in the same worker, which made a second checkout in
+        // the same worker fail after a first succeeded. Scoped is reset between
+        // Octane requests and behaves like a per-request singleton otherwise.
+        $this->app->scoped(MollieApiClient::class, function (): MollieApiClient {
             $client = new MollieApiClient;
             $apiKey = (string) config('services.mollie.api_key');
 

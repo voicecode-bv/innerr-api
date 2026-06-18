@@ -135,6 +135,54 @@ it('creates a multi-item order with one Mollie checkout for the total', function
         ->and($order->items[1]->amount_minor)->toBe(1995);
 });
 
+it('sends the Mollie webhook URL on a publicly reachable host', function () {
+    URL::forceRootUrl('https://api.innerr.app');
+
+    $captured = null;
+    fakeMollieCapture($captured);
+
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.app/print/return',
+    ])->assertCreated();
+
+    expect($captured['webhookUrl'] ?? null)
+        ->toBe('https://api.innerr.app/api/webhooks/print/mollie');
+});
+
+it('omits the Mollie webhook URL on a local host so checkout still works', function () {
+    // Mollie rejects unreachable webhook URLs; a *.test host must not block the
+    // payment from being created during local development.
+    URL::forceRootUrl('https://innerr-api.test');
+
+    $captured = null;
+    fakeMollieCapture($captured);
+
+    $user = User::factory()->create();
+    [$post, $media] = makePrintablePhoto($user);
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/print/orders', [
+        'items' => [[
+            'offering_id' => $this->albumOffering->id,
+            'photos' => [['post_id' => $post->id, 'media_id' => $media->id]],
+        ]],
+        'shipping_address' => shippingAddress(),
+        'redirect_url' => 'https://innerr.app/print/return',
+    ])->assertCreated();
+
+    expect($captured)->not->toBeNull()
+        ->and(array_key_exists('webhookUrl', $captured))->toBeFalse();
+});
+
 it('assigns a sequential human-friendly order number alongside the uuid', function () {
     $user = User::factory()->create();
     [$post1, $media1] = makePrintablePhoto($user);
@@ -256,8 +304,8 @@ it('snapshots the artwork dimensions for the chosen size', function () {
         'artwork' => [
             'size_attribute' => 'Formaat',
             'sizes' => [
-                ['value' => '90 x 60 cm', 'width' => 906, 'height' => 606],
-                ['value' => '50 x 70 cm', 'width' => 506, 'height' => 706],
+                ['value' => '90 x 60 cm', 'width' => 900, 'height' => 600],
+                ['value' => '50 x 70 cm', 'width' => 500, 'height' => 700],
             ],
         ],
     ]);
@@ -280,6 +328,7 @@ it('snapshots the artwork dimensions for the chosen size', function () {
 
     $order = PrintOrder::query()->with('items')->findOrFail($response->json('data.id'));
 
+    // 900 x 600 trim + 2 * 3 mm bleed.
     expect($order->items[0]->artwork_width_mm)->toBe(906)
         ->and($order->items[0]->artwork_height_mm)->toBe(606);
 });
