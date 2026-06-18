@@ -90,6 +90,28 @@ class PrintdealClient
         return $this->request()->get("/orders/{$idOrUuid}")->throw()->json();
     }
 
+    /**
+     * List orders known to Printdeal, paged via limit/offset (the API caps the
+     * limit at 50) and optionally filtered by Printdeal status (Open,
+     * Confirmed, Complete, Cancelled, test). Returns the decoded response as-is
+     * so callers can handle either a bare list or a wrapped envelope.
+     *
+     * @return array<string, mixed>|array<int, mixed>
+     */
+    public function orders(int $limit = 50, int $offset = 0, ?string $status = null): array
+    {
+        $query = [
+            'limit' => max(1, min($limit, 50)),
+            'offset' => max(0, $offset),
+        ];
+
+        if ($status !== null && $status !== '') {
+            $query['status'] = $status;
+        }
+
+        return $this->request()->get('/orders', $query)->throw()->json() ?? [];
+    }
+
     public function testOrdersEnabled(): bool
     {
         return (bool) ($this->config['test_orders'] ?? true);

@@ -3,13 +3,13 @@
 use App\Jobs\FetchPrintdealOrderDetails;
 use App\Models\PrintOrder;
 use App\Models\PrintOrderItem;
-use App\Services\Printdeal\PrintdealClient;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 function runFetchDetails(PrintOrder $order): void
 {
-    (new FetchPrintdealOrderDetails($order))->handle(app(PrintdealClient::class));
+    // Let the container inject handle()'s dependencies (client + updater).
+    app()->call([new FetchPrintdealOrderDetails($order), 'handle']);
 }
 
 beforeEach(function () {

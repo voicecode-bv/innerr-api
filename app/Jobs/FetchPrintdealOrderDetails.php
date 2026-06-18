@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\PrintOrder;
 use App\Services\Printdeal\PrintdealClient;
+use App\Services\Printdeal\PrintOrderDetailsUpdater;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -41,7 +42,7 @@ class FetchPrintdealOrderDetails implements ShouldQueue
         public PrintOrder $printOrder,
     ) {}
 
-    public function handle(PrintdealClient $printdeal): void
+    public function handle(PrintdealClient $printdeal, PrintOrderDetailsUpdater $updater): void
     {
         $order = $this->printOrder->fresh(['items']);
 
@@ -61,18 +62,7 @@ class FetchPrintdealOrderDetails implements ShouldQueue
             throw new RuntimeException("Printdeal order details not ready yet for {$order->printdeal_order_id}.");
         }
 
-        // Response lines follow the request order, so they pair up by index.
-        foreach (array_values($details['lines'] ?? []) as $index => $line) {
-            $order->items[$index]?->update([
-                'printdeal_item_id' => isset($line['id']) ? (string) $line['id'] : null,
-                'printdeal_status' => $line['status'] ?? null,
-            ]);
-        }
-
-        $order->update([
-            'printdeal_order_number' => $details['number'],
-            'printdeal_status' => $details['status'] ?? null,
-        ]);
+        $updater->apply($order, $details);
 
         Log::channel('print')->info('FetchPrintdealOrderDetails: stored Printdeal order details.', [
             'order_id' => $order->id,
