@@ -23,6 +23,16 @@ class PrintdealWebhookController extends Controller
 
         $payload = $request->all();
 
+        // Log every authenticated webhook in full while we map out what
+        // Printdeal actually sends (event types, status values, and any
+        // shipping/track-and-trace fields we don't persist yet). The token
+        // lives in the path and is deliberately left out of the headers dump.
+        Log::channel('print')->info('Printdeal webhook received.', [
+            'query' => $request->query(),
+            'headers' => $request->headers->all(),
+            'payload' => $payload,
+        ]);
+
         // The docs don't pin the payload schema, so accept the order id
         // and status under the names seen in practice and log the rest.
         // Ids may be the order uuid or the numeric v2 id, hence the

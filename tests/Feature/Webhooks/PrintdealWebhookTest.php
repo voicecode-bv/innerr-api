@@ -2,9 +2,28 @@
 
 use App\Models\PrintOrder;
 use App\Models\PrintOrderItem;
+use Illuminate\Support\Facades\Log;
 
 beforeEach(function () {
     config()->set('services.printdeal.webhook_token', 'secret-token');
+});
+
+it('logs the full webhook request for inspection', function () {
+    Log::shouldReceive('channel')->andReturnSelf();
+    Log::shouldReceive('info')->withAnyArgs();
+
+    $order = PrintOrder::factory()->submitted()->create();
+
+    $this->postJson('/api/webhooks/print/printdeal/secret-token', [
+        'orderId' => $order->printdeal_order_id,
+        'status' => 'Shipped',
+    ])->assertOk();
+
+    Log::shouldHaveReceived('info')->withArgs(function (string $message, array $context = []) {
+        return $message === 'Printdeal webhook received.'
+            && array_key_exists('payload', $context)
+            && array_key_exists('headers', $context);
+    });
 });
 
 it('rejects a wrong webhook token', function () {
