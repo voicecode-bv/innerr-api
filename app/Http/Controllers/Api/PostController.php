@@ -23,11 +23,13 @@ use App\Support\ExifExtractor;
 use App\Support\MediaUrl;
 use App\Support\UserStorage;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\File;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use MatanYadaev\EloquentSpatial\Enums\Srid;
 use MatanYadaev\EloquentSpatial\Objects\Point;
 use OpenApi\Attributes as OA;
@@ -188,6 +190,7 @@ class PostController extends Controller
                     ? SubmitVideoToFileFlux::dispatch($postMedia)
                     : TranscodeVideo::dispatch($postMedia);
             } elseif ($data['status'] === MediaStatus::Processing) {
+                $this->attachSourceAndCrop($postMedia, $index, $request, $userId);
                 ProcessPostImage::dispatch($postMedia);
             }
         }
@@ -370,6 +373,78 @@ class PostController extends Controller
             'coordinates' => ($latitude !== null && $longitude !== null)
                 ? new Point((float) $latitude, (float) $longitude, Srid::WGS84->value)
                 : null,
+        ];
+    }
+
+    /**
+     * Archive the uncropped original and record the crop rectangle for an image
+     * item, when the client uploaded one (index-aligned with media via
+     * `media_source_tokens`/`media_crops`). The cropped path/original_path
+     * already drive display and print; this only preserves the full frame so
+     * the crop can be redone later. Best-effort: a source token that no longer
+     * resolves is skipped rather than failing the whole post.
+     */
+    private function attachSourceAndCrop(PostMedia $postMedia, int $index, StorePostRequest $request, string $userId): void
+    {
+        $tokens = (array) $request->input('media_source_tokens', []);
+        $token = $tokens[$index] ?? null;
+
+        if (! is_string($token) || $token === '') {
+            return;
+        }
+
+        $resolved = UploadController::consumeAssembled($token, $userId);
+
+        if ($resolved === null) {
+            return;
+        }
+
+        $disk = MediaUrl::disk();
+        $extension = match ($resolved['mime_type']) {
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/heic' => 'heic',
+            'image/heif' => 'heif',
+            default => 'jpg',
+        };
+
+        $sourcePath = $disk->putFileAs(
+            "users/{$userId}/sources/posts",
+            new File($resolved['path']),
+            Str::random(40).'.'.$extension,
+        );
+        UserStorage::trackPut($sourcePath, $disk);
+        UploadController::destroySession($token);
+
+        $postMedia->update([
+            'source_path' => $sourcePath,
+            'crop' => $this->normalizeCrop($request->input("media_crops.{$index}")),
+        ]);
+    }
+
+    /**
+     * Keep only the numeric crop rectangle the client sent, dropping anything
+     * else. Null when no usable rectangle is present.
+     *
+     * @return array{x: float, y: float, width: float, height: float}|null
+     */
+    private function normalizeCrop(mixed $crop): ?array
+    {
+        if (! is_array($crop)) {
+            return null;
+        }
+
+        foreach (['x', 'y', 'width', 'height'] as $key) {
+            if (! isset($crop[$key]) || ! is_numeric($crop[$key])) {
+                return null;
+            }
+        }
+
+        return [
+            'x' => (float) $crop['x'],
+            'y' => (float) $crop['y'],
+            'width' => (float) $crop['width'],
+            'height' => (float) $crop['height'],
         ];
     }
 

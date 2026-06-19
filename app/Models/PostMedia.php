@@ -12,9 +12,10 @@ use MatanYadaev\EloquentSpatial\Objects\Point;
 use MatanYadaev\EloquentSpatial\Traits\HasSpatial;
 
 #[Fillable([
-    'post_id', 'sort_order', 'path', 'original_path', 'type', 'format', 'status',
-    'thumbnail_path', 'thumbnail_small_path', 'width', 'height', 'taken_at',
-    'coordinates', 'external_job_id', 'processing_started_at',
+    'post_id', 'sort_order', 'path', 'original_path', 'source_path', 'type',
+    'format', 'status', 'thumbnail_path', 'thumbnail_small_path', 'width',
+    'height', 'crop', 'taken_at', 'coordinates', 'external_job_id',
+    'processing_started_at',
 ])]
 class PostMedia extends Model
 {
@@ -32,6 +33,7 @@ class PostMedia extends Model
             'taken_at' => 'datetime',
             'processing_started_at' => 'datetime',
             'coordinates' => Point::class,
+            'crop' => 'array',
         ];
     }
 

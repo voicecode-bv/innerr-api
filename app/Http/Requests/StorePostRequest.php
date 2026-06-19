@@ -70,6 +70,20 @@ class StorePostRequest extends FormRequest
             }
         }
 
+        // Like media_metadata, the per-item crop rectangles and source upload
+        // tokens arrive as JSON strings from the multipart BFF (nested arrays do
+        // not serialize cleanly, and a string keeps null entries index-aligned);
+        // decode so the validator can walk them.
+        foreach (['media_crops', 'media_source_tokens'] as $jsonField) {
+            if ($this->has($jsonField) && is_string($this->input($jsonField))) {
+                $decoded = json_decode((string) $this->input($jsonField), true);
+
+                if (is_array($decoded)) {
+                    $this->merge([$jsonField => $decoded]);
+                }
+            }
+        }
+
         $this->materializeTokensAsFiles();
     }
 
@@ -248,6 +262,18 @@ class StorePostRequest extends FormRequest
             'media_metadata.*.taken_at' => ['nullable', 'date', 'before_or_equal:now', 'after:1990-01-01'],
             'media_metadata.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'media_metadata.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            // Per-item uncropped originals + crop rectangles, index-aligned with
+            // media. Entries are null for items that were not cropped. The
+            // source tokens are redeemed in PostController (archived, not
+            // processed), so here they only need to be well-formed.
+            'media_source_tokens' => ['sometimes', 'array', 'max:'.self::MAX_MEDIA_ITEMS],
+            'media_source_tokens.*' => ['nullable', 'uuid'],
+            'media_crops' => ['sometimes', 'array', 'max:'.self::MAX_MEDIA_ITEMS],
+            'media_crops.*' => ['nullable', 'array'],
+            'media_crops.*.x' => ['required_with:media_crops.*.width', 'numeric', 'min:0'],
+            'media_crops.*.y' => ['required_with:media_crops.*.height', 'numeric', 'min:0'],
+            'media_crops.*.width' => ['required_with:media_crops.*.x', 'numeric', 'gt:0'],
+            'media_crops.*.height' => ['required_with:media_crops.*.y', 'numeric', 'gt:0'],
             'caption' => ['nullable', 'string', 'max:2200'],
             ...$this->quoteRules(),
             'location' => ['nullable', 'string', 'max:255'],

@@ -180,6 +180,11 @@ class PostResource extends JsonResource
                 'thumbnail_small_url' => MediaUrl::sign($m->thumbnail_small_path),
                 'width' => $m->width,
                 'height' => $m->height,
+                // The uncropped original + its crop rect, for re-cropping. Owner
+                // only: the full frame may show what the owner deliberately
+                // cropped out, so it is never exposed to other viewers.
+                'source_url' => $isOwner ? MediaUrl::sign($m->source_path) : null,
+                'crop' => $m->crop,
                 'taken_at' => $m->taken_at,
                 'latitude' => $m->latitude,
                 'longitude' => $m->longitude,
