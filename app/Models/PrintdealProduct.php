@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Printdeal\PrintArtworkGenerator;
 use App\Services\Printdeal\PrintOfferingPricing;
 use Database\Factories\PrintdealProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -148,6 +149,47 @@ class PrintdealProduct extends Model
         $height += 2 * $bleed;
 
         return ['width' => $width, 'height' => $height];
+    }
+
+    /**
+     * The full-bleed print box (mm) of every selectable size, for the
+     * resolution hint the catalog endpoint annotates each offering with.
+     *
+     * Each entry pairs a size-attribute value (null for a single fixed size)
+     * with the page a photo is cover-cropped to fill. The box is the size's
+     * trim plus print bleed, frame excluded: a frame only enlarges the box and
+     * is a secondary choice the checkout still guards, so the hint reflects the
+     * best case for the size. Falls back to the config/print.php full-bleed box
+     * when no artwork sizing is configured (calendar, album, mug, t-shirt).
+     *
+     * @return list<array{value: ?string, width: int, height: int}>
+     */
+    public function artworkSizeBoxes(): array
+    {
+        if (! $this->artworkSizingConfigured()) {
+            $box = PrintArtworkGenerator::fullBleedBoxMm((string) $this->app_product);
+
+            return $box === null
+                ? []
+                : [['value' => null, 'width' => (int) round($box['width']), 'height' => (int) round($box['height'])]];
+        }
+
+        $sizeAttribute = $this->artwork['size_attribute'] ?? null;
+
+        return collect($this->artwork['sizes'] ?? [])
+            ->map(function (array $size) use ($sizeAttribute): ?array {
+                $value = $size['value'] ?? null;
+                $dimensions = $this->artworkDimensions(
+                    $sizeAttribute !== null ? [$sizeAttribute => $value] : [],
+                );
+
+                return $dimensions === null
+                    ? null
+                    : ['value' => $value, 'width' => $dimensions['width'], 'height' => $dimensions['height']];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**

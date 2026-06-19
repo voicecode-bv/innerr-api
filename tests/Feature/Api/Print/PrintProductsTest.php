@@ -1,8 +1,48 @@
 <?php
 
+use App\Enums\MediaStatus;
+use App\Models\Circle;
+use App\Models\Post;
+use App\Models\PostMedia;
 use App\Models\PrintdealProduct;
 use App\Models\User;
 use Laravel\Sanctum\Sanctum;
+
+/**
+ * A ready image with the given pixel dimensions on a post owned by $owner.
+ */
+function makePrintMedia(User $owner, int $width, int $height): PostMedia
+{
+    $post = Post::factory()->create(['user_id' => $owner->id]);
+
+    return PostMedia::create([
+        'post_id' => $post->id,
+        'sort_order' => 0,
+        'path' => "users/{$owner->id}/posts/photo.jpg",
+        'original_path' => "users/{$owner->id}/originals/posts/photo.jpg",
+        'type' => 'image',
+        'format' => 'jpg',
+        'status' => MediaStatus::Ready,
+        'width' => $width,
+        'height' => $height,
+    ]);
+}
+
+/** Canvas offering with two selectable sizes, one too large for a normal photo. */
+function canvasWithSizes(): PrintdealProduct
+{
+    return PrintdealProduct::factory()->offered('canvas', 3995)->create([
+        'artwork' => [
+            'size_attribute' => 'Formaat',
+            'sizes' => [
+                ['value' => '30 x 20 cm', 'width' => 300, 'height' => 200],
+                ['value' => '120 x 80 cm', 'width' => 1200, 'height' => 800],
+            ],
+            'frame_attribute' => null,
+            'frames' => [],
+        ],
+    ]);
+}
 
 it('requires authentication', function () {
     $this->getJson('/api/print/products')->assertUnauthorized();
@@ -97,6 +137,98 @@ it('includes the admin-configured artwork sizing so the app can size the PDF', f
 
     expect($data->firstWhere('id', $puzzle->id)['artwork'])->toBe($artwork)
         ->and($data->firstWhere('id', $album->id)['artwork'])->toBeNull();
+});
+
+it('carries no printability hint when no photo is named', function () {
+    $canvas = canvasWithSizes();
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $response = $this->getJson('/api/print/products')->assertOk();
+
+    expect(collect($response->json('data'))->firstWhere('id', $canvas->id)['printability'])->toBeNull()
+        ->and($response->json('min_dpi'))->toBe(150);
+});
+
+it('marks each size printable or not for the named photo at the quality floor', function () {
+    $user = User::factory()->create();
+    // 4000x3000 fills the 30x20 cm canvas at ~330 DPI (printable) but only
+    // ~84 DPI on the 120x80 cm canvas — below the 150 DPI floor.
+    $media = makePrintMedia($user, 4000, 3000);
+    $canvas = canvasWithSizes();
+
+    Sanctum::actingAs($user);
+
+    $printability = collect(
+        $this->getJson("/api/print/products?media_id={$media->id}")->json('data')
+    )->firstWhere('id', $canvas->id)['printability'];
+
+    expect($printability['printable'])->toBeTrue()
+        ->and($printability['sizes'])->toHaveCount(2)
+        ->and(collect($printability['sizes'])->firstWhere('value', '30 x 20 cm')['printable'])->toBeTrue()
+        ->and(collect($printability['sizes'])->firstWhere('value', '120 x 80 cm')['printable'])->toBeFalse();
+});
+
+it('reports a fixed-size product unprintable when the photo is too small', function () {
+    $user = User::factory()->create();
+    // 200x200 on the album's ~216 mm page is ~23 DPI, far below the floor.
+    $media = makePrintMedia($user, 200, 200);
+    $album = PrintdealProduct::factory()->offered('album', 2495)->create();
+
+    Sanctum::actingAs($user);
+
+    $printability = collect(
+        $this->getJson("/api/print/products?media_id={$media->id}")->json('data')
+    )->firstWhere('id', $album->id)['printability'];
+
+    // No artwork sizing: a single fixed-size verdict with a null size value.
+    expect($printability['printable'])->toBeFalse()
+        ->and($printability['sizes'])->toBe([
+            ['value' => null, 'effective_dpi' => 24, 'printable' => false],
+        ]);
+});
+
+it('hints printability for a circle member photo the user can view', function () {
+    $owner = User::factory()->create();
+    $viewer = User::factory()->create();
+    $circle = Circle::factory()->create(['user_id' => $owner->id]);
+    $circle->members()->attach($viewer);
+
+    $media = makePrintMedia($owner, 4000, 3000);
+    $media->post->circles()->attach($circle);
+    $album = PrintdealProduct::factory()->offered('album', 2495)->create();
+
+    Sanctum::actingAs($viewer);
+
+    $printability = collect(
+        $this->getJson("/api/print/products?media_id={$media->id}")->json('data')
+    )->firstWhere('id', $album->id)['printability'];
+
+    expect($printability['printable'])->toBeTrue();
+});
+
+it('omits printability for a photo the user cannot view', function () {
+    $owner = User::factory()->create();
+    $media = makePrintMedia($owner, 4000, 3000);
+    $album = PrintdealProduct::factory()->offered('album', 2495)->create();
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $printability = collect(
+        $this->getJson("/api/print/products?media_id={$media->id}")->json('data')
+    )->firstWhere('id', $album->id)['printability'];
+
+    expect($printability)->toBeNull();
+});
+
+it('ignores a malformed media_id without failing the catalog', function () {
+    $album = PrintdealProduct::factory()->offered('album', 2495)->create();
+
+    Sanctum::actingAs(User::factory()->create());
+
+    $response = $this->getJson('/api/print/products?media_id=not-a-uuid')->assertOk();
+
+    expect(collect($response->json('data'))->firstWhere('id', $album->id)['printability'])->toBeNull();
 });
 
 it('returns the saved address for prefilling, or null when none is stored', function () {
