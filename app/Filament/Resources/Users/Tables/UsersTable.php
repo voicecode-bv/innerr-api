@@ -3,12 +3,14 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Actions\DeleteUser;
+use App\Enums\OnboardingStep;
 use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Number;
@@ -48,6 +50,17 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('apple_id')
                     ->searchable(),
+                TextColumn::make('onboarding_steps_count')
+                    ->label('Onboarding')
+                    ->counts('onboardingSteps')
+                    ->badge()
+                    ->formatStateUsing(fn (int $state): string => $state.'/'.count(OnboardingStep::cases()))
+                    ->color(fn (int $state): string => match (true) {
+                        $state >= count(OnboardingStep::cases()) => 'success',
+                        $state === 0 => 'gray',
+                        default => 'warning',
+                    })
+                    ->sortable(),
                 TextColumn::make('onboarded_at')
                     ->dateTime()
                     ->sortable(),
@@ -65,7 +78,9 @@ class UsersTable
                 //     ->searchable(),
             ])
             ->filters([
-                //
+                TernaryFilter::make('onboarded_at')
+                    ->label('Onboarding completed')
+                    ->nullable(),
             ])
             ->recordActions([
                 EditAction::make(),

@@ -18,10 +18,14 @@ class OnboardingStepsRelationManager extends RelationManager
             ->recordTitleAttribute('step')
             ->columns([
                 TextColumn::make('step')
+                    ->label('Step')
                     ->badge()
                     ->sortable(),
                 TextColumn::make('completed_at')
+                    ->label('Completed at')
                     ->dateTime()
+                    ->since()
+                    ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->defaultSort('completed_at', 'asc');
