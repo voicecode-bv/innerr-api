@@ -93,6 +93,20 @@ it('redirects the mobile app with a token after a successful google login', func
     expect($response->headers->get('Location'))->toStartWith('innerrapp://oauth/callback?token=');
 });
 
+it('marks a new oauth user as email-verified but not yet onboarded', function () {
+    mockSocialiteDriver('google', mockSocialiteUser('g-verified', 'verified@example.com', 'Verified User'));
+
+    $this->get('/api/oauth/google/callback?code=test')->assertRedirect();
+
+    $user = User::where('email', 'verified@example.com')->first();
+    expect($user)->not->toBeNull();
+    // The provider proves email ownership, so the account is verified on creation
+    // (this would silently fail if email_verified_at were dropped by mass assignment).
+    expect($user->email_verified_at)->not->toBeNull();
+    // A brand-new account must still walk through onboarding.
+    expect($user->onboarded_at)->toBeNull();
+});
+
 it('deletes all existing tokens on oauth login', function () {
     $existing = User::factory()->create([
         'email' => 'tokens@example.com',

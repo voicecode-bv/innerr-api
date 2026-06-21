@@ -44,15 +44,22 @@ class SocialAccountLinker
             }
         }
 
-        return User::create([
+        $user = User::create([
             'name' => $oauthUser->getName() ?? $this->deriveNameFromEmail($email),
             'username' => $this->generateUsername($email),
             'email' => $email,
-            'email_verified_at' => now(),
             'password' => null,
             'locale' => app()->getLocale(),
             $providerColumn => $providerId,
         ]);
+
+        // The OAuth provider has already proven ownership of this email, so the
+        // account is verified from creation. `email_verified_at` is intentionally
+        // not mass-assignable (it must never be settable from request input), so
+        // we set it explicitly via forceFill.
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $user;
     }
 
     private function providerColumn(string $provider): string
