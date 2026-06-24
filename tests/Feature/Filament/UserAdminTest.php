@@ -34,6 +34,25 @@ it('shows how many onboarding steps each user has completed', function () {
         ->assertTableColumnFormattedStateSet('onboarding_steps_count', '2/6', $user);
 });
 
+it('shows the furthest onboarding step each user has reached', function () {
+    $user = User::factory()->create();
+
+    OnboardingStepModel::factory()->for($user)->create(['step' => OnboardingStep::Intro]);
+    OnboardingStepModel::factory()->for($user)->create(['step' => OnboardingStep::AddChildren]);
+
+    Livewire::test(ListUsers::class)
+        ->assertCanSeeTableRecords([$user])
+        ->assertTableColumnStateSet('current_onboarding_step', OnboardingStep::AddChildren, $user);
+});
+
+it('shows "Not started" when a user has no onboarding steps', function () {
+    $user = User::factory()->create();
+
+    Livewire::test(ListUsers::class)
+        ->assertCanSeeTableRecords([$user])
+        ->assertTableColumnStateSet('current_onboarding_step', null, $user);
+});
+
 it('filters users by whether they completed onboarding', function () {
     $onboarded = User::factory()->create(['onboarded_at' => now()]);
     $notOnboarded = User::factory()->create(['onboarded_at' => null]);

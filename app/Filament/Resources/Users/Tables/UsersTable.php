@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Users\Tables;
 
 use App\Actions\DeleteUser;
 use App\Enums\OnboardingStep;
+use App\Models\OnboardingStep as OnboardingStepModel;
 use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -12,6 +13,7 @@ use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Number;
 
@@ -20,6 +22,7 @@ class UsersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('onboardingSteps'))
             ->columns([
                 TextColumn::make('name')
                     ->searchable(),
@@ -50,8 +53,20 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('apple_id')
                     ->searchable(),
+                TextColumn::make('current_onboarding_step')
+                    ->label('Current step')
+                    ->badge()
+                    ->state(fn (User $record): ?OnboardingStep => $record->furthestOnboardingStep())
+                    ->placeholder('Not started')
+                    ->description(function (User $record): ?string {
+                        $step = $record->furthestOnboardingStep();
+
+                        return $step !== null
+                            ? 'Step '.$step->order().' of '.count(OnboardingStep::cases())
+                            : null;
+                    }),
                 TextColumn::make('onboarding_steps_count')
-                    ->label('Onboarding')
+                    ->label('Completed')
                     ->counts('onboardingSteps')
                     ->badge()
                     ->formatStateUsing(fn (int $state): string => $state.'/'.count(OnboardingStep::cases()))
@@ -59,6 +74,15 @@ class UsersTable
                         $state >= count(OnboardingStep::cases()) => 'success',
                         $state === 0 => 'gray',
                         default => 'warning',
+                    })
+                    ->tooltip(function (User $record): ?string {
+                        $completed = $record->onboardingSteps
+                            ->sortBy(fn (OnboardingStepModel $step): int => $step->step->order())
+                            ->map(fn (OnboardingStepModel $step): string => $step->step->label());
+
+                        return $completed->isNotEmpty()
+                            ? 'Completed: '.$completed->implode(', ')
+                            : null;
                     })
                     ->sortable(),
                 TextColumn::make('onboarded_at')
