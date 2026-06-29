@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\OnboardingStep as OnboardingStepEnum;
+use App\Enums\OnboardingStepOutcome;
 use App\Models\OnboardingStep;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -18,12 +19,19 @@ class OnboardingFunnel extends StatsOverviewWidget
     {
         $totalUsers = User::query()->count();
 
-        /** @var array<string, int> $countsByStep */
-        $countsByStep = OnboardingStep::query()
-            ->selectRaw('step, COUNT(*) AS total')
-            ->groupBy('step')
-            ->pluck('total', 'step')
-            ->all();
+        // Per (step, outcome) tallies. A row exists the moment a screen is
+        // reached, so the per-screen drop-off below is independent of the skip
+        // branches that made the old chained-count funnel misleading.
+        /** @var array<string, array<string, int>> $byStepOutcome */
+        $byStepOutcome = [];
+
+        OnboardingStep::query()
+            ->selectRaw('step, outcome, COUNT(*) AS total')
+            ->groupBy('step', 'outcome')
+            ->get()
+            ->each(function ($row) use (&$byStepOutcome): void {
+                $byStepOutcome[$row->step->value][$row->outcome->value] = (int) $row->total;
+            });
 
         $onboardedCount = User::query()->whereNotNull('onboarded_at')->count();
 
@@ -33,22 +41,22 @@ class OnboardingFunnel extends StatsOverviewWidget
                 ->color('gray'),
         ];
 
-        $previousCount = $totalUsers;
-
         foreach (OnboardingStepEnum::cases() as $step) {
-            $count = (int) ($countsByStep[$step->value] ?? 0);
-            $sharePct = $totalUsers > 0
-                ? round($count / $totalUsers * 100, 1)
-                : 0.0;
-            $dropPct = $previousCount > 0
-                ? round(($previousCount - $count) / $previousCount * 100, 1)
+            $outcomes = $byStepOutcome[$step->value] ?? [];
+            $completed = $outcomes[OnboardingStepOutcome::Completed->value] ?? 0;
+            $skipped = $outcomes[OnboardingStepOutcome::Skipped->value] ?? 0;
+            $reachedOnly = $outcomes[OnboardingStepOutcome::Reached->value] ?? 0;
+
+            // Everyone who opened the screen, and the share of them who left it
+            // without advancing — the real per-screen drop-off.
+            $reached = $completed + $skipped + $reachedOnly;
+            $abandonedPct = $reached > 0
+                ? round($reachedOnly / $reached * 100, 1)
                 : 0.0;
 
-            $stats[] = Stat::make($step->label(), (string) $count)
-                ->description("{$sharePct}% of signups · {$dropPct}% drop-off")
-                ->color($dropPct > 25 ? 'danger' : ($dropPct > 10 ? 'warning' : 'success'));
-
-            $previousCount = $count;
+            $stats[] = Stat::make($step->label(), (string) $reached)
+                ->description("reached · {$completed} done · {$skipped} skipped · {$abandonedPct}% abandoned")
+                ->color($abandonedPct > 25 ? 'danger' : ($abandonedPct > 10 ? 'warning' : 'success'));
         }
 
         $onboardedPct = $totalUsers > 0

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\OnboardingStep as OnboardingStepEnum;
+use App\Enums\OnboardingStepOutcome;
 use App\Models\OnboardingStep;
 use App\Models\User;
 
@@ -93,4 +94,86 @@ it('isolates steps per user', function () {
 
     expect(OnboardingStep::where('user_id', $alice->id)->count())->toBe(1);
     expect(OnboardingStep::where('user_id', $bob->id)->count())->toBe(0);
+});
+
+it('defaults to the completed outcome for older clients that omit it', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'intro'])
+        ->assertNoContent();
+
+    $step = OnboardingStep::where('user_id', $user->id)->sole();
+
+    expect($step->outcome)->toBe(OnboardingStepOutcome::Completed);
+    expect($step->completed_at)->not->toBeNull();
+});
+
+it('records a reached step without a completed_at timestamp', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'add_children', 'outcome' => 'reached'])
+        ->assertNoContent();
+
+    $step = OnboardingStep::where('user_id', $user->id)->sole();
+
+    expect($step->outcome)->toBe(OnboardingStepOutcome::Reached);
+    expect($step->completed_at)->toBeNull();
+});
+
+it('upgrades a reached step to completed and stamps completed_at', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'first_moment', 'outcome' => 'reached'])
+        ->assertNoContent();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'first_moment', 'outcome' => 'completed'])
+        ->assertNoContent();
+
+    $step = OnboardingStep::where('user_id', $user->id)->sole();
+
+    expect($step->outcome)->toBe(OnboardingStepOutcome::Completed);
+    expect($step->completed_at)->not->toBeNull();
+});
+
+it('records a skipped step', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'add_children', 'outcome' => 'skipped'])
+        ->assertNoContent();
+
+    expect(OnboardingStep::where('user_id', $user->id)->sole()->outcome)
+        ->toBe(OnboardingStepOutcome::Skipped);
+});
+
+it('never downgrades a terminal outcome back to reached', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'first_moment', 'outcome' => 'completed'])
+        ->assertNoContent();
+
+    // A stray late 'reached' ping (e.g. the screen re-mounting) must not undo
+    // the recorded completion.
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'first_moment', 'outcome' => 'reached'])
+        ->assertNoContent();
+
+    $step = OnboardingStep::where('user_id', $user->id)->sole();
+
+    expect($step->outcome)->toBe(OnboardingStepOutcome::Completed);
+    expect($step->completed_at)->not->toBeNull();
+});
+
+it('rejects an unknown outcome', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/api/onboarding/steps', ['step' => 'intro', 'outcome' => 'nope'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('outcome');
 });
