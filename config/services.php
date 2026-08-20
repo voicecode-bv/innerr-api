@@ -54,10 +54,6 @@ return [
         'public_token' => env('MAPBOX_PUBLIC_TOKEN'),
     ],
 
-    'flare' => [
-        'public_key' => env('FLARE_PUBLIC_KEY'),
-    ],
-
     'apple_iap' => [
         'bundle_id' => env('APPLE_IAP_BUNDLE_ID'),
         'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
