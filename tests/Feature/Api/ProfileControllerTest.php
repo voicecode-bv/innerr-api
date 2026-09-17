@@ -481,6 +481,20 @@ it('strips invalid characters from username on profile update', function () {
         ->assertJsonPath('data.username', 'newname');
 });
 
+it('rejects a non-string username on profile update', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->putJson('/api/profile', ['username' => null])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('username');
+
+    $this->actingAs($user)
+        ->putJson('/api/profile', ['username' => ['array']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('username');
+});
+
 it('rejects username that is empty after normalization on profile update', function () {
     $user = User::factory()->create();
 

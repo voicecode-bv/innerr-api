@@ -46,6 +46,13 @@ class UsersTable
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('last_activity_at')
+                    ->label('Last active')
+                    ->dateTime()
+                    ->since()
+                    ->dateTimeTooltip()
+                    ->placeholder('Never')
+                    ->sortable(),
                 TextColumn::make('anonymized_at')
                     ->dateTime()
                     ->sortable(),

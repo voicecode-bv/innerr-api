@@ -107,6 +107,28 @@ it('strips invalid characters from username on registration', function () {
         ->assertJsonPath('user.username', 'johndoe');
 });
 
+it('rejects a non-string username on registration', function () {
+    $this->postJson('/api/auth/register', [
+        'name' => 'John Doe',
+        'username' => null,
+        'email' => 'john@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'device_name' => 'testing',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('username');
+
+    $this->postJson('/api/auth/register', [
+        'name' => 'John Doe',
+        'username' => ['array'],
+        'email' => 'john@example.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'device_name' => 'testing',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('username');
+});
+
 it('rejects username that is empty after normalization', function () {
     $this->postJson('/api/auth/register', [
         'name' => 'John Doe',

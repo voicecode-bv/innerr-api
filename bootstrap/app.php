@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\RequireEntitlement;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\TrackLastActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'entitlement' => RequireEntitlement::class,
+            'track-activity' => TrackLastActivity::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

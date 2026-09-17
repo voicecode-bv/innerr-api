@@ -15,9 +15,11 @@ class UpdateProfileRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('username')) {
+        $username = $this->input('username');
+
+        if (is_string($username)) {
             $this->merge([
-                'username' => $this->normalizeUsername($this->input('username')),
+                'username' => $this->normalizeUsername($username),
             ]);
         }
     }

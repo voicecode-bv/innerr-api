@@ -125,7 +125,7 @@ Route::prefix('webhooks/print')->middleware('throttle:120,1')->group(function ()
         ->name('api.webhooks.print.printdeal');
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'track-activity'])->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
